@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -18,9 +19,11 @@
             border-radius: 8px;
         }
     </style>
+    <link rel="stylesheet" href="{% static 'fergusonbequest/css/app.css' %}">
 </head>
 <body>
     <header>
+        <img src="{% static 'fergusonbequest/img/unilogo.svg' %}" alt="UofG logo">
         <h1>Welcome to the Ferguson Bequest System</h1>
     </header>
     <p>This is your homepage. 🎟️</p>
