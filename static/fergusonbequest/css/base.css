@@ -1,0 +1,110 @@
+/* ========= Base ========= */
+:root{
+  --uog-blue:#001a80;
+  --uog-blue-90: rgba(0,26,128,.90);
+  --ring:#c5cedf;
+  --text:#222;
+  --container:1100px;
+  --radius:12px;
+}
+
+*{ box-sizing:border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body{
+  min-height: 100vh;            /* sticky footer */
+  display: flex;
+  flex-direction: column;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color: var(--text);
+  background: #f5f7fb;
+}
+
+/* ========== Header (single blue bar) ========== */
+.fb-header{
+  background:#002663;
+  color:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:12px 20px;
+  border-bottom:3px solid #ffffff33;  /* subtle white line */
+}
+
+.fb-header__left{
+  max-width: var(--container);
+  display:flex;
+  align-items:center;
+  gap:16px;
+}
+
+.fb-header__logo{
+  height:56px;
+  width:auto;
+  display:block;
+}
+
+.fb-header__divider{
+  display:inline-block;
+  width:2px;
+  height:44px;
+  background:rgba(255,255,255,.9);
+}
+
+.fb-header__brand{
+  color:#fff;
+  font-weight:700;
+  font-size:30px;
+  line-height:1;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.fb-header__nav{
+  display:flex;
+  align-items:center;
+  gap:24px;
+}
+
+.fb-header__nav a{
+  color:#fff;
+  font-weight:700;
+  text-decoration:none;
+  white-space:nowrap;
+}
+
+.fb-header__nav a:hover{
+  text-decoration:underline;
+}
+
+html, body { height:100%; margin:0; }
+body{
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  color:var(--text);
+  background:#f5f7fb;
+}
+.fb-container{
+  max-width:var(--container);
+  width:100%;
+  margin:28px auto;
+  padding:0 20px;
+  flex:1 0 auto;  /*footer to the bottom*/
+}
+.fb-footer{
+  background: #002663;
+  color:#fff;
+}
+.fb-footer__inner{
+  max-width:var(--container);
+  margin:0 auto;
+  padding:12px 20px;
+  text-align:center;
+  font-weight:600;
+}
