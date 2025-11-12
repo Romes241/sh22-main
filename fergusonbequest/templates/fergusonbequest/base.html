@@ -1,0 +1,50 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>{% block title %}Ferguson Bequest{% endblock %}</title>
+
+  <!-- Base / shared styles -->
+  <link rel="stylesheet" href="{% static 'fergusonbequest/css/base.css' %}">
+
+  <!-- Page-specific styles -->
+  {% block extra_css %}{% endblock %}
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+<body>
+<header class="fb-header">
+  <div class="fb-header__left">
+    <img class="fb-header__logo"
+         src="{% static 'fergusonbequest/img/unilogo.svg' %}"
+         alt="University of Glasgow">
+
+    <span class="fb-header__divider" aria-hidden="true"></span>
+
+    <!-- Use "/" to avoid NoReverseMatch if 'home' isn't named yet -->
+    <a href="/" class="fb-header__brand">Ferguson Bequest</a>
+  </div>
+
+  <nav class="fb-header__nav" aria-label="Primary">
+    <a href="#">Attractions</a>
+    <a href="#">Ticket Draws</a>
+    <a href="#">Booking History</a>
+    <a href="#">How to book</a>
+    <a href="/admin/">Login</a>
+  </nav>
+</header>
+
+
+  <!-- Page content -->
+  <main class="fb-container">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer sticks to bottom even on short pages -->
+  <footer class="fb-footer">
+    <div class="fb-footer__inner">
+      For queries, contact fergusonbequest@glasgow.ac.uk or visit University of Glasgow – Ferguson Bequest
+    </div>
+  </footer>
+</body>
+</html>
