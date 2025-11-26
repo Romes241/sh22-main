@@ -1,0 +1,11 @@
+image: stgit.dcs.gla.ac.uk:5050/team-project-h/2025/sh22/sh22-main/django-test:20251126
+
+stages:
+  - lint
+
+lint_django:
+  stage: lint
+  script:
+    - pip install -r requirements.txt
+    - pylint fergusonbequest --fail-under=8.0 --exit-zero
+
