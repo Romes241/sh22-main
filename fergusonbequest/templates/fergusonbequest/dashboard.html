@@ -1,32 +1,40 @@
 {% extends "fergusonbequest/base.html" %}
 {% load static %}
 
-{% block title %}Dashboard – Ferguson Bequest{% endblock %}
+{% block title %}Dashboard - Ferguson Bequest{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'fergusonbequest/css/home.css' %}">
+{% endblock %}
 
 {% block content %}
-<h1 class="fb-h1">Welcome, {{ user.get_full_name|default:user.username }}</h1>
+<h1 class="fb-h1">Welcome {{ user.get_full_name|default:user.username }}, to the Ferguson Bequest Staff Ticketing System.</h1>
 
-<div class="fb-grid">
+  <section class="fb-grid">
+    <!-- Left card -->
+    <div class="fb-card">
+      <h3>The Ferguson Bequest gives University of Glasgow staff exclusive access to attractions and event ticket draws throughout the year.</h3>
+      <ul>
+        <li>Apply for up to three attractions per calendar year</li>
+        <li>Enter multiple ticket draws and win once per year</li>
+        <li>View all your bookings in Booking History</li>
+      </ul>
 
-  <a href="#" class="fb-card fb-clickable">
-    <h3>Your Bookings</h3>
-    <p>View your upcoming and past attraction bookings.</p>
-  </a>
+      <div class="fb-alert">
+        <div class="ico">⚠️</div>
+        <div>
+          <strong>Please apply carefully</strong> — bookings can’t be cancelled once submitted.<br>
+        </div>
+      </div>
+    </div>
 
-  <a href="#" class="fb-card fb-clickable">
-    <h3>Ticket Draws</h3>
-    <p>Enter active draws and view your entries.</p>
-  </a>
-
-  <a href="#" class="fb-card fb-clickable">
-    <h3>Attractions</h3>
-    <p>See all available attractions and make a booking.</p>
-  </a>
-
-  <a href="{% url 'logout' %}" class="fb-card fb-clickable fb-card--danger">
-    <h3>Logout</h3>
-    <p>End your session securely.</p>
-  </a>
-
-</div>
+    <!-- Right card -->
+    <div class="fb-card fb-featured">
+      <div class="fb-featured__head">
+        <h3 class="mt-8">Top Current Featured Attractions</h3>
+      </div>
+      <div class="fb-featured__box"></div>
+      <div class="fb-dots"></div>
+    </div>
+  </section>
 {% endblock %}
