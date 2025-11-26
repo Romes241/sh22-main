@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Attraction, VisitSlot, Booking
+from .models import Attraction, VisitSlot, Booking, Profile
 
 
 @admin.register(Attraction)
