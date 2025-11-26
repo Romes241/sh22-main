@@ -27,11 +27,11 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 # SECURITY WARNING: keep the secret key used in production secret!
 "django-insecure-yh2m0b_d)b9g(39t%l#_l6o&mfur-1w28s_$8qwc1sp$nd32&^"
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-yh2m0b_d)b9g(39t%l#_l6o&mfur-1w28s_$8qwc1sp$nd32&^")
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = bool(os.environ.get("DEBUG", default =0))
+DEBUG = True
 
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "127.0.0.1").split(" ")
 
