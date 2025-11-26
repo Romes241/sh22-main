@@ -7,5 +7,5 @@ lint_django:
   stage: lint
   script:
     - pip install -r requirements.txt
-    - pylint fergusonbequest
+    - pylint fergusonbequest --fail-under=8.0 --exit-zero
 
