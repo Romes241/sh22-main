@@ -1,4 +1,4 @@
-FROM python:3.10.12 
+FROM python:3.11-slim
 RUN mkdir /fergusonbequest
 WORKDIR /fergusonbequest
 ENV PYTHONDONTWRITEBYTECODE 1
