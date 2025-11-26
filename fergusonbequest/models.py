@@ -1,6 +1,6 @@
 from django.db import models
 from django.utils import timezone
-
+from django.conf import settings
 # Create your models here.
 YEAR_LIMIT_DEFAULT = 3
 """
@@ -79,6 +79,8 @@ class Booking(models.Model):
     slot = models.ForeignKey(VisitSlot, on_delete=models.PROTECT)
     full_name = models.CharField(max_length=120)
     email = models.EmailField()
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+                              blank=True, related_name='bookings')
     agreed_terms = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled = models.BooleanField(default=False)
@@ -87,8 +89,22 @@ class Booking(models.Model):
         ordering = ('-created_at',)
 
     def __str__(self):
-        return f"{self.full_name} → {self.attraction.name} @ {self.slot}"
+        who = self.user.username if self.user else self.full_name # display username if linked to user
+        return f"{who} → {self.attraction.name} @ {self.slot}"
 
     @property
     def year(self):
         return self.created_at.year
+    
+class Profile(models.Model):
+    """User profile to extend default User model."""
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    staff_guid = models.CharField(max_length=64, unique=True, blank=True, null=True) # Placeholder for staff GUID
+    eligible= models.BooleanField(default=False) # Placeholder for eligibility status
+    eligibility_reason = models.TextField(blank=True, null=True) # Placeholder for eligibility reason
+    department = models.CharField(max_length=255, blank=True, null=True) # Placeholder for department field
+
+    def __str__(self):
+        return f"Profile of {self.user.username}"

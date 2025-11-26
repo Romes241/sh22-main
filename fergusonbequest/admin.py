@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Attraction, VisitSlot, Booking
+from .models import Attraction, VisitSlot, Booking, Profile
 
 # Register your models here.
 # fergusonbequest/admin.py
@@ -17,3 +17,8 @@ class VisitSlotAdmin(admin.ModelAdmin):
 class BookingAdmin(admin.ModelAdmin):
     list_display = ("full_name","email","attraction","slot","created_at","cancelled")
     list_filter  = ("attraction","slot","cancelled")
+
+@admin.register(Profile)
+class ProfileAdmin(admin.ModelAdmin):
+    list_display = ("user","staff_guid","eligible","department")
+    search_fields = ("user__username","user__email","staff_guid","department")

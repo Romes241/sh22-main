@@ -1,0 +1,62 @@
+{% extends "fergusonbequest/base.html" %}
+{% load static %}
+
+{% block title %}Register – Ferguson Bequest{% endblock %}
+
+
+
+
+{% block content %}
+<h1 class="fb-h1">Create an Account</h1>
+
+<div class="fb-card fb-card--narrow">
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    {# global non-field errors #}
+    {% if form.non_field_errors %}
+      <div class="fb-alert fb-alert--error">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    <label class="fb-label">First name</label>
+    {{ form.first_name }}
+    {% if form.first_name.errors %}
+      <div class="fb-field-error">{{ form.first_name.errors|striptags }}</div>
+    {% endif %}
+
+    <label class="fb-label mt-3">Last name</label>
+    {{ form.last_name }}
+    {% if form.last_name.errors %}
+      <div class="fb-field-error">{{ form.last_name.errors|striptags }}</div>
+    {% endif %}
+
+    <label class="fb-label mt-3">Email</label>
+    {{ form.email }}
+    {% if form.email.errors %}
+      <div class="fb-field-error">{{ form.email.errors|striptags }}</div>
+    {% endif %}
+
+    <label class="fb-label mt-3">Password</label>
+    {{ form.password }}
+    {% if form.password.errors %}
+      <div class="fb-field-error">{{ form.password.errors|striptags }}</div>
+    {% endif %}
+
+    <label class="fb-label mt-3">Confirm Password</label>
+    {{ form.password_confirm }}
+    {% if form.password_confirm.errors %}
+      <div class="fb-field-error">{{ form.password_confirm.errors|striptags }}</div>
+    {% endif %}
+
+    <button type="submit" class="fb-btn fb-btn--primary mt-4">Register</button>
+
+    <p class="mt-3">
+      Already registered?
+      <a href="{% url 'login' %}">Log in.</a>
+    </p>
+  </form>
+</div>
+
+{% endblock %}

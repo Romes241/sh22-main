@@ -1,0 +1,32 @@
+{% extends "fergusonbequest/base.html" %}
+{% load static %}
+
+{% block title %}Dashboard – Ferguson Bequest{% endblock %}
+
+{% block content %}
+<h1 class="fb-h1">Welcome, {{ user.get_full_name|default:user.username }}</h1>
+
+<div class="fb-grid">
+
+  <a href="#" class="fb-card fb-clickable">
+    <h3>Your Bookings</h3>
+    <p>View your upcoming and past attraction bookings.</p>
+  </a>
+
+  <a href="#" class="fb-card fb-clickable">
+    <h3>Ticket Draws</h3>
+    <p>Enter active draws and view your entries.</p>
+  </a>
+
+  <a href="#" class="fb-card fb-clickable">
+    <h3>Attractions</h3>
+    <p>See all available attractions and make a booking.</p>
+  </a>
+
+  <a href="{% url 'logout' %}" class="fb-card fb-clickable fb-card--danger">
+    <h3>Logout</h3>
+    <p>End your session securely.</p>
+  </a>
+
+</div>
+{% endblock %}
