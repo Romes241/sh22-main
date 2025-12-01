@@ -296,5 +296,42 @@
   padding: 14px 16px;
   margin-top: 18px;
 }
+/* Existing card title style */
+.fb-card h3 {
+  margin: 0 0 14px;
+  font-size: 18px;
+}
+
+/* About section styles */
+.fb-about {
+  max-width: 1000px;
+  margin: 27px auto 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+  padding: 0 10px;
+}
+
+.fb-about__text {
+  flex: 2;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.fb-about__image {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  transform: translateY(10px);
+}
+
+.fb-about__image img {
+  width: 260px;
+  height: auto;
+  border-radius: 4px;
+  display: block;
+}
 
 
