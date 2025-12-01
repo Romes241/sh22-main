@@ -5,12 +5,44 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from django import forms
 from .models import Attraction, VisitSlot, Booking, Profile
+from django.shortcuts import render
 
 User = get_user_model()
 
 # Create your views here.
 def home(request):
-    return render(request, "fergusonbequest/home.html")
+    featured_attractions = [
+        {
+            "title": "Blair Drummond Safari Park",
+            "subtitle": "Safari and adventure park.",
+            "image": "fergusonbequest/img/blair_drumond.jpg",
+            "url": "https://www.blairdrummond.com",
+        },
+        {
+            "title": "Glasgow Clan Ice Hockey",
+            "subtitle": "The city's professional hockey team.",
+            "image": "fergusonbequest/img/glasgow_clan.jpg",
+            "url": "https://clanihc.com",
+        },
+        {
+            "title": "Edinburgh Zoo",
+            "subtitle": "Scotland's most famous zoo.",
+            "image": "fergusonbequest/img/edinburgh_zoo.jpg",
+            "url": "https://www.edinburghzoo.org.uk",
+        },
+        {
+            "title": "Ghostbusters Screening",
+            "subtitle": "Who you gonna call?",
+            "image": "fergusonbequest/img/ghostbusters.jpg",
+            "url": "https://www.imdb.com/title/tt0087332/",
+        },
+    ]
+
+    return render(
+        request,
+        "fergusonbequest/home.html",
+        {"featured_attractions": featured_attractions},
+    )
 
 class RegistrationForm(forms.ModelForm):
     """Form for user registration, extending the User model. Cleans email and password then saves
@@ -86,3 +118,4 @@ def logout_view(request):
     logout(request)
     messages.info(request, "You have been logged out.")
     return redirect('home')
+
