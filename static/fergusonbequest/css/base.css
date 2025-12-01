@@ -108,3 +108,26 @@ body{
   text-align:center;
   font-weight:600;
 }
+
+.fb-form-row{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  margin-bottom:12px;
+}
+.fb-form-row--inline{
+  flex-direction:row;
+  align-items:center;
+  gap:12px;
+}
+.fb-form-row--inline .fb-field{ flex:1 1 auto; }
+
+.fb-field input, .fb-field select, .fb-field textarea{
+  padding:8px 10px;
+  border:1px solid var(--ring);
+  border-radius:8px;
+  font-size:15px;
+  width:100%;
+}
+
+.fb-field-error{ color:#b00020; font-size:13px; margin-top:4px; }
