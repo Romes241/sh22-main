@@ -16,9 +16,9 @@
       </div>
     {% endif %}
 
-    <div class="fb-form-row fb-form-row--inline">
-        <label class="fb-label" for="{{ form.username.id_for_label }}">Username</label>
-        <div class="fb-field">{{ form.username }}</div>
+  <div class="fb-form-row fb-form-row--inline">
+    <label class="fb-label" for="{{ form.username.id_for_label }}">Email</label>
+    <div class="fb-field">{{ form.username }}</div>
         {% if form.username.errors %}
           <div class="fb-field-error">{{ form.username.errors|striptags }}</div>
         {% endif %}

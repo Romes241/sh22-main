@@ -28,8 +28,8 @@ class RegistrationForm(forms.ModelForm):
             self.add_error("password_confirm", "Passwords do not match.")
         return cleaned
     def clean_email(self):
-        email = self.cleaned_data.get("email")
-        if User.objects.filter(email=email).exists():
+        email = (self.cleaned_data.get("email") or "").strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
             raise forms.ValidationError("A user with that email already exists.")
         return email
     def save(self, commit=True):
@@ -55,6 +55,7 @@ class RegistrationForm(forms.ModelForm):
             counter += 1
             username = f"{base}{counter}"
         user.username = username
+        user.email = (self.cleaned_data.get("email") or "").strip().lower()
         # set the password from the cleaned data
         user.set_password(self.cleaned_data.get("password"))
         if commit:
