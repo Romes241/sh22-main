@@ -23,7 +23,11 @@
 
     <span class="fb-header__divider" aria-hidden="true"></span>
 
-    <a href="/" class="fb-header__brand">Ferguson Bequest</a>
+    {% if user.is_authenticated %}
+      <a href="{% url 'dashboard' %}" class="fb-header__brand">Ferguson Bequest</a>
+    {% else %}
+      <a href="{% url 'home' %}" class="fb-header__brand">Ferguson Bequest</a>
+    {% endif %}
   </div>
 
   <nav class="fb-header__nav" aria-label="Primary">
