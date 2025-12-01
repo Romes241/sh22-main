@@ -121,6 +121,12 @@ body{
   gap:12px;
 }
 .fb-form-row--inline .fb-field{ flex:1 1 auto; }
+.fb-form-row--inline .fb-label{
+  flex:0 0 160px;
+  padding-right:12px;
+  margin:0; 
+  display:block;
+}
 
 .fb-field input, .fb-field select, .fb-field textarea{
   padding:8px 10px;
