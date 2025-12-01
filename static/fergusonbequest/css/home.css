@@ -1,44 +1,337 @@
-/* ========= Homepage  ========= */
-.fb-h1{
-  text-align:center;
-  margin:10px 0 24px;
-  font-size:28px;
+/* ================================
+   Home page layout & components
+   ================================ */
+
+/* Main heading */
+.fb-heading {
+  max-width: 1120px;
+  margin: 48px auto 24px auto;
+  font-size: 2.1rem;
+  font-weight: 700;
 }
 
-/* Two-column grid */
-.fb-grid{
-  display:grid;
+/* Two-column layout: left info card + right slider card */
+.fb-home-layout {
+  max-width: 1120px;
+  margin: 0 auto 72px auto;
+  display: flex;
+  gap: 36px;
+  align-items: stretch;
+}
+
+@media (max-width: 960px) {
+  .fb-home-layout {
+    flex-direction: column;
+  }
+}
+
+/* Shared card look */
+.fb-home-card {
+  background-color: #f5f5f5;
+  border-radius: 26px;
+  padding: 32px 34px 28px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  font-size: 0.95rem;
+}
+
+/* Left card slightly wider */
+.fb-home-card--left {
+  flex: 1.05;
+}
+
+/* Right card: white background to match slider */
+.fb-home-card--right {
+  flex: 0.95;
+  background-color: #ffffff;
+}
+
+/* Left card text */
+.fb-home-text {
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.fb-home-list {
+  margin: 0 0 20px 18px;
+}
+
+/* Warning / eligibility box on the left */
+.fb-home-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 16px 18px;
+  background-color: #fff7e5;
+  border-left: 4px solid #f2b321;
+  border-radius: 14px;
+}
+
+.fb-home-warning-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+  margin-top: 2px;
+}
+
+.fb-home-warning-body p {
+  margin: 0 0 6px 0;
+  font-size: 0.9rem;
+}
+
+/* ================================
+   Right card title
+   ================================ */
+
+.fb-home-right-title {
+  margin-top: 0;
+  margin-bottom: 18px;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+/* ================================
+   Slider frame
+   ================================ */
+
+.fb-home-slider-frame {
+  position: relative;
+  border: 3px solid #003865;
+  border-radius: 12px;
+  background-color: #ffffff;
+  padding: 28px 32px 72px; /* extra bottom padding for footer bar */
+  min-height: 320px;
+  overflow: hidden;        /* hide slides when they move out */
+}
+
+/* Bottom grey bar with Book now button */
+.fb-home-slider-footer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 10px 18px;
+  background-color: #f3f3f3;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+/* Book now button */
+.fb-home-book-btn {
+  display: inline-block;
+  padding: 6px 20px;
+  border-radius: 20px;
+  background-color: #003865;
+  color: #ffffff;
+  font-size: 0.85rem;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.fb-home-book-btn:hover,
+.fb-home-book-btn:focus {
+  background-color: #002a4c;
+}
+
+/* ================================
+   Slider / featured attractions
+   ================================ */
+
+.fb-slider {
+  position: relative;
+  width: 100%;
+  /* reserve vertical space so the card does not jump */
+  min-height: 260px;
+}
+
+/* Each slide (figure) */
+.fb-slide {
+  position: absolute;
+  inset: 0;                /* top:0, right:0, bottom:0, left:0 */
+  display: none;
+  padding: 8px 8px 48px;   /* bottom padding leaves room above footer bar */
+  box-sizing: border-box;
+  text-align: center;
+}
+
+/* The visible slide */
+.fb-slide.is-active {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+/* Slide image — show whole image, no cropping */
+.fb-slide-image {
+  max-width: 100%;
+  max-height: 220px;       /* fits nicely inside the frame */
+  width: auto;
+  height: auto;
+  display: block;
+  object-fit: contain;     /* keep aspect ratio */
+  margin: 0 auto 14px auto;
+  background-color: #ffffff;
+}
+
+/* Caption (title + subtitle) */
+.fb-slide-caption {
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.fb-slide-caption h3 {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+}
+
+.fb-slide-caption p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* Slider arrows */
+.fb-slider-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: rgba(0, 56, 101, 0.9);
+  color: #ffffff;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fb-slider-arrow--prev {
+  left: 16px;
+}
+
+.fb-slider-arrow--next {
+  right: 16px;
+}
+
+.fb-slider-arrow:hover,
+.fb-slider-arrow:focus {
+  background: #002a4c;
+}
+
+/* ================================
+   Slider indicator dots
+   ================================ */
+
+.fb-home-dots {
+  margin-top: 18px;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.fb-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #c0c0c0;
+}
+
+.fb-dot--active {
+  background-color: #003865;
+}
+
+/* ================================
+   Legacy classes (from original design)
+   Kept for safety if other templates still use them
+   ================================ */
+
+.fb-h1 {
+  text-align: center;
+  margin: 10px 0 24px;
+  font-size: 28px;
+}
+
+/* Old grid and cards (not used on new home but harmless to keep) */
+.fb-grid {
+  display: grid;
   grid-template-columns: 1fr 1fr;
-  gap:28px;
-}
-@media (max-width: 990px){
-  .fb-grid{ grid-template-columns:1fr; }
+  gap: 28px;
 }
 
-/* Cards */
-.fb-card{
-  background:#fff;
-  border:1px solid var(--ring);
+@media (max-width: 990px) {
+  .fb-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.fb-card {
+  background: #fff;
+  border: 1px solid var(--ring);
   border-radius: var(--radius);
-  padding:22px;
-  box-shadow:0 1px 2px rgba(0,0,0,.03);
+  padding: 22px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
-.fb-card h3{
-  margin:0 0 14px;
-  font-size:18px;
-}
-.fb-card ul{ margin:10px 0 0 18px; }
 
-/* Alert block */
-.fb-alert{
-  display:flex;
-  gap:12px;
-  align-items:flex-start;
-  border-left:4px solid #333;
-  background:#f1f3f8;
-  border-radius:10px;
-  padding:14px 16px;
-  margin-top:18px;
+.fb-card h3 {
+  margin: 0 0 14px;
+  font-size: 18px;
+}
+
+.fb-card ul {
+  margin: 10px 0 0 18px;
+}
+
+/* Old alert block */
+.fb-alert {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border-left: 4px solid #333;
+  background: #f1f3f8;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-top: 18px;
+}
+/* Existing card title style */
+.fb-card h3 {
+  margin: 0 0 14px;
+  font-size: 18px;
+}
+
+/* About section styles */
+.fb-about {
+  max-width: 1000px;
+  margin: 27px auto 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+  padding: 0 10px;
+}
+
+.fb-about__text {
+  flex: 2;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.fb-about__image {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  transform: translateY(10px);
+}
+
+.fb-about__image img {
+  width: 260px;
+  height: auto;
+  border-radius: 4px;
+  display: block;
 }
 
 
