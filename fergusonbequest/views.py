@@ -118,10 +118,6 @@ def logout_view(request):
     logout(request)
     messages.info(request, "You have been logged out.")
     return redirect('home')
-<<<<<<< fergusonbequest/views.py
 
 def terms(request):
     return render(request, 'fergusonbequest/terms.html')
-=======
-
->>>>>>> fergusonbequest/views.py
