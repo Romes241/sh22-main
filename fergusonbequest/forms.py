@@ -7,6 +7,9 @@ User = get_user_model()
 class EmailAuthenticationForm(AuthenticationForm):
     """AuthenticationForm that accepts an email address in the username field.
     """
+    error_messages = {
+        'invalid_login': "Please ensure your email and password are correct.",
+    }
     username = forms.EmailField(label="Email", widget=forms.EmailInput(attrs={'autofocus': True}))
 
     def clean(self):
