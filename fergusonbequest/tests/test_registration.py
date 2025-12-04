@@ -11,7 +11,7 @@ class RegistrationTests(TestCase):
         """Posting valid registration data should create a User and normalise email.
 
         Mechanism:
-        - POSTs a filled registration form to the `register` URL.
+        - POSTs a filled registration form to the `register` URL,
         - Expects a 302 redirect on success.
         - Loads the created user and checks that the saved email is normalised to lowercase.
 

@@ -19,7 +19,7 @@ class EmailLoginTests(TestCase):
 
         How the test works:
         - posts credentials to the login URL
-        - expects a 302 redirect on success
+        - expects a 302 redirect on success.
 
         Parameters:
         - username (str): the user's email address

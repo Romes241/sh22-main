@@ -12,7 +12,7 @@ def unique_email(prefix: str = "user", length: int = 8) -> str:
 
     Args:
         prefix: optional prefix for the local-part (default: 'user')
-        length: number of random characters to append (default: 8)
+        length: number of random characters to append (default: 8).
 
     Returns:
         A string like "{prefix}-{random}@example.com" safe for tests.

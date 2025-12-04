@@ -15,7 +15,7 @@ class ProfileSignalTests(TestCase):
         """Creating a User should also create a Profile via signals.
 
         How the test works:
-        - Create a user with User.objects.create_user
+        - Create a user with User.objects.create_user.
         - Query the Profile table for an entry with that user
 
         Parameters:

@@ -14,5 +14,5 @@ test_django:
   stage: test
   script:
     - pip install -r requirements.txt
-    - python manage.py test fergusonbequest --verbosity=2
+    - python manage.py test fergusonbequest.tests --verbosity=2
 
