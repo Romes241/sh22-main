@@ -10,6 +10,9 @@ from .forms import BookingForm
 from django.utils import timezone
 from django.db.models import Q
 import datetime
+from django.db import transaction
+from django.db.models import F
+from django.db.models.functions import Least
 
 User = get_user_model()
 
@@ -153,6 +156,16 @@ def logout_view(request):
 def terms(request):
     return render(request, 'fergusonbequest/terms.html')
 
+
+def attraction_detail(request, pk):
+    """Show attraction detail and available future slots."""
+    attraction = get_object_or_404(Attraction, pk=pk)
+    available_slots = VisitSlot.objects.filter(attraction=attraction, date__gte=timezone.now().date())
+    return render(request, 'fergusonbequest/attraction_detail.html', {
+        'attraction': attraction,
+        'available_slots': available_slots,
+    })
+
 def booking_view(request, attraction_pk):
     attraction = get_object_or_404(Attraction, pk=attraction_pk)
     available_slots = VisitSlot.objects.filter(attraction=attraction, date__gte=timezone.now().date())
@@ -243,3 +256,28 @@ def booking_history(request):
         'past_bookings': past_bookings,
         'when': when,
     })
+
+
+@login_required
+def cancel_booking(request, pk):
+    """Allow the booking owner (or superuser) to cancel a future booking.
+    """
+    booking = get_object_or_404(Booking, pk=pk)
+
+    # Only user or admin can cancel
+    if not (request.user == booking.user or request.user.is_superuser):
+        return redirect('booking_history')
+
+    if booking.slot.date < timezone.now().date():
+        return redirect('booking_history')
+
+    if request.method == 'POST':
+        with transaction.atomic():
+            b = Booking.objects.select_for_update().get(pk=booking.pk)
+            if not b.cancelled:
+                b.cancelled = True
+                b.save()
+                VisitSlot.objects.filter(pk=b.slot.pk).update(
+                    remaining=Least(F('remaining') + 1, F('capacity'))
+                )
+    return redirect('booking_history')
