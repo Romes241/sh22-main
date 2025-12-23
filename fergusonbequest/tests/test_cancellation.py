@@ -1,5 +1,6 @@
 import threading
 import random
+import time
 from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
 from django.contrib.auth import get_user_model
@@ -7,6 +8,7 @@ from django.db import transaction, close_old_connections
 from django.db.models import F
 from django.db.models.functions import Least
 from django.urls import reverse
+from django.db.utils import OperationalError
 
 from fergusonbequest.models import Attraction, VisitSlot, Booking
 
@@ -95,30 +97,37 @@ class CancelConcurrencyTests(TransactionTestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='concurrent', email='concurrent@example.com', password='pw')
         self.attraction = Attraction.objects.create(name='Concurrent Park', slug='concurrent-park')
-        # capacity 5, start with remaining 0
         self.slot = VisitSlot.objects.create(attraction=self.attraction, date=timezone.now().date() + timezone.timedelta(days=5), capacity=5, remaining=0)
 
-        # create many bookings to cancel
         self.bookings = []
         for i in range(10):
             b = Booking.objects.create(user=self.user, attraction=self.attraction, slot=self.slot, email=f'user{i}@example.com')
             self.bookings.append(b)
 
+        self.start_barrier = threading.Barrier(len(self.bookings))
+
     def _cancel_worker(self, booking_pk):
         close_old_connections()
-        time_sleep = random.random() * 0.02
-        if time_sleep:
-            import time
-            time.sleep(time_sleep)
         try:
-            with transaction.atomic():
-                b = Booking.objects.select_for_update().get(pk=booking_pk)
-                if not b.cancelled:
-                    b.cancelled = True
-                    b.save()
-                    VisitSlot.objects.filter(pk=self.slot.pk).update(remaining=Least(F('remaining') + 1, F('capacity')))
-        finally:
-            close_old_connections()
+            self.start_barrier.wait()
+        except Exception:
+            pass
+        attempts = 5
+        for attempt in range(attempts):
+            try:
+                with transaction.atomic():
+                    b = Booking.objects.select_for_update().get(pk=booking_pk)
+                    if not b.cancelled:
+                        b.cancelled = True
+                        b.save()
+                        VisitSlot.objects.filter(pk=self.slot.pk).update(remaining=Least(F('remaining') + 1, F('capacity')))
+                break
+            except OperationalError:
+                if attempt == attempts - 1:
+                    raise
+                time.sleep(0.01 + random.random() * 0.02)
+            finally:
+                close_old_connections()
 
     def test_concurrent_cancels_do_not_exceed_capacity(self):
         """Concurrent cancellations must not let remaining exceed slot.capacity.
