@@ -85,7 +85,7 @@
               </td>
               <td class="bh-name">{{ b.full_name }}</td>
               <td>{{ b.email|default:"E-ticket" }}</td>
-              <td>{{ b.id }}</td>
+              <td class="bh-ticket">{{ b.ticket_code|default:b.id }}</td>
               <td>
                 {% if b.cancelled %}
                   <span class="bh-status bh-status--cancelled">Cancelled</span>
@@ -129,7 +129,8 @@
               <td>{{ b.slot.date|date:"d/m/Y" }}</td>
               <td class="bh-venue">{{ b.attraction.name }}</td>
               <td class="bh-name">{{ b.full_name }}</td>
-              <td>{{ b.id }}</td>
+              <td class="bh-email">{{ b.email|default:"E-ticket" }}</td>
+              <td class="bh-ticket">{{ b.ticket_code|default:b.id }}</td>
               <td>
                 {% if b.cancelled %}
                   <span class="bh-status bh-status--cancelled">Cancelled</span>
