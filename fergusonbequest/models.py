@@ -84,17 +84,32 @@ class Booking(models.Model):
     agreed_terms = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled = models.BooleanField(default=False)
+    ticket_code = models.CharField(max_length=16, unique=True, null=True, blank=True)
 
     class Meta:
         ordering = ('-created_at',)
 
     def __str__(self):
-        who = self.user.username if self.user else self.full_name # display username if linked to user
+        who = self.user.username if self.user else self.full_name
         return f"{who} → {self.attraction.name} @ {self.slot}"
 
     @property
     def year(self):
         return self.created_at.year
+    
+    def save(self, *args, **kwargs):
+        if not self.ticket_code:
+            import uuid
+            base = 'FB-' + uuid.uuid4().hex[:8].upper()
+            from django.db import IntegrityError
+            tries = 0
+            while tries < 5:
+                if not Booking.objects.filter(ticket_code=base).exists():
+                    self.ticket_code = base
+                    break
+                base = 'FB-' + uuid.uuid4().hex[:8].upper()
+                tries += 1
+        super().save(*args, **kwargs)
     
 class Profile(models.Model):
     """User profile to extend default User model."""
