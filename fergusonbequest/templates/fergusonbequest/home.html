@@ -19,38 +19,29 @@
     <!-- Left card -->
     <article class="fb-home-card fb-home-card--left">
       <p class="fb-home-text"><strong>
-        The Ferguson Bequest gives University of Glasgow staff exclusive
-        access to attractions and event ticket draws throughout the year.
-        </strong>
-      </p>
+        The Ferguson Bequest gives University of Glasgow staff access to attractions
+        and ticket draws. To view available attractions and manage your bookings,
+        please log in or register.
+      </strong>
+    </p>
 
       <div class="fb-home-youcan-row">
-          <p class="fb-home-youcan-label">You can:</p>
-            <ul class="fb-home-list">
-              <li>Apply for up to three attractions per calendar year</li>
-              <li>Enter multiple ticket draws and win once per year</li>
-              <li>View all your bookings in Booking History</li>
-            </ul>
       </div>
 
-      <!-- Warning box -->
-      <div class="fb-home-warning">
-        <div class="fb-home-warning-icon">⚠</div>
-        <div class="fb-home-warning-body">
-          <p>
-            <strong>Please apply carefully</strong> — bookings can’t be cancelled once
-            submitted.
-          </p>
-          <p>
-            Eligible for University of Glasgow staff with an active contract of
-            employment. Honorary, affiliate, and casual staff are not eligible.
-          </p>
+      <div class="fb-home-cta-wrap fb-home-cta--bottom">
+        <div class="fb-home-cta-inline fb-home-cta--centered fb-home-cta--lowered">
+          <a class="fb-btn fb-btn--primary" href="{% url 'login' %}">Login</a>
+          <a class="fb-btn fb-btn--primary" href="{% url 'register' %}">Register</a>
         </div>
+        <p class="fb-small-note fb-terms-note">
+          For full booking rules and guidance, see
+          <a href="{% url 'how_to_book' %}">Terms &amp; Conditions</a>.
+        </p>
       </div>
     </article>
 
     <!-- Right card -->
-    <section class="fb-home-card fb-home-card--right">
+         <section class="fb-home-card fb-home-card--right">
       <h2 class="fb-home-right-title">
         Top Current Featured Attractions
       </h2>
@@ -72,8 +63,8 @@
             </figcaption>
           </figure>
           {% endfor %}
-        </div>
-
+        </div> 
+       
         <!-- Slider controls -->
         <button type="button" class="fb-slider-arrow fb-slider-arrow--prev"
                 aria-label="Previous attraction">‹</button>
@@ -82,8 +73,8 @@
 
         <!-- Bottom grey bar + Book now button -->
         <div class="fb-home-slider-footer">
-          <a id="fb-book-btn" href="#" class="fb-home-book-btn"
-             target="_blank" rel="noopener">
+          <a id="fb-book-btn" href="#" class="fb-btn fb-btn--primary"
+             target="_self" rel="noopener">
             Book now
           </a>
         </div>
@@ -97,7 +88,6 @@
       </div>
     </section>
   </section>
-
   <!-- Simple slider script -->
   <script>
     (function () {
@@ -114,6 +104,9 @@
       var bookBtn = document.getElementById('fb-book-btn');
       var prevBtn = document.querySelector('.fb-slider-arrow--prev');
       var nextBtn = document.querySelector('.fb-slider-arrow--next');
+
+      var userIsAuthenticated = {{ user.is_authenticated|yesno:"true,false" }};
+      var loginUrl = "{% url 'login' %}";
 
       function showSlide(index) {
         if (index < 0) {
@@ -134,8 +127,14 @@
         }
 
         var url = slides[currentIndex].getAttribute('data-book-url');
-        if (bookBtn && url) {
-          bookBtn.setAttribute('href', url);
+        if (bookBtn) {
+          if (userIsAuthenticated && url) {
+            bookBtn.setAttribute('href', url);
+            bookBtn.setAttribute('target', '_blank');
+          } else {
+            bookBtn.setAttribute('href', loginUrl);
+            bookBtn.removeAttribute('target');
+          }
         }
       }
 
