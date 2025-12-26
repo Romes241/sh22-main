@@ -18,6 +18,9 @@ User = get_user_model()
 
 # Create your views here.
 def home(request):
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+
     featured_attractions = [
         {
             "title": "Blair Drummond Safari Park",
@@ -102,14 +105,18 @@ class RegistrationForm(forms.ModelForm):
         return user
     
 def register_view(request):
-    """Handle user registration."""
+    """Handle user registration and land new users on the dashboard.
+
+    After creating and logging in a new user we redirect to the dashboard so
+    they land in their personalised view (not the anonymous homepage).
+    """
     if request.method == "POST":
         form = RegistrationForm(request.POST)
         if form.is_valid():
             user = form.save()
             login(request, user)
             messages.success(request, "Registration successful.")
-            return redirect("home")
+            return redirect("dashboard")
     else:
         form = RegistrationForm()
     return render(request, "fergusonbequest/register.html", {"form": form})

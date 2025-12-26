@@ -164,25 +164,6 @@
   align-items: center;
 }
 
-/* --- Book now button --- */
-.fb-home-book-btn {
-  /* kept as a compatibility alias for older templates; matches the site primary button */
-  display: inline-block;
-  padding: 8px 18px;
-  border-radius: 20px;
-  background: #003865;
-  color: #fff;
-  font-size: 0.95rem;
-  font-weight: 700;
-  text-decoration: none;
-  border: none;
-  cursor: pointer;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-}
-
-.fb-home-book-btn:hover { background: #002a4c; }
 
 /* --- Slider area --- */
 .fb-slider {
