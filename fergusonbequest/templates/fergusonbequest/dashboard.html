@@ -82,8 +82,7 @@
 
         <!-- Bottom grey bar + Book now button -->
         <div class="fb-home-slider-footer">
-          <a id="fb-book-btn" href="#" class="fb-home-book-btn"
-             target="_blank" rel="noopener">
+          <a id="fb-book-btn" href="{% url 'how_to_book' %}" class="fb-home-book-btn">
             Book now
           </a>
         </div>
@@ -131,11 +130,6 @@
           dots.forEach(function (dot, i) {
             dot.classList.toggle('fb-dot--active', i === currentIndex);
           });
-        }
-
-        var url = slides[currentIndex].getAttribute('data-book-url');
-        if (bookBtn && url) {
-          bookBtn.setAttribute('href', url);
         }
       }
 
