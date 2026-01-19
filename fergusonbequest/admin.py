@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Attraction, VisitSlot, Booking, Profile
+from .models import Attraction, VisitSlot, Booking, Profile, TicketDraw, TicketDrawBooking, TicketDrawVisitSlot
 
 
 @admin.register(Attraction)
@@ -24,3 +24,26 @@ class BookingAdmin(admin.ModelAdmin):
                     "slot", "created_at", "cancelled")
     list_filter = ("attraction", "slot", "cancelled")
     search_fields = ("full_name", "email")
+
+
+@admin.register(TicketDraw)
+class TicketDrawAdmin(admin.ModelAdmin):
+    prepopulated_fields = {"slug": ("name",)}
+    list_display = ("name", "location", "per_year_limit",
+                    "booking_open", "booking_close", "draw_date")
+    list_filter = ("booking_open", "booking_close")
+    search_fields = ("name", "slug", "location")
+
+@admin.register(TicketDrawBooking)
+class TicketDrawBookingAdmin(admin.ModelAdmin):
+    list_display = ("full_name", "email", "ticket_draw",
+                    "slot", "created_at", "cancelled")
+    list_filter = ("ticket_draw", "slot", "cancelled")
+    search_fields = ("full_name", "email")
+
+@admin.register(TicketDrawVisitSlot)
+class TicketDrawVisitSlotAdmin(admin.ModelAdmin):
+    list_display = ("ticket_draw", "date", "time", "capacity", "remaining")
+    list_filter = ("ticket_draw", "date")
+    ordering = ("date", "time")
+

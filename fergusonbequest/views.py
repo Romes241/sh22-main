@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from django import forms
-from .models import Attraction, VisitSlot, Booking, Profile
+from .models import Attraction, VisitSlot, Booking, Profile, TicketDraw, TicketDrawBooking
 from django.shortcuts import render
 from .forms import BookingForm
 from django.utils import timezone
@@ -288,3 +288,22 @@ def cancel_booking(request, pk):
                     remaining=Least(F('remaining') + 1, F('capacity'))
                 )
     return redirect('booking_history')
+
+
+@login_required
+def waiting_list(request):
+    user = request.user
+    today = timezone.now().date()
+    ticket_draws = TicketDraw.objects.filter(draw_date__gt=today)
+    
+    joined_draws = set(TicketDrawBooking.objects.filter(user=user, cancelled = False).values_list('ticket_draw_id', flat = True))
+
+    for ticket_draw in ticket_draws:
+        ticket_draw.joined = ticket_draw.id in joined_draws
+
+        
+
+    context = {
+        'ticket_draws': ticket_draws,
+    }
+    return render(request, 'fergusonbequest/waiting_list.html', context)
