@@ -33,9 +33,10 @@
 /* --- Left card width --- */
 .fb-home-card--left {
   flex: 1.05;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  display: grid;
+  grid-template-rows: 1fr 1fr 1fr;
+  min-height: 360px;
+  padding-top: 28px;
 }
 
 /* --- Right card styling --- */
@@ -47,15 +48,54 @@
 /* --- Text styles --- */
 .fb-home-text {
   font-size: 1.05rem;
-  margin-top: -40px;
-  margin-bottom: 20px;
+  margin-top: 0;
+  margin-bottom: 6px;
   line-height: 1.4;
+  grid-row: 1;
+  align-self: start;
+  padding-top: 32px;
 }
 
 /* You can + list */
 .fb-home-youcan-row {
   margin-top: 10px;
 }
+
+.fb-home-cta-inline {
+  display: flex;
+  gap: 20px;
+  margin-top: 0;
+  justify-content: center;
+  max-width: 360px;
+}
+
+.fb-home-cta--centered { justify-content: center; }
+.fb-home-terms {
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 4px;
+}
+.fb-home-cta-wrap {
+  grid-row: 3;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 8px;
+}
+.fb-home-cta-wrap.fb-home-cta--bottom {
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 18px;
+  height: 100%;
+}
+
+.fb-card-spacer { display: none; }
+.fb-terms-note { margin-bottom: 0; margin-top: 6px; text-align: center; }
+.fb-home-cta--lowered { margin-top: 1px; }
+
 
 .fb-home-youcan-label {
   font-size: 1.05rem;
@@ -124,18 +164,6 @@
   align-items: center;
 }
 
-/* --- Book now button --- */
-.fb-home-book-btn {
-  padding: 6px 20px;
-  border-radius: 20px;
-  background: #003865;
-  color: #fff;
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.fb-home-book-btn:hover { background: #002a4c; }
 
 /* --- Slider area --- */
 .fb-slider {
@@ -251,6 +279,15 @@
 .fb-about__image img {
   width: 260px;
   border-radius: 4px;
+}
+@media (max-width: 960px) {
+  .fb-home-card--left {
+    display: block;
+    padding-top: 32px;
+  }
+
+  .fb-home-middle { display: block; text-align: center; }
+  .fb-home-cta-inline { justify-content: center; }
 }
 
 
