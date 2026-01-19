@@ -36,7 +36,7 @@
     <a href="#">Ticket Draws</a>
 
     {% if user.is_authenticated %}
-      <a href="#">Booking History</a>
+      <a href="{% url 'booking_history' %}">Booking History</a>
       <a href="/dashboard/">Dashboard</a>
       <a href="{% url 'logout' %}">Logout</a>
     {% else %}
@@ -44,7 +44,7 @@
       <a href="{% url 'register' %}">Register</a>
     {% endif %}
 
-    <a href="{% url 'how_to_book' %}">How to book</a>
+  <a href="{% url 'how_to_book' %}">Terms &amp; Conditions</a>
 
   </nav>
 </header>

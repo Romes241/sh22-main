@@ -6,11 +6,21 @@ from django.contrib import messages
 from django import forms
 from .models import Attraction, VisitSlot, Booking, Profile
 from django.shortcuts import render
+from .forms import BookingForm
+from django.utils import timezone
+from django.db.models import Q
+import datetime
+from django.db import transaction
+from django.db.models import F
+from django.db.models.functions import Least
 
 User = get_user_model()
 
 # Create your views here.
 def home(request):
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+
     featured_attractions = [
         {
             "title": "Blair Drummond Safari Park",
@@ -95,14 +105,18 @@ class RegistrationForm(forms.ModelForm):
         return user
     
 def register_view(request):
-    """Handle user registration."""
+    """Handle user registration and land new users on the dashboard.
+
+    After creating and logging in a new user we redirect to the dashboard so
+    they land in their personalised view (not the anonymous homepage).
+    """
     if request.method == "POST":
         form = RegistrationForm(request.POST)
         if form.is_valid():
             user = form.save()
             login(request, user)
             messages.success(request, "Registration successful.")
-            return redirect("home")
+            return redirect("dashboard")
     else:
         form = RegistrationForm()
     return render(request, "fergusonbequest/register.html", {"form": form})
@@ -148,3 +162,129 @@ def logout_view(request):
 
 def terms(request):
     return render(request, 'fergusonbequest/terms.html')
+
+
+def attraction_detail(request, pk):
+    """Show attraction detail and available future slots."""
+    attraction = get_object_or_404(Attraction, pk=pk)
+    available_slots = VisitSlot.objects.filter(attraction=attraction, date__gte=timezone.now().date())
+    return render(request, 'fergusonbequest/attraction_detail.html', {
+        'attraction': attraction,
+        'available_slots': available_slots,
+    })
+
+def booking_view(request, attraction_pk):
+    attraction = get_object_or_404(Attraction, pk=attraction_pk)
+    available_slots = VisitSlot.objects.filter(attraction=attraction, date__gte=timezone.now().date())
+    booking_summary = {'price': 'Free'}
+    if request.method == 'POST':
+        form = BookingForm(request.POST, attraction=attraction)
+        if form.is_valid():
+            booking = form.save(commit=False)
+            if request.user.is_authenticated:
+                booking.user = request.user
+            booking.attraction = attraction
+            booking.save()
+            # reduce slot remaining
+            booking.slot.remaining = max(0, booking.slot.remaining - 1)
+            booking.slot.save()
+            return redirect('dashboard')
+    else:
+        form = BookingForm(attraction=attraction)
+
+    return render(request, 'fergusonbequest/booking_page.html', {
+        'attraction': attraction,
+        'available_slots': available_slots,
+        'form': form,
+        'booking_summary': booking_summary,
+    })
+
+
+@login_required
+def booking_history(request):
+    """Show list of bookings for the logged in user."""
+    user = request.user
+
+    # Base queryset
+    bookings = Booking.objects.filter(user=user).select_related('slot', 'attraction')
+
+    # Parse GET params for filters
+    when = request.GET.get('when')  # all|future|past
+    status = request.GET.get('status')  # all|active|cancelled
+    venue = request.GET.get('venue')
+    q = request.GET.get('q')
+    start = request.GET.get('start')
+    end = request.GET.get('end')
+    sort = request.GET.get('sort')
+
+    today = timezone.now().date()
+
+    if status == 'cancelled':
+        bookings = bookings.filter(cancelled=True)
+    elif status == 'active':
+        bookings = bookings.filter(cancelled=False)
+
+    if venue:
+        if venue.isdigit():
+            bookings = bookings.filter(attraction__pk=int(venue))
+        else:
+            bookings = bookings.filter(attraction__slug__icontains=venue)
+
+    if q:
+        bookings = bookings.filter(
+            Q(attraction__name__icontains=q) | Q(id__icontains=q) | Q(email__icontains=q)
+        )
+
+    try:
+        if start:
+            sd = datetime.date.fromisoformat(start)
+            bookings = bookings.filter(slot__date__gte=sd)
+        if end:
+            ed = datetime.date.fromisoformat(end)
+            bookings = bookings.filter(slot__date__lte=ed)
+    except ValueError:
+        # ignore invalid dates
+        pass
+
+    # sorting is applied before splitting into past/future
+    if sort == 'slot_date':
+        bookings = bookings.order_by('slot__date', '-created_at')
+    elif sort == 'created_at':
+        bookings = bookings.order_by('-created_at')
+    else:
+        bookings = bookings.order_by('-created_at')
+
+    # split into two querysets for template rendering
+    future_bookings = bookings.filter(slot__date__gte=today)
+    past_bookings = bookings.filter(slot__date__lt=today)
+
+    return render(request, 'fergusonbequest/booking_history.html', {
+        'future_bookings': future_bookings,
+        'past_bookings': past_bookings,
+        'when': when,
+    })
+
+
+@login_required
+def cancel_booking(request, pk):
+    """Allow the booking owner (or superuser) to cancel a future booking.
+    """
+    booking = get_object_or_404(Booking, pk=pk)
+
+    # Only user or admin can cancel
+    if not (request.user == booking.user or request.user.is_superuser):
+        return redirect('booking_history')
+
+    if booking.slot.date < timezone.now().date():
+        return redirect('booking_history')
+
+    if request.method == 'POST':
+        with transaction.atomic():
+            b = Booking.objects.select_for_update().get(pk=booking.pk)
+            if not b.cancelled:
+                b.cancelled = True
+                b.save()
+                VisitSlot.objects.filter(pk=b.slot.pk).update(
+                    remaining=Least(F('remaining') + 1, F('capacity'))
+                )
+    return redirect('booking_history')

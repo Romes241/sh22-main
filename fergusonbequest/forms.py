@@ -1,6 +1,8 @@
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import get_user_model
+from django.forms import ValidationError
+from .models import Booking, VisitSlot
 
 User = get_user_model()
 
@@ -37,3 +39,22 @@ class EmailAuthenticationForm(AuthenticationForm):
 
     def get_user(self):
         return getattr(self, 'user_cache', None)
+
+
+class BookingForm(forms.ModelForm):
+    """ModelForm to create a Booking.
+    """
+    class Meta:
+        model = Booking
+        fields = ("full_name", "email", "slot", "agreed_terms")
+
+    def __init__(self, *args, attraction=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if attraction is not None:
+            self.fields['slot'].queryset = VisitSlot.objects.filter(attraction=attraction)
+
+    def clean_agreed_terms(self):
+        agreed = self.cleaned_data.get('agreed_terms')
+        if not agreed:
+            raise ValidationError('You must agree to the terms to complete the booking.')
+        return agreed
