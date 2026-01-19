@@ -1,0 +1,195 @@
+/* ========= Layout ========= */
+.td2-page {
+  padding: 40px 60px;
+}
+
+.td2-wrap {
+  max-width: 1250px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 50px;
+  align-items: start;
+}
+
+.td2-left, .td2-right {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ========= Shared Box ========= */
+.td2-box {
+  border: 4px solid #1a1a1a;
+  border-radius: 28px;
+  background: #f3f3f3;
+  padding: 20px;
+}
+
+/* ========= Left ========= */
+.td2-title {
+  background: #0b2f6b;
+  color: white;
+  font-size: 40px;
+  text-align: center;
+  border-radius: 14px;
+  padding: 16px 18px;
+  font-weight: 700;
+}
+
+.td2-image {
+  height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.td2-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.td2-row {
+  border: 3px solid #1a1a1a;
+  border-radius: 18px;
+  background: #f3f3f3;
+  padding: 12px 16px;
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* ========= Right Shell (design grey container) ========= */
+.td2-right-shell {
+  border: 2px solid #cfcfcf;
+  background: #f3f3f3;
+  border-radius: 34px;
+  padding: 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* Info box */
+.td2-info {
+  height: 360px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.td2-bigtext {
+  font-size: 36px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.td2-info-text {
+  line-height: 1.25;
+}
+
+/* Enter draw bar */
+.td2-enter {
+  padding: 14px 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.td2-enter-btn {
+  font-size: 20px;
+  font-weight: 800;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* ========= Expand Details ========= */
+.td2-details {
+  margin-top: 2px;
+}
+
+.td2-hidden {
+  display: none;
+}
+
+.td2-details-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 18px;
+}
+
+/* Calendar box */
+.td2-calendar {
+  min-height: 230px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  justify-content: center;
+  align-items: center;
+}
+
+.td2-subtitle {
+  font-size: 22px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.td2-calendar-icon {
+  font-size: 48px;
+}
+
+.td2-date-input {
+  font-size: 16px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 2px solid #1a1a1a;
+  background: white;
+}
+
+/* Ticket panel */
+.td2-ticketpanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.td2-mini-box {
+  border: 3px solid #1a1a1a;
+  border-radius: 18px;
+  background: #f3f3f3;
+  padding: 12px 14px;
+  text-align: center;
+}
+
+.td2-mini-title {
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+.td2-mini-value {
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.td2-select {
+  width: 100%;
+  font-size: 16px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 2px solid #1a1a1a;
+  background: white;
+}
+
+.td2-message {
+  border: 3px solid #1a1a1a;
+  border-radius: 18px;
+  background: #f3f3f3;
+  padding: 12px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+}

@@ -139,6 +139,9 @@ def dashboard_view(request):
     return render(request, "fergusonbequest/dashboard.html", {"featured_attractions": featured_attractions})
 
 
+def ticket_draws_view(request):
+    return render(request, "fergusonbequest/ticket_draws.html")
+
 def logout_view(request):
     """Log the user out and redirect to home.
     """

@@ -1,0 +1,141 @@
+{% extends "fergusonbequest/base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'fergusonbequest/css/ticket_draws.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="td2-page">
+  <div class="td2-wrap">
+
+    <!-- LEFT PANEL -->
+    <div class="td2-left">
+      <div class="td2-title">Ticket Draws</div>
+
+      <div class="td2-box td2-image">
+        <div class="td2-bigtext">Image Of Ticket Draw</div>
+      </div>
+
+      <div class="td2-box td2-list">
+        <div class="td2-row">Name of Ticket Draw</div>
+        <div class="td2-row">Date(s) and location of Ticket Draw</div>
+        <div class="td2-row">Buttons to select different draws</div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="td2-right">
+      <!-- Grey shell to match the design -->
+      <div class="td2-right-shell">
+
+        <div class="td2-box td2-info">
+          <div class="td2-bigtext td2-info-text">
+            Ticket Information<br>
+            How to book/ticket details.<br>
+            T&amp;Cs
+          </div>
+        </div>
+
+        <div class="td2-box td2-enter">
+          <button id="enterDrawBtn" class="td2-enter-btn" type="button">
+            Enter draw
+          </button>
+        </div>
+
+        <!-- Expand content: hidden by default -->
+        <div id="drawDetails" class="td2-details td2-hidden">
+          <div class="td2-details-grid">
+
+            <!-- Calendar -->
+            <div class="td2-box td2-calendar">
+              <div class="td2-subtitle">Calendar to pick draw dates</div>
+              <div class="td2-calendar-icon">📅</div>
+              <input id="drawDate" class="td2-date-input" type="date">
+            </div>
+
+            <!-- Ticket panel -->
+            <div class="td2-box td2-ticketpanel">
+
+              <div class="td2-mini-box">
+                <div class="td2-mini-title">No. Of Available Tickets</div>
+                <div id="availableTickets" class="td2-mini-value">10</div>
+              </div>
+
+              <div class="td2-mini-box">
+                <div class="td2-mini-title">Select Number of Tickets</div>
+                <select id="ticketQty" class="td2-select">
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                </select>
+              </div>
+
+              <div id="enterMessage" class="td2-message">
+                Enter draw button (only if tickets are available, otherwise say no tickets available for this date)
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  (function () {
+    const btn = document.getElementById("enterDrawBtn");
+    const details = document.getElementById("drawDetails");
+
+    const dateInput = document.getElementById("drawDate");
+    const availableEl = document.getElementById("availableTickets");
+    const qtySelect = document.getElementById("ticketQty");
+    const msg = document.getElementById("enterMessage");
+
+    // Demo logic: odd day => 0, even day => 10 (replace with backend later)
+    function mockAvailabilityByDate(dateStr) {
+      if (!dateStr) return 10;
+      const day = parseInt(dateStr.split("-")[2], 10);
+      return (day % 2 === 1) ? 0 : 10;
+    }
+
+    function renderAvailability() {
+      const available = mockAvailabilityByDate(dateInput.value);
+      availableEl.textContent = available;
+
+      // Enable/disable and message
+      if (available <= 0) {
+        qtySelect.disabled = true;
+        msg.textContent = "No tickets available for this date.";
+      } else {
+        qtySelect.disabled = false;
+        msg.textContent = "Tickets available. Choose quantity and proceed.";
+
+        // Disable options > available
+        for (const opt of qtySelect.options) {
+          opt.disabled = parseInt(opt.value, 10) > available;
+        }
+        if (qtySelect.options[qtySelect.selectedIndex].disabled) {
+          qtySelect.value = "1";
+        }
+      }
+    }
+
+    // Toggle expand/collapse
+    btn.addEventListener("click", function () {
+      details.classList.toggle("td2-hidden");
+      if (!details.classList.contains("td2-hidden")) {
+        renderAvailability();
+      }
+    });
+
+    // Update on date change
+    dateInput.addEventListener("change", renderAvailability);
+  })();
+</script>
+{% endblock %}
