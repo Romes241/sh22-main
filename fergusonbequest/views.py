@@ -176,6 +176,80 @@ def attraction_detail(request, pk):
         'available_slots': available_slots,
     })
 
+def attractions_view(request):
+    """
+    Attractions list page with:
+    - search (name/location)
+    - availability filter (tickets)
+    - date filtering (via VisitSlot)
+    - optional location filter
+    - optional sorting
+    """
+    q = request.GET.get("q", "").strip()
+    status = request.GET.get("status", "").strip()
+
+    # Date filters: YYYY-MM-DD
+    from_date_str = request.GET.get("from_date", "").strip()
+    to_date_str = request.GET.get("to_date", "").strip()
+
+    # Optional extra filters
+    location = request.GET.get("location", "").strip()
+    sort = request.GET.get("sort", "name").strip()  # default sort by name
+
+    from_date = parse_date(from_date_str) if from_date_str else None
+    to_date = parse_date(to_date_str) if to_date_str else None
+
+    attractions = Attraction.objects.all()
+    # Search
+    if q:
+        attractions = attractions.filter(
+            Q(name__icontains=q) |
+            Q(location__icontains=q)
+        )
+
+    # Availability
+    if status == "available":
+        attractions = attractions.filter(tickets_left__gt=0)
+    elif status == "soldout":
+        attractions = attractions.filter(tickets_left=0)
+
+    # Location filter (optional)
+    if location:
+        attractions = attractions.filter(location__iexact=location)
+
+    # Date filtering (via VisitSlot)
+    # We filter attractions by whether they have at least one VisitSlot in the requested date range.
+    if from_date or to_date:
+        slot_qs = VisitSlot.objects.all()
+        if from_date:
+            slot_qs = slot_qs.filter(date__gte=from_date)
+        if to_date:
+            slot_qs = slot_qs.filter(date__lte=to_date)
+        # Pull attraction IDs that have qualifying slots
+        valid_attraction_ids = slot_qs.values_list("attraction_id", flat=True)
+        # Keep only those attractions
+        attractions = attractions.filter(id__in=valid_attraction_ids).distinct()
+
+    # Sorting (optional)
+    if sort == "tickets":
+        attractions = attractions.order_by("-tickets_left", "name")
+    else:
+        attractions = attractions.order_by("name")
+
+    # list distinct locations dropdown
+    locations = Attraction.objects.values_list("location", flat=True).distinct().order_by("location")
+
+    return render(request, "fergusonbequest/attractions.html", {
+        "attractions": attractions,
+        "q": q,
+        "status": status,
+        "from_date": from_date_str,
+        "to_date": to_date_str,
+        "location": location,
+        "sort": sort,
+        "locations": locations,
+    })
+
 def booking_view(request, attraction_pk):
     attraction = get_object_or_404(Attraction, pk=attraction_pk)
     available_slots = VisitSlot.objects.filter(attraction=attraction, date__gte=timezone.now().date())
