@@ -1,0 +1,44 @@
+{% extends "fergusonbequest/base.html" %}
+{% load static %}
+
+{% block title %}Waiting List – Ferguson Bequest{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'fergusonbequest/css/waiting_list.css' %}">
+{% endblock %}
+
+{% block content %}
+<h1 class="fb-h1">Waiting List Enrolment</h1>
+
+<div class = "wl-section">
+    {% for ticket_draw in ticket_draws %}
+        
+            <div class = "wl-row">
+                <div>
+                    <p class = "fb-label">{{ticket_draw.name}}</p>
+                </div>
+
+                <div>
+                    {% if ticket_draw.joined %}
+                        <p class = "fb-label">Joined</p>
+                    {% else %}
+                        <form method="post" action="#"> <!-- placeholder -->
+                            {% csrf_token %}
+                            <button type = "submit" class = "fb-btn">Join Waiting List</button>
+                        </form>
+
+                    {% endif %}
+
+
+                </div>
+            </div>
+        
+
+    
+
+    {% endfor %}
+</div>
+
+
+
+{% endblock %}
