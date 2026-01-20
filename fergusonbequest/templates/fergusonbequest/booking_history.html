@@ -97,6 +97,7 @@
             <th>Booking date</th>
             <th>Return Date</th>
             <th>Venue Name</th>
+            <th>Collection Location</th>
             <th>Ticket Number</th>
             <th>Collected/Cancelled</th>
           </tr>
@@ -107,6 +108,7 @@
               <td>{{ b.slot.date|date:"d/m/Y" }}</td>
               <td>{{ b.created_at|date:"d/m/Y" }}</td>
               <td class="bh-venue">{{ b.attraction.name }}</td>
+              <td>{{ b.email|default:"E-ticket" }}</td>
               <td class="bh-ticket">{{ b.ticket_code|default:b.id }}</td>
               <td>
                 {% if b.cancelled %}
@@ -117,7 +119,7 @@
               </td>
             </tr>
           {% empty %}
-            <tr><td colspan="5" class="bh-empty">No past bookings.</td></tr>
+            <tr><td colspan="6" class="bh-empty">No past bookings.</td></tr>
           {% endfor %}
         </tbody>
       </table>
