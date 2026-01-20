@@ -3,56 +3,41 @@
 
 {% block title %}Booking History – Ferguson Bequest{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'fergusonbequest/css/booking_history.css' %}">
+{% endblock %}
+
 {% block content %}
 
 <div class="bh-page">
 
-  {# Controls bar #}
-  <div class="fb-card booking-controls-card">
-    <div class="bh-controls-grid">
-
-      {# LEFT #}
-      <div class="bh-left">
+  <form method="get" class="fb-card booking-controls-card" id="filter-form">
+    
+    <div class="bh-controls-row">
+      <div class="bh-left-section">
         <h1 class="bh-title">Booking History</h1>
-
-        <div class="bh-row">
-          <label class="bh-label" for="bh-search">Search:</label>
-          <input id="bh-search" name="q" type="search" class="bh-search-input" placeholder="Search" value="{{ request.GET.q|default:'' }}" />
+        <div class="bh-search-group">
+          <label class="fb-label" for="bh-search">Search:</label>
+          <input id="bh-search" name="q" type="search" class="bh-search-input" placeholder="Search Bar" value="{{ request.GET.q|default:'' }}" />
         </div>
       </div>
-
-      {# MIDDLE #}
-      <div class="bh-middle">
-        <div class="bh-row bh-row--center">
-          <span class="bh-label">Filter By:</span>
-          <a class="bh-btn" href="?when=all">All</a>
-          <a class="bh-btn" href="?when=future">Future</a>
-          <a class="bh-btn" href="?when=past">Past</a>
-          <a class="bh-btn" href="?status=cancelled">Cancelled</a>
-          <a class="bh-btn" href="{% url 'booking_history' %}">Reset Filters</a>
-          <button id="advanced-filters-btn" class="bh-btn" type="button">Advanced filters</button>
+      
+      <div class="bh-middle-section">
+        <div class="bh-filter-group">
+          <span class="fb-label">Filter By:</span>
+          <select id="when-filter" name="when" class="bh-filter-dropdown" onchange="document.getElementById('filter-form').submit();">
+            <option value="">All Bookings</option>
+            <option value="future" {% if request.GET.when == 'future' %}selected{% endif %}>Future</option>
+            <option value="past" {% if request.GET.when == 'past' %}selected{% endif %}>Past</option>
+            <option value="cancelled" {% if request.GET.when == 'cancelled' %}selected{% endif %}>Cancelled</option>
+          </select>
+          <button type="submit" class="fb-btn fb-btn--primary" formaction="?">Reset Filters</button>
+          <button id="advanced-filters-btn" class="fb-btn fb-btn--primary" type="button">Advanced filters</button>
         </div>
       </div>
-
-      {# RIGHT #}
-      <div class="bh-right">
-        <div class="bh-row bh-row--right">
-          {% if user.is_superuser %}
-            <span class="bh-label">Viewing As:</span>
-            <span class="current-user">{{ user.username }}</span>
-          {% endif %}
-        </div>
-
-        {% if user.is_superuser %}
-        <div class="bh-row bh-row--right bh-row--gap-top">
-          <input type="text" class="bh-guid-input" placeholder="Enter GUID" aria-label="Enter GUID" />
-          <button type="button" class="bh-btn">Change Proxy</button>
-        </div>
-        {% endif %}
-      </div>
-
     </div>
-  </div>
+
+  </form>
 
 
   {% now "Y-m-d" as today %}
@@ -69,7 +54,6 @@
             <th>Booking date</th>
             <th>Return Date</th>
             <th>Venue Name</th>
-            <th>Name</th>
             <th>Collection Location</th>
             <th>Ticket Number</th>
             <th>Cancel Status</th>
@@ -78,24 +62,21 @@
         <tbody>
           {% for b in future_bookings %}
             <tr>
-              <td>{{ b.created_at|date:"d/m/Y" }}</td>
               <td>{{ b.slot.date|date:"d/m/Y" }}</td>
-              <td class="bh-venue">
-                <a href="{% url 'attraction_detail' b.attraction.pk %}" class="bh-link">{{ b.attraction.name }}</a>
-              </td>
-              <td class="bh-name">{{ b.full_name }}</td>
+              <td>{{ b.created_at|date:"d/m/Y" }}</td>
+              <td class="bh-venue">{{ b.attraction.name }}</td>
               <td>{{ b.email|default:"E-ticket" }}</td>
               <td class="bh-ticket">{{ b.ticket_code|default:b.id }}</td>
-              <td>
+              <td class="bh-cancel-cell">
                 {% if b.cancelled %}
-                  <span class="bh-status bh-status--cancelled">Cancelled</span>
+                  Cancelled
                 {% else %}
-                  <span class="bh-status bh-status--active">Active</span>
+                  <button type="button" class="fb-btn fb-btn--primary" data-booking-id="{{ b.id }}">Cancel</button>
                 {% endif %}
               </td>
             </tr>
           {% empty %}
-            <tr><td colspan="7" class="bh-empty">No future bookings.</td></tr>
+            <tr><td colspan="6" class="bh-empty">No future bookings.</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -116,38 +97,27 @@
             <th>Booking date</th>
             <th>Return Date</th>
             <th>Venue Name</th>
-            <th>Name</th>
             <th>Ticket Number</th>
             <th>Collected/Cancelled</th>
-            <th>Cancel</th>
           </tr>
         </thead>
         <tbody>
           {% for b in past_bookings %}
             <tr>
-              <td>{{ b.created_at|date:"d/m/Y" }}</td>
               <td>{{ b.slot.date|date:"d/m/Y" }}</td>
+              <td>{{ b.created_at|date:"d/m/Y" }}</td>
               <td class="bh-venue">{{ b.attraction.name }}</td>
-              <td class="bh-name">{{ b.full_name }}</td>
-              <td class="bh-email">{{ b.email|default:"E-ticket" }}</td>
               <td class="bh-ticket">{{ b.ticket_code|default:b.id }}</td>
               <td>
                 {% if b.cancelled %}
-                  <span class="bh-status bh-status--cancelled">Cancelled</span>
+                  Cancelled
                 {% else %}
-                  <span class="bh-status bh-status--active">Collected</span>
-                {% endif %}
-              </td>
-              <td>
-                {% if b.cancelled %}
-                  N/A
-                {% else %}
-                  <button type="button" class="bh-btn bh-btn--sm" disabled>Cancel</button>
+                  Collected
                 {% endif %}
               </td>
             </tr>
           {% empty %}
-            <tr><td colspan="7" class="bh-empty">No past bookings.</td></tr>
+            <tr><td colspan="5" class="bh-empty">No past bookings.</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -203,9 +173,9 @@
       </div>
 
       <div class="bh-form-row bh-form-row--actions">
-        <button type="submit" class="bh-btn">Apply filters</button>
-        <a class="bh-btn bh-btn--muted" href="{% url 'booking_history' %}">Reset</a>
-        <button type="button" id="advanced-filters-close" class="bh-btn bh-btn--muted">Close</button>
+        <button type="submit" class="fb-btn fb-btn--primary">Apply filters</button>
+        <a class="fb-btn fb-btn--primary" href="{% url 'booking_history' %}">Reset</a>
+        <button type="button" id="advanced-filters-close" class="fb-btn">Close</button>
       </div>
     </form>
   </div>
