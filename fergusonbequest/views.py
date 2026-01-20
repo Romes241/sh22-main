@@ -87,3 +87,6 @@ def logout_view(request):
     return redirect('home')
 def terms(request):
     return render(request, 'fergusonbequest/terms.html')
+
+def attraction_page(request):
+    return render(request, "fergusonbequest/attraction.html")

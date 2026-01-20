@@ -1,0 +1,94 @@
+{% extends "fergusonbequest/base.html" %}
+{% load static %}
+
+{% block title %}Ferguson Bequest{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'fergusonbequest/css/attraction.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="attraction-page">
+
+  <a class="back-link" href="{% url 'home' %}">
+    <span class="back-text">Back to attractions</span> ←
+  </a>
+
+  <div class="layout">
+
+    <!-- LEFT PANEL -->
+    <div class="panel left-panel">
+
+      <a class="pill-link" href="{% url 'home' %}">
+        <div class="left-title">Attraction Name</div>
+      </a>
+
+      <a class="clickable-box" href="{% url 'home' %}">
+        <div class="image-box">
+          <div class="image-inner">Attraction Image</div>
+        </div>
+      </a>
+
+      <a class="location-row location-link"
+         href="https://www.google.com/maps"
+         target="_blank" rel="noopener">
+        <span class="location-icon">📍</span>
+        <span>Location of attraction</span>
+      </a>
+
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div class="right-col">
+
+      <div class="panel">
+        <a class="heading-link" href="{% url 'home' %}">
+          <div class="panel-heading">Details</div>
+        </a>
+
+        <div class="panel-body">
+          <div class="detail-line">Available dates:</div>
+          <div class="detail-line">Duration:</div>
+          <div class="detail-line">Description:</div>
+
+          <div class="spacer"></div>
+
+          <div class="detail-line">Contact:</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <a class="heading-link" href="{% url 'dashboard' %}">
+          <div class="panel-heading">Reserve Attraction</div>
+        </a>
+
+        <div class="panel-body">
+          <div class="allowance">
+            Your remaining allowance: #/3 attractions this year
+          </div>
+
+          <div class="form-line">
+            <label>Select date:</label>
+            <input type="date">
+          </div>
+
+          <div class="form-line">
+            <label>Select time:</label>
+            <select>
+              <option>Drop down</option>
+            </select>
+          </div>
+
+          <a class="book-btn" href="{% url 'dashboard' %}">
+            Book now
+          </a>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

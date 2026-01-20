@@ -1,0 +1,162 @@
+.attraction-page {
+    background: #f5f5f5;
+    padding: 22px 26px;
+    min-height: calc(100vh - 160px);
+  }
+  
+  .back-link {
+    display: inline-block;
+    margin-bottom: 12px;
+    color: #000;
+    text-decoration: none;
+    font-size: 22px;
+    font-weight: 800;
+  }
+  
+  .back-link .back-text {
+    text-decoration: underline;
+  }
+  
+  .layout {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 28px;
+    align-items: start;
+  }
+  
+  .panel {
+    background: #f6f6f6;
+    border: 2px solid #bdbdbd;
+    border-radius: 18px;
+    padding: 14px;
+  }
+  
+  .left-title {
+    display: block;
+    width: 88%;
+    margin: 6px auto 14px auto;
+    text-align: center;
+    padding: 12px 14px;
+    border-radius: 12px;
+    font-weight: 800;
+    font-size: 18px;
+    color: #fff;
+    background: linear-gradient(to bottom, #2b5bd3, #1f4aa8);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.25);
+  }
+  
+  .image-box {
+    display: flex;
+    justify-content: center;
+    padding: 8px 0 14px 0;
+  }
+  
+  .image-inner {
+    width: 100%;
+    height: 230px;
+    border: 2px solid #c3c3c3;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #333;
+    font-size: 22px;
+    font-weight: 600;
+    background: #fafafa;
+  }
+  
+  .location-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+    color: #333;
+    font-size: 14px;
+  }
+  
+  .location-icon {
+    font-size: 18px;
+  }
+  
+  .right-col {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  
+  .panel-heading {
+    font-weight: 700;
+    text-decoration: underline;
+    margin: 2px 0 10px 0;
+    color: #222;
+  }
+  
+  .panel-body {
+    padding-left: 6px;
+  }
+  
+  .detail-line {
+    margin: 8px 0;
+    color: #333;
+  }
+  
+  .spacer {
+    height: 26px;
+  }
+  
+  .allowance {
+    margin-bottom: 10px;
+    color: #333;
+  }
+  
+  .form-line {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 8px 0;
+  }
+  
+  .form-line label {
+    width: 90px;
+    font-size: 14px;
+    color: #333;
+  }
+  
+  .form-line input,
+  .form-line select {
+    width: 170px;
+    padding: 3px 6px;
+    border: 1px solid #bdbdbd;
+    border-radius: 4px;
+    background: #fff;
+  }
+  
+  .book-btn {
+    display: inline-block;
+    margin-top: 10px;
+    background: #1f4aa8;
+    color: #fff;
+    border-radius: 14px;
+    padding: 6px 14px;
+    font-size: 13px;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  
+  .pill-link,
+  .clickable-box,
+  .location-link,
+  .heading-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+  
+  .clickable-box:hover .image-inner {
+    border-color: #1f4aa8;
+  }
+  
+  .location-link:hover {
+    opacity: 0.85;
+  }
+  
