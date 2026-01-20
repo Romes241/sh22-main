@@ -13,6 +13,10 @@ import datetime
 from django.db import transaction
 from django.db.models import F
 from django.db.models.functions import Least
+from django.db.models import Q, F, Sum
+from django.db.models.functions import Coalesce
+from django.utils.dateparse import parse_date
+from django.db.models.functions import Least
 
 User = get_user_model()
 
@@ -176,6 +180,59 @@ def attraction_detail(request, pk):
         'available_slots': available_slots,
     })
 
+def attractions_view(request):
+    q = request.GET.get("q", "").strip()
+    status = request.GET.get("status", "").strip()
+
+    date_str = request.GET.get("date", "").strip()
+    d = parse_date(date_str) if date_str else None
+
+    location = request.GET.get("location", "").strip()
+    sort = request.GET.get("sort", "name").strip()
+
+    attractions = (
+        Attraction.objects
+        .annotate(tickets_left_total=Coalesce(Sum("slots__remaining"), 0))
+    )
+
+    if q:
+        attractions = attractions.filter(
+            Q(name__icontains=q) |
+            Q(location__icontains=q)
+        )
+
+    if status == "available":
+        attractions = attractions.filter(tickets_left_total__gt=0)
+    elif status == "soldout":
+        attractions = attractions.filter(tickets_left_total=0)
+
+    if location:
+        attractions = attractions.filter(location__iexact=location)
+
+    if d:
+        attractions = attractions.filter(
+            slots__date__gte=d,
+            slots__remaining__gt=0
+        ).distinct()
+
+    if sort == "tickets":
+        attractions = attractions.order_by("-tickets_left_total", "name")
+    else:
+        attractions = attractions.order_by("name")
+
+    locations = Attraction.objects.values_list("location", flat=True).distinct().order_by("location")
+
+    return render(request, "fergusonbequest/attractions.html", {
+        "attractions": attractions,
+        "q": q,
+        "status": status,
+        "date": date_str,
+        "location_filter": location,
+        "sort": sort,
+        "locations": locations,
+        "types": [],
+        "type_filter": "",
+    })
 def booking_view(request, attraction_pk):
     attraction = get_object_or_404(Attraction, pk=attraction_pk)
     available_slots = VisitSlot.objects.filter(attraction=attraction, date__gte=timezone.now().date())
@@ -303,10 +360,7 @@ def waiting_list(request):
 
     for ticket_draw in ticket_draws:
         ticket_draw.joined = ticket_draw.id in joined_draws
-
-        
-
     context = {
         'ticket_draws': ticket_draws,
     }
-    return render(request, 'fergusonbequest/waiting_list.html', context)
+    return render(request, "fergusonbequest/waiting_list.html")
