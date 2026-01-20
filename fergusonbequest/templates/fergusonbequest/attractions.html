@@ -1,0 +1,192 @@
+{% extends "fergusonbequest/base.html" %}
+{% load static %}
+
+{% block title %}Attractions{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'fergusonbequest/css/attractions.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="attractions-page">
+
+  <!-- Page title -->
+  <h1 class="page-title">Attractions</h1>
+
+<form method="get" class="controls">
+
+  <!-- search -->
+  <div class="search-box">
+    <input
+      type="text"
+      name="q"
+      value="{{ q }}"
+      placeholder="Search attractions"
+      aria-label="Search attractions"
+    >
+    {% if q %}
+      <a class="clear-search"
+         href="?status={{ status|urlencode }}&date={{ date|urlencode }}&location={{ location_filter|urlencode }}&type={{ type_filter|urlencode }}&sort={{ sort|urlencode }}">
+        ✕
+      </a>
+    {% endif %}
+  </div>
+
+  <!-- availability -->
+  <div class="filter-box">
+    <select name="status" aria-label="Availability filter">
+      <option value="" {% if not status %}selected{% endif %}>Availability</option>
+      <option value="available" {% if status == "available" %}selected{% endif %}>Available</option>
+      <option value="soldout" {% if status == "soldout" %}selected{% endif %}>Sold out</option>
+    </select>
+  </div>
+
+  <!-- date -->
+  <div class="filter-box date-box">
+    <input
+      type="date"
+      name="date"
+      value="{{ date }}"
+      aria-label="Filter by date"
+    >
+  </div>
+
+  <!-- location -->
+  <div class="filter-box">
+    <select name="location" aria-label="Location filter">
+      <option value="" {% if not location_filter %}selected{% endif %}>Location</option>
+      {% for loc in locations %}
+        <option value="{{ loc }}" {% if location_filter == loc %}selected{% endif %}>
+          {{ loc }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <!-- attraction type -->
+  <div class="filter-box">
+    <select name="type" aria-label="Attraction type filter">
+      <option value="" {% if not type_filter %}selected{% endif %}>Type</option>
+      {% for t in types %}
+        <option value="{{ t }}" {% if type_filter == t %}selected{% endif %}>
+          {{ t }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <!-- sort -->
+  <div class="filter-box">
+    <select name="sort" aria-label="Sort attractions">
+      <option value="name" {% if sort == "name" or not sort %}selected{% endif %}>
+        Sort: Name
+      </option>
+      <option value="tickets" {% if sort == "tickets" %}selected{% endif %}>
+        Sort: Tickets left
+      </option>
+    </select>
+  </div>
+  <!-- clear all -->
+  <a class="clear-all" href="{% url 'attractions' %}" aria-label="Clear all filters">
+    Clear
+  </a>
+
+
+</form>
+<script>
+  // javascript to auto submit the filters
+  (function () {
+    const form = document.querySelector(".controls");
+    if (!form) return;
+
+    const searchInput = form.querySelector('input[name="q"]');
+    const dateInput = form.querySelector('input[name="date"]');
+    const selects = form.querySelectorAll("select");
+
+    // Auto-submit on dropdown change
+    selects.forEach(sel => {
+      sel.addEventListener("change", () => form.submit());
+    });
+
+    // Auto-submit on date change
+    if (dateInput) {
+      dateInput.addEventListener("change", () => form.submit());
+    }
+
+    // Debounced search submit
+    let t = null;
+    if (searchInput) {
+      searchInput.addEventListener("input", () => {
+        clearTimeout(t);
+        t = setTimeout(() => form.submit(), 350);
+      });
+    }
+  })();
+</script>
+
+  <!-- Cards grid-->
+  <div class="cards-grid">
+
+    {% for a in attractions %}
+      <!--
+        Sold out logic:
+        - An attraction is sold out if total remaining tickets == 0
+        - remaining_total sums ALL VisitSlot.remaining values
+      -->
+      <div class="card {% if a.remaining_total == 0 %}soldout{% endif %}">
+
+        <!-- Image area -->
+        <div class="card-image">
+
+          {% if a.image %}
+            <img src="{{ a.image.url }}" alt="{{ a.name }}">
+          {% else %}
+            <div class="image-placeholder">Attraction image</div>
+          {% endif %}
+
+          <!-- sold out overlay (total remaining == 0) -->
+          {% if a.remaining_total == 0 %}
+            <div class="soldout-overlay">SOLD OUT</div>
+          {% endif %}
+
+        </div>
+
+        <!-- Card body -->
+        <div class="card-body">
+          <p><strong>Name:</strong> {{ a.name }}</p>
+          <p><strong>Available dates:</strong> —</p>
+          <p><strong>Tickets left:</strong> {{ a.remaining_total }}</p>
+          <p><strong>Location:</strong> {{ a.location|default:"—" }}</p>
+
+          <!-- Buttons -->
+          <div class="card-actions">
+
+            <a class="btn secondary"
+               href="{% url 'attraction_detail' a.id %}">
+              View Details
+            </a>
+
+            {% if a.remaining_total == 0 %}
+              <!-- waitlist button -->
+              <a class="btn outline" href="#">
+                Waitlist
+              </a>
+            {% else %}
+              <!-- book button -->
+              <a class="btn primary"
+                 href="{% url 'attraction_book' attraction_pk=a.id %}">
+                Book now
+              </a>
+            {% endif %}
+
+          </div>
+        </div>
+
+      </div>
+    {% empty %}
+      <p class="empty">No attractions match your search.</p>
+    {% endfor %}
+
+  </div>
+</div>
+{% endblock %}

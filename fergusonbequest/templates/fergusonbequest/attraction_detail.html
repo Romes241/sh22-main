@@ -1,0 +1,13 @@
+{% extends "fergusonbequest/base.html" %}
+{% load static %}
+
+{% block title %}{{ attraction.name }} – Ferguson Bequest{% endblock %}
+
+{% block content %}
+  <h1 class="fb-h1">{{ attraction.name }}</h1>
+  <div class="fb-card">
+    <p>{{ attraction.description }}</p>
+    <p><strong>Location:</strong> {{ attraction.location }}</p>
+    <p><a href="{% url 'attraction_book' attraction.pk %}" class="fb-btn fb-btn--primary">Book this attraction</a></p>
+  </div>
+{% endblock %}

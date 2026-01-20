@@ -1,0 +1,107 @@
+{% extends "fergusonbequest/base.html" %}
+{% load static %}
+
+{% block title %}Book Attraction – Ferguson Bequest{% endblock %}
+
+{% block extra_css %}{% endblock %}
+
+{% block content %}
+
+<h1 class="fb-h1">Book: {{ attraction.name }}</h1>
+
+<div class="booking-grid">
+
+  <section class="booking-card">
+    <h2 class="fb-h2">Your booking</h2>
+
+    {% if form %}
+      <form method="post" novalidate>
+        {% csrf_token %}
+        {% for field in form.visible_fields %}
+          <div class="fb-form-row fb-form-row--inline">
+            <label class="fb-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            <div class="fb-field">{{ field }}</div>
+          </div>
+        {% endfor %}
+
+        <button type="submit" class="fb-btn fb-btn--primary">Confirm booking</button>
+      </form>
+    {% else %}
+      <form method="post">
+        {% csrf_token %}
+
+        <div class="fb-form-row fb-form-row--inline">
+          <label class="fb-label" for="id_date">Date</label>
+          <div class="fb-field"><input type="date" id="id_date" name="date" required></div>
+        </div>
+
+        <div class="fb-form-row fb-form-row--inline">
+          <label class="fb-label" for="id_slot">Time slot</label>
+          <div class="fb-field">
+            <select id="id_slot" name="slot" required>
+              <option value="">Choose a time</option>
+              {% for slot in available_slots %}
+                <option value="{{ slot.id }}">{{ slot.start_time }}{% if slot.capacity %} – {{ slot.capacity }} places{% endif %}</option>
+              {% empty %}
+                <option disabled>No slots available</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="fb-form-row fb-form-row--inline">
+          <label class="fb-label" for="id_attendees">Attendees</label>
+          <div class="fb-field"><input type="number" id="id_attendees" name="attendees" min="1" value="1" required></div>
+        </div>
+
+        <div class="fb-form-row">
+          <button type="submit" class="fb-btn fb-btn--primary">Confirm booking</button>
+        </div>
+      </form>
+    {% endif %}
+
+    <p class="mt-3"><a href="{% url 'attraction_detail' attraction.pk %}">Back to attraction</a></p>
+  </section>
+
+  <aside class="booking-card booking-summary">
+    <h3>Summary</h3>
+    <p><strong>{{ attraction.name }}</strong></p>
+    <p class="muted">{{ attraction.short_description|default:attraction.description|truncatewords:25 }}</p>
+
+    <hr />
+
+    <h4>Available slots</h4>
+    <ul class="slot-list">
+      {% for slot in available_slots|slice:":6" %}
+        <li class="slot-item">
+          <div><strong>{{ slot.start_time }}</strong></div>
+          <div class="muted">{{ slot.human_readable_availability }}</div>
+        </li>
+      {% empty %}
+        <li class="slot-item">No slots available</li>
+      {% endfor %}
+    </ul>
+
+    <hr />
+
+    <h4>Price</h4>
+    <p>{{ booking_summary.price|default:"Free" }}</p>
+
+    <p class="mt-3"><a href="{% url 'how_to_book' %}">How bookings work</a></p>
+
+  </aside>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('change', function (e) {
+  if (e.target && e.target.id === 'id_slot') {
+    var attendees = document.getElementById('id_attendees');
+    if (attendees) attendees.focus();
+  }
+});
+</script>
+{% endblock %}

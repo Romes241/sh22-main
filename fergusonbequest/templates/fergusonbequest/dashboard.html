@@ -1,40 +1,176 @@
 {% extends "fergusonbequest/base.html" %}
 {% load static %}
 
-{% block title %}Dashboard - Ferguson Bequest{% endblock %}
+{% block title %}Home – Ferguson Bequest{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'fergusonbequest/css/home.css' %}">
+<link rel="stylesheet" href="{% static 'fergusonbequest/css/home.css' %}?v=2">
 {% endblock %}
 
 {% block content %}
-<h1 class="fb-h1">Welcome {{ user.get_full_name|default:user.username }}, to the Ferguson Bequest Staff Ticketing System.</h1>
+  <!-- Main headline -->
+  <h1 class="fb-heading">
+    Welcome to the Ferguson Bequest Staff Ticketing System
+  </h1>
 
-  <section class="fb-grid">
+  <!-- Two-column homepage layout -->
+  <section class="fb-home-layout">
+
     <!-- Left card -->
-    <div class="fb-card">
-      <h3>The Ferguson Bequest gives University of Glasgow staff exclusive access to attractions and event ticket draws throughout the year.</h3>
-      <ul>
-        <li>Apply for up to three attractions per calendar year</li>
-        <li>Enter multiple ticket draws and win once per year</li>
-        <li>View all your bookings in Booking History</li>
-      </ul>
+    <article class="fb-home-card fb-home-card--left">
+      <p class="fb-home-text"><strong>
+        The Ferguson Bequest gives University of Glasgow staff exclusive
+        access to attractions and event ticket draws throughout the year.
+        </strong>
+      </p>
 
-      <div class="fb-alert">
-        <div class="ico">⚠️</div>
-        <div>
-          <strong>Please apply carefully</strong> — bookings can’t be cancelled once submitted.<br>
+      <div class="fb-home-youcan-row">
+          <p class="fb-home-youcan-label">You can:</p>
+            <ul class="fb-home-list">
+              <li>Apply for up to three attractions per calendar year</li>
+              <li>Enter multiple ticket draws and win once per year</li>
+              <li>View all your bookings in Booking History</li>
+            </ul>
+      </div>
+
+      <!-- Warning box -->
+      <div class="fb-home-warning">
+        <div class="fb-home-warning-icon">⚠</div>
+        <div class="fb-home-warning-body">
+          <p>
+            <strong>Please apply carefully</strong> — bookings can’t be cancelled once
+            submitted.
+          </p>
+          <p>
+            Eligible for University of Glasgow staff with an active contract of
+            employment. Honorary, affiliate, and casual staff are not eligible.
+          </p>
         </div>
       </div>
-    </div>
+    </article>
 
     <!-- Right card -->
-    <div class="fb-card fb-featured">
-      <div class="fb-featured__head">
-        <h3 class="mt-8">Top Current Featured Attractions</h3>
+    <section class="fb-home-card fb-home-card--right">
+      <h2 class="fb-home-right-title">
+        Top Current Featured Attractions
+      </h2>
+
+      <!-- Slider frame -->
+      <div class="fb-home-slider-frame">
+
+        <!-- Slides container -->
+        <div id="fb-slider" class="fb-slider">
+          {% for attraction in featured_attractions %}
+          <figure class="fb-slide {% if forloop.first %}is-active{% endif %}"
+                  data-book-url="{{ attraction.url }}">
+            <img src="{% static attraction.image %}"
+                 alt="{{ attraction.title }}"
+                 class="fb-slide-image">
+            <figcaption class="fb-slide-caption">
+              <h3>{{ attraction.title }}</h3>
+              <p>{{ attraction.subtitle }}</p>
+            </figcaption>
+          </figure>
+          {% endfor %}
+        </div>
+
+        <!-- Slider controls -->
+        <button type="button" class="fb-slider-arrow fb-slider-arrow--prev"
+                aria-label="Previous attraction">‹</button>
+        <button type="button" class="fb-slider-arrow fb-slider-arrow--next"
+                aria-label="Next attraction">›</button>
+
+        <!-- Bottom grey bar + Book now button -->
+        <div class="fb-home-slider-footer">
+          <a id="fb-book-btn" href="#" class="fb-btn fb-btn--primary"
+             target="_blank" rel="noopener">
+            Book now
+          </a>
+        </div>
       </div>
-      <div class="fb-featured__box"></div>
-      <div class="fb-dots"></div>
+
+      <!-- Slider indicator dots -->
+      <div class="fb-home-dots">
+        {% for attraction in featured_attractions %}
+        <span class="fb-dot {% if forloop.first %}fb-dot--active{% endif %}"></span>
+        {% endfor %}
+      </div>
+    </section>
+  </section>
+
+  <!-- Simple slider script -->
+  <script>
+    (function () {
+      var slides = Array.prototype.slice.call(
+        document.querySelectorAll('.fb-slide')
+      );
+      if (!slides.length) return;
+
+      var dots = Array.prototype.slice.call(
+        document.querySelectorAll('.fb-dot')
+      );
+      var currentIndex = 0;
+
+      var bookBtn = document.getElementById('fb-book-btn');
+      var prevBtn = document.querySelector('.fb-slider-arrow--prev');
+      var nextBtn = document.querySelector('.fb-slider-arrow--next');
+
+      function showSlide(index) {
+        if (index < 0) {
+          index = slides.length - 1;
+        } else if (index >= slides.length) {
+          index = 0;
+        }
+        currentIndex = index;
+
+        slides.forEach(function (slide, i) {
+          slide.classList.toggle('is-active', i === currentIndex);
+        });
+
+        if (dots.length === slides.length) {
+          dots.forEach(function (dot, i) {
+            dot.classList.toggle('fb-dot--active', i === currentIndex);
+          });
+        }
+      }
+
+      // Initial slide
+      showSlide(0);
+
+      if (prevBtn) {
+        prevBtn.addEventListener('click', function () {
+          showSlide(currentIndex - 1);
+        });
+      }
+
+      if (nextBtn) {
+        nextBtn.addEventListener('click', function () {
+          showSlide(currentIndex + 1);
+        });
+      }
+    })();
+  </script>
+  <hr class="fb-divider">
+  <h2 class="fb-subheading">About the Ferguson Bequest</h2>
+  <section class="fb-about">
+    <div class="fb-about__text">
+      <p>
+        Professor in Public Health and President of the University Athletics Football Club,
+        Professor Thomas Ferguson authored classic studies on the origin of Scotland’s social
+        and health services. In 1977 he bequeathed his estate to the University, with the
+        instruction that the money be used to foster the social side of University life for
+        its (then) 2,100 staff.
+      </p>
+
+      <p>
+        The University Court established a committee (the Ferguson Bequest Committee) to
+        administer the funds. Various corporate memberships and theatre ticket draws are
+        administered by the Court Office on behalf of the Ferguson Bequest Committee.
+      </p>
+    </div>
+
+    <div class="fb-about__image">
+      <img src="{% static 'fergusonbequest/img/Ferquest_commite.jpg' %}" alt="Ferguson Committee Photo">
     </div>
   </section>
 {% endblock %}

@@ -81,21 +81,49 @@ body{
   text-decoration:underline;
 }
 
-html, body { height:100%; margin:0; }
-body{
-  min-height:100vh;
-  display:flex;
-  flex-direction:column;
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-  color:var(--text);
-  background:#f5f7fb;
-}
 .fb-container{
   max-width:var(--container);
   width:100%;
   margin:28px auto;
   padding:0 20px;
   flex:1 0 auto;  /*footer to the bottom*/
+}
+
+.fb-h1{
+  margin: 10px 0 18px;
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--uog-blue);
+}
+
+.fb-card{
+  background:#fff;
+  border:2px solid #ddd;
+  border-radius:8px;
+  padding:20px 22px;
+  box-shadow:0 2px 4px rgba(0,0,0,0.08);
+}
+
+.fb-card--narrow{
+  max-width:520px;
+  margin:0 auto;
+}
+
+.fb-alert{
+  border-radius:12px;
+  padding:12px 14px;
+  margin-bottom:12px;
+  border:1px solid #f5c2c7;
+  background:#fef2f2;
+  color:#991b1b;
+  font-weight:600;
+}
+
+.fb-alert--error{ border-color:#fca5a5; background:#fff1f2; }
+
+.fb-label{
+  font-weight:700;
+  color:#1b2a4a;
 }
 .fb-footer{
   background: #002663;
@@ -121,6 +149,12 @@ body{
   gap:12px;
 }
 .fb-form-row--inline .fb-field{ flex:1 1 auto; }
+.fb-form-row--inline .fb-label{
+  flex:0 0 160px;
+  padding-right:12px;
+  margin:0; 
+  display:block;
+}
 
 .fb-field input, .fb-field select, .fb-field textarea{
   padding:8px 10px;
@@ -130,4 +164,34 @@ body{
   width:100%;
 }
 
+.mt-4{ margin-top:1.5rem; }
+.mt-3{ margin-top:1rem; }
+
 .fb-field-error{ color:#b00020; font-size:13px; margin-top:4px; }
+
+.fb-btn{
+  display:inline-block;
+  padding:8px 18px;
+  border-radius:8px;
+  text-decoration:none;
+  font-weight:700;
+  color:var(--uog-blue);
+  background:transparent;
+}
+.fb-btn,
+.fb-btn button,
+.fb-btn input[type="submit"] {
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.2;
+}
+.fb-btn{ border: none; cursor: pointer; }
+.fb-btn { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
+.fb-btn--primary{
+  background:#003865;
+  color:#fff;
+  border-radius:20px;
+  padding:8px 18px;
+}
+.fb-btn--primary:hover{ background:#002a4c; }
+.fb-btn.fb-btn--primary:focus{ outline:2px solid rgba(0,56,101,0.25); }
