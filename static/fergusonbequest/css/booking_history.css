@@ -1,0 +1,283 @@
+.bh-page {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 20px;
+  background: #f5f7fb;
+}
+
+.booking-controls-card {
+  border-radius: 20px;
+  padding: 24px 28px;
+  margin-bottom: 24px;
+}
+
+.bh-controls-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 24px;
+  align-items: center;
+}
+
+
+.bh-title {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #000;
+  white-space: nowrap;
+}
+
+.bh-left-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.bh-middle-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bh-search-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bh-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bh-right-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+
+.bh-guid-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bh-search-input,
+.bh-guid-input {
+  padding: 10px 14px;
+  border: 2px solid #c5cedf;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.95rem;
+  min-width: 220px;
+}
+
+.bh-search-input:focus,
+.bh-guid-input:focus {
+  outline: none;
+  border-color: #003865;
+}
+
+.bh-filter-dropdown {
+  padding: 10px 18px 10px 10px;
+  border: none;
+  border-radius: 20px;
+  background: #003865 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path fill="white" d="M2 4l4 4 4-4"/></svg>');
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  appearance: none;
+}
+
+.bh-filter-dropdown:hover {
+  background: #002a4c;
+}
+
+.bh-filter-dropdown:focus {
+  outline: 2px solid rgba(0, 56, 101, 0.25);
+}
+
+.bh-current-user {
+  padding: 8px 16px;
+  background: #fff;
+  border: 2px solid #c5cedf;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.bh-panel {
+  border-radius: 20px;
+  padding: 24px 28px;
+  margin-bottom: 24px;
+}
+
+.bh-panel-title {
+  margin: 0 0 16px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #000;
+}
+
+.bh-table-wrap {
+  overflow-x: auto;
+  border: 2px solid #ddd;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.bh-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px;
+}
+
+.bh-table th,
+.bh-table td {
+  padding: 14px 18px;
+  text-align: left;
+  border: 1px solid #ddd;
+  font-size: 0.95rem;
+}
+
+.bh-table th {
+  background: #f8f9fa;
+  font-weight: 700;
+  color: #1a1a1a;
+  border-bottom: 2px solid #ddd;
+}
+
+.bh-table tbody tr:hover {
+  background: #f9f9f9;
+}
+
+.bh-cancel-cell {
+  text-align: center;
+}
+
+.bh-empty {
+  text-align: center;
+  color: #666;
+  font-style: italic;
+  padding: 24px;
+}
+
+.bh-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.bh-modal.open {
+  display: flex;
+}
+
+.bh-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.bh-modal__panel {
+  position: relative;
+  background: #fff;
+  border: 2px solid #ddd;
+  border-radius: 16px;
+  padding: 28px;
+  min-width: 400px;
+  max-width: 500px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  z-index: 1;
+}
+
+.bh-modal__form h3 {
+  margin: 0 0 20px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.bh-form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.bh-form-row label {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.bh-form-row input,
+.bh-form-row select {
+  padding: 10px 14px;
+  border: 2px solid #c5cedf;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.95rem;
+}
+
+.bh-form-row input:focus,
+.bh-form-row select:focus {
+  outline: none;
+  border-color: #003865;
+}
+
+.bh-form-row--actions {
+  flex-direction: row;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.bh-modal-open {
+  overflow: hidden;
+}
+
+@media (max-width: 1100px) {
+  .bh-controls-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .bh-right-section {
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 768px) {
+  .bh-middle-section,
+  .bh-search-group,
+  .bh-filter-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .bh-search-input,
+  .bh-guid-input,
+  .bh-filter-dropdown {
+    width: 100%;
+  }
+  
+  .bh-modal__panel {
+    width: 92%;
+    min-width: 0;
+    padding: 20px;
+  }
+  
+  .bh-form-row--actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
