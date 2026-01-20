@@ -13,7 +13,10 @@ import datetime
 from django.db import transaction
 from django.db.models import F
 from django.db.models.functions import Least
+from django.db.models import Q, F, Sum
+from django.db.models.functions import Coalesce
 from django.utils.dateparse import parse_date
+from django.db.models.functions import Least
 
 User = get_user_model()
 
@@ -178,83 +181,58 @@ def attraction_detail(request, pk):
     })
 
 def attractions_view(request):
-    """
-    Attractions list page with:
-    - search (name/location)
-    - availability filter (tickets)
-    - date filtering (via VisitSlot)
-    - optional location filter
-    - optional sorting
-    """
     q = request.GET.get("q", "").strip()
     status = request.GET.get("status", "").strip()
 
-    # Date filters: YYYY-MM-DD
-    from_date_str = request.GET.get("from_date", "").strip()
-    to_date_str = request.GET.get("to_date", "").strip()
+    date_str = request.GET.get("date", "").strip()
+    d = parse_date(date_str) if date_str else None
 
-    # Optional extra filters
     location = request.GET.get("location", "").strip()
-    sort = request.GET.get("sort", "name").strip()  # default sort by name
+    sort = request.GET.get("sort", "name").strip()
 
-    from_date = parse_date(from_date_str) if from_date_str else None
-    to_date = parse_date(to_date_str) if to_date_str else None
+    attractions = (
+        Attraction.objects
+        .annotate(tickets_left_total=Coalesce(Sum("slots__remaining"), 0))
+    )
 
-    attractions = Attraction.objects.all()
-    # Search
     if q:
         attractions = attractions.filter(
             Q(name__icontains=q) |
             Q(location__icontains=q)
         )
 
-    # Availability
     if status == "available":
-        attractions = attractions.filter(tickets_left__gt=0)
+        attractions = attractions.filter(tickets_left_total__gt=0)
     elif status == "soldout":
-        attractions = attractions.filter(tickets_left=0)
+        attractions = attractions.filter(tickets_left_total=0)
 
-    # Location filter (optional)
     if location:
         attractions = attractions.filter(location__iexact=location)
 
-    # Date filtering (via VisitSlot)
-    # We filter attractions by whether they have at least one VisitSlot in the requested date range.
-    if from_date or to_date:
-        slot_qs = VisitSlot.objects.all()
-        if from_date:
-            slot_qs = slot_qs.filter(date__gte=from_date)
-        if to_date:
-            slot_qs = slot_qs.filter(date__lte=to_date)
-        # Pull attraction IDs that have qualifying slots
-        valid_attraction_ids = slot_qs.values_list("attraction_id", flat=True)
-        # Keep only those attractions
-        attractions = attractions.filter(id__in=valid_attraction_ids).distinct()
+    if d:
+        attractions = attractions.filter(
+            slots__date__gte=d,
+            slots__remaining__gt=0
+        ).distinct()
 
-    # Sorting (optional)
     if sort == "tickets":
-        attractions = attractions.order_by("-tickets_left", "name")
+        attractions = attractions.order_by("-tickets_left_total", "name")
     else:
         attractions = attractions.order_by("name")
 
-    # list distinct locations dropdown
     locations = Attraction.objects.values_list("location", flat=True).distinct().order_by("location")
-
-    # flag attraction sold out
-    for a in attractions:
-        a.sold_out = a.slots.exists() and a.remaining_total == 0
 
     return render(request, "fergusonbequest/attractions.html", {
         "attractions": attractions,
         "q": q,
         "status": status,
-        "from_date": from_date_str,
-        "to_date": to_date_str,
-        "location": location,
+        "date": date_str,
+        "location_filter": location,
         "sort": sort,
         "locations": locations,
+        "types": [],
+        "type_filter": "",
     })
-
 def booking_view(request, attraction_pk):
     attraction = get_object_or_404(Attraction, pk=attraction_pk)
     available_slots = VisitSlot.objects.filter(attraction=attraction, date__gte=timezone.now().date())

@@ -1,8 +1,9 @@
-/*  Page wrapper  */
 .attractions-page {
   max-width: 1100px;
   margin: 0 auto;
   padding: 32px 24px 48px;
+  /* scroll fix for nested grid */
+  min-height: 0;
 }
 
 .page-title {
@@ -11,7 +12,7 @@
   font-weight: 800;
 }
 
-/*  Top controls row (search + filter)  */
+/* Controls (search + filters)*/
 .controls {
   display: flex;
   align-items: center;
@@ -25,10 +26,10 @@
   background: #eeeeee;
 }
 
-/* Search pill */
+/*  Search  */
 .search-box {
   position: relative;
-  flex: 1;
+  flex: 1 ;
   display: flex;
   align-items: center;
 }
@@ -36,16 +37,12 @@
 .search-box input {
   width: 100%;
   height: 44px;
-
   border-radius: 999px;
   border: 1px solid #cfcfcf;
-
-  /* right padding leaves space for clear X */
   padding: 0 44px 0 16px;
   background: #ffffff;
-
   outline: none;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .clear-search {
@@ -64,13 +61,14 @@
   opacity: 1;
 }
 
-/* Filter pill (select) */
+/*  Filters */
 .filter-box {
   position: relative;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
 }
 
-/* Custom arrow */
+/* shared select styling */
 .filter-box select {
   height: 44px;
   border-radius: 999px;
@@ -78,46 +76,50 @@
 
   background-color: #e6e6e6;
   font-weight: 700;
-
   cursor: pointer;
 
-  /* remove default arrow */
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
 
-  /* spacing: left for text, right for arrow */
   padding: 0 46px 0 18px;
 
-  /* inline SVG arrow */
+  /* custom arrow */
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23000' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  /* move arrow left*/
   background-position: right 22px center;
-
   background-size: 12px;
 }
 
-/* skiip for now*/
-.date-box,
-.apply-btn {
-  display: none;
+/*  Date filter */
+.date-box input[type="date"] {
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid #cfcfcf;
+
+  background: #ffffff;
+  font-weight: 700;
+
+  padding: 0 14px;
+  outline: none;
+  cursor: pointer;
 }
 
-/*  Cards grid + scroll  */
-/* Default = laptop/desktop 3 columns */
+/* Cards grid + scrolling */
 .cards-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 22px;
 
-  /* “fit the page” + scroll when many cards */
   max-height: 720px;
   overflow-y: auto;
   padding-right: 10px;
+
+  /* critical scroll fix */
+  min-height: 0;
 }
 
-/* scrollbar  */
+/* scrollbar */
 .cards-grid::-webkit-scrollbar {
   width: 10px;
 }
@@ -129,19 +131,21 @@
   background: transparent;
 }
 
-/*  Card base  */
+/* Card base */
 .card {
   position: relative;
   border: 2px solid #222;
   border-radius: 26px;
   background: #e3e3e3;
   overflow: hidden;
+
   min-height: 420px;
+
   display: flex;
   flex-direction: column;
 }
 
-/* Image area */
+/*  Image  */
 .card-image {
   position: relative;
   height: 180px;
@@ -163,7 +167,7 @@
   font-weight: 700;
 }
 
-/* Card body */
+/*  Body  */
 .card-body {
   padding: 14px 16px 16px;
   flex: 1;
@@ -178,7 +182,7 @@
   font-size: 16px;
 }
 
-/* Buttons row */
+/*  Buttons  */
 .card-actions {
   margin-top: auto;
 
@@ -190,7 +194,6 @@
   padding-top: 12px;
 }
 
-/*  Buttons  */
 .btn {
   display: inline-block;
   padding: 10px 16px;
@@ -201,7 +204,6 @@
   text-decoration: none;
   font-weight: 700;
   text-align: center;
-
   white-space: nowrap;
 }
 
@@ -221,7 +223,7 @@
   color: #111;
 }
 
-/*  SOLD OUT state  */
+/* SOLD OUT state */
 .card.soldout {
   opacity: 0.65;
 }
@@ -237,19 +239,19 @@
   font-size: 56px;
   font-weight: 900;
   letter-spacing: 2px;
-  color: #000;
 
+  color: #000;
   background: rgba(220, 220, 220, 0.75);
+
   pointer-events: none;
 }
 
-/*  Empty state  */
+/* Empty state */
 .empty {
   margin-top: 20px;
   opacity: 0.8;
 }
 
-/* columns laptop, 2 on phone */
 @media (max-width: 900px) {
   .cards-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -261,7 +263,6 @@
   }
 }
 
-/* smaller phones go to 1 column */
 @media (max-width: 600px) {
   .controls {
     flex-wrap: wrap;
