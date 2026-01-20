@@ -1,0 +1,98 @@
+{% extends "fergusonbequest/base.html" %}
+{% load static %}
+{% block title %}Attractions{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'fergusonbequest/css/attractions.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="attractions-page">
+
+  <h1 class="page-title">Attractions</h1>
+
+  <!-- Search + Filter bar -->
+  <form method="get" class="controls">
+    <!-- Search -->
+    <div class="search-box">
+      <input
+        type="text"
+        name="q"
+        value="{{ q }}"
+        placeholder="Search by name or location"
+        aria-label="Search attractions by name or location"
+      >
+      {% if q %}
+        <a class="clear-search" href="?{% if status %}status={{ status }}&{% endif %}{% if from_date %}from_date={{ from_date }}&{% endif %}{% if to_date %}to_date={{ to_date }}&{% endif %}{% if location %}location={{ location }}&{% endif %}{% if sort %}sort={{ sort }}{% endif %}">
+          ✕
+        </a>
+      {% endif %}
+    </div>
+
+    <!-- Filter dropdown (wireframe button) -->
+    <div class="filter-box">
+      <select name="status" aria-label="Availability filter">
+        <option value="" {% if not status %}selected{% endif %}>Filter</option>
+        <option value="available" {% if status == "available" %}selected{% endif %}>Available</option>
+        <option value="soldout" {% if status == "soldout" %}selected{% endif %}>Sold out</option>
+      </select>
+    </div>
+
+    <!-- Date filters -->
+    <div class="date-box">
+      <label>
+        From
+        <input type="date" name="from_date" value="{{ from_date }}">
+      </label>
+      <label>
+        To
+        <input type="date" name="to_date" value="{{ to_date }}">
+      </label>
+    </div>
+
+    <button class="apply-btn" type="submit">Apply</button>
+  </form>
+
+  <!-- Cards layout -->
+  <div class="cards-grid">
+    {% for a in attractions %}
+      <div class="card {% if a.is_sold_out %}soldout{% endif %}">
+
+        <div class="card-image">
+          {% if a.image %}
+            <img src="{{ a.image.url }}" alt="{{ a.name }}">
+          {% else %}
+            <div class="image-placeholder">Attraction image</div>
+          {% endif %}
+        </div>
+
+        {% if a.is_sold_out %}
+          <div class="soldout-overlay">SOLD OUT</div>
+        {% endif %}
+
+        <div class="card-body">
+          <p><strong>Name:</strong> {{ a.name }}</p>
+
+          <!-- Available dates -->
+          <p><strong>Available dates:</strong> {{ a.available_dates|default:"—" }}</p>
+
+          <p><strong>Tickets left:</strong> {{ a.tickets_left|default:"—" }}</p>
+          <p><strong>Location:</strong> {{ a.location|default:"—" }}</p>
+
+          <div class="card-actions">
+            <a class="btn secondary" href="{% url 'attraction_detail' a.id %}">View Details</a>
+
+            {% if not a.is_sold_out %}
+                <a class="btn primary" href="{% url 'attraction_book' attraction_pk=a.id %}">Book now</a>
+            {% else %}
+              <a class="btn outline" href="#">Waitlist</a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    {% empty %}
+      <p class="empty">No attractions match your search/filter.</p>
+    {% endfor %}
+  </div>
+
+</div>
+{% endblock %}
