@@ -19,3 +19,6 @@ urlpatterns = [
     path('waiting-list/', views.waiting_list, name='waiting_list'),
     path("attractions/", views.attractions_view, name="attractions"),
 ]
+
+
+
