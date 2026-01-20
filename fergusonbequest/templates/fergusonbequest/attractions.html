@@ -1,6 +1,8 @@
 {% extends "fergusonbequest/base.html" %}
 {% load static %}
+
 {% block title %}Attractions{% endblock %}
+
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'fergusonbequest/css/attractions.css' %}">
 {% endblock %}
@@ -8,11 +10,13 @@
 {% block content %}
 <div class="attractions-page">
 
+  <!-- Page title -->
   <h1 class="page-title">Attractions</h1>
 
   <!-- Search + Filter bar -->
   <form method="get" class="controls">
-    <!-- Search -->
+
+    <!-- Search input -->
     <div class="search-box">
       <input
         type="text"
@@ -21,14 +25,14 @@
         placeholder="Search by name or location"
         aria-label="Search attractions by name or location"
       >
+
+      <!-- Clear search -->
       {% if q %}
-        <a class="clear-search" href="?{% if status %}status={{ status }}&{% endif %}{% if from_date %}from_date={{ from_date }}&{% endif %}{% if to_date %}to_date={{ to_date }}&{% endif %}{% if location %}location={{ location }}&{% endif %}{% if sort %}sort={{ sort }}{% endif %}">
-          ✕
-        </a>
+        <a class="clear-search" href="?">✕</a>
       {% endif %}
     </div>
 
-    <!-- Filter dropdown (wireframe button) -->
+    <!-- Filter dropdown -->
     <div class="filter-box">
       <select name="status" aria-label="Availability filter">
         <option value="" {% if not status %}selected{% endif %}>Filter</option>
@@ -37,62 +41,71 @@
       </select>
     </div>
 
-    <!-- Date filters -->
-    <div class="date-box">
-      <label>
-        From
-        <input type="date" name="from_date" value="{{ from_date }}">
-      </label>
-      <label>
-        To
-        <input type="date" name="to_date" value="{{ to_date }}">
-      </label>
-    </div>
-
-    <button class="apply-btn" type="submit">Apply</button>
   </form>
 
-  <!-- Cards layout -->
+  <!-- Cards grid-->
   <div class="cards-grid">
-    {% for a in attractions %}
-      <div class="card {% if a.is_sold_out %}soldout{% endif %}">
 
+    {% for a in attractions %}
+      <!--
+        Sold out logic:
+        - An attraction is sold out if total remaining tickets == 0
+        - remaining_total sums ALL VisitSlot.remaining values
+      -->
+      <div class="card {% if a.remaining_total == 0 %}soldout{% endif %}">
+
+        <!-- Image area -->
         <div class="card-image">
+
           {% if a.image %}
             <img src="{{ a.image.url }}" alt="{{ a.name }}">
           {% else %}
             <div class="image-placeholder">Attraction image</div>
           {% endif %}
+
+          <!-- sold out overlay (total remaining == 0) -->
+          {% if a.remaining_total == 0 %}
+            <div class="soldout-overlay">SOLD OUT</div>
+          {% endif %}
+
         </div>
 
-        {% if a.is_sold_out %}
-          <div class="soldout-overlay">SOLD OUT</div>
-        {% endif %}
-
+        <!-- Card body -->
         <div class="card-body">
           <p><strong>Name:</strong> {{ a.name }}</p>
-
-          <!-- Available dates -->
-          <p><strong>Available dates:</strong> {{ a.available_dates|default:"—" }}</p>
-
-          <p><strong>Tickets left:</strong> {{ a.tickets_left|default:"—" }}</p>
+          <p><strong>Available dates:</strong> —</p>
+          <p><strong>Tickets left:</strong> {{ a.remaining_total }}</p>
           <p><strong>Location:</strong> {{ a.location|default:"—" }}</p>
 
+          <!-- Buttons -->
           <div class="card-actions">
-            <a class="btn secondary" href="{% url 'attraction_detail' a.id %}">View Details</a>
 
-            {% if not a.is_sold_out %}
-                <a class="btn primary" href="{% url 'attraction_book' attraction_pk=a.id %}">Book now</a>
+            <a class="btn secondary"
+               href="{% url 'attraction_detail' a.id %}">
+              View Details
+            </a>
+
+            {% if a.remaining_total == 0 %}
+              <!-- waitlist button -->
+              <a class="btn outline" href="#">
+                Waitlist
+              </a>
             {% else %}
-              <a class="btn outline" href="#">Waitlist</a>
+              <!-- book button -->
+              <a class="btn primary"
+                 href="{% url 'attraction_book' attraction_pk=a.id %}">
+                Book now
+              </a>
             {% endif %}
+
           </div>
         </div>
+
       </div>
     {% empty %}
-      <p class="empty">No attractions match your search/filter.</p>
+      <p class="empty">No attractions match your search.</p>
     {% endfor %}
-  </div>
 
+  </div>
 </div>
 {% endblock %}

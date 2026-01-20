@@ -240,6 +240,10 @@ def attractions_view(request):
     # list distinct locations dropdown
     locations = Attraction.objects.values_list("location", flat=True).distinct().order_by("location")
 
+    # flag attraction sold out
+    for a in attractions:
+        a.sold_out = a.slots.exists() and a.remaining_total == 0
+
     return render(request, "fergusonbequest/attractions.html", {
         "attractions": attractions,
         "q": q,
