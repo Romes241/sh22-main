@@ -13,6 +13,7 @@ import datetime
 from django.db import transaction
 from django.db.models import F
 from django.db.models.functions import Least
+from django.utils.dateparse import parse_date
 
 User = get_user_model()
 
@@ -377,10 +378,7 @@ def waiting_list(request):
 
     for ticket_draw in ticket_draws:
         ticket_draw.joined = ticket_draw.id in joined_draws
-
-        
-
     context = {
         'ticket_draws': ticket_draws,
     }
-    return render(request, 'fergusonbequest/waiting_list.html', context)
+    return render(request, "fergusonbequest/waiting_list.html")
