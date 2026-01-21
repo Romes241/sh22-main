@@ -133,7 +133,7 @@ def populate():
             defaults={"capacity": slot["cap"], "remaining": slot["cap"]}
         )
 
-    print("Done populating")
+    print("Done populating!")
 
 if __name__ == '__main__':
     populate()
