@@ -80,8 +80,9 @@
             </select>
           </div>
 
-          <a class="book-btn" href="{% url 'dashboard' %}">
-            Book now
+          <a class="btn primary"
+                 href="{% url 'attraction_book' attraction_pk=attraction.pk %}">
+                Book now
           </a>
         </div>
       </div>

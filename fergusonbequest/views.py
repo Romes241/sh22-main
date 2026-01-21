@@ -171,11 +171,11 @@ def terms(request):
     return render(request, 'fergusonbequest/terms.html')
 
 
-def attraction_detail(request, pk):
+def attraction(request, pk):
     """Show attraction detail and available future slots."""
     attraction = get_object_or_404(Attraction, pk=pk)
     available_slots = VisitSlot.objects.filter(attraction=attraction, date__gte=timezone.now().date())
-    return render(request, 'fergusonbequest/attraction_detail.html', {
+    return render(request, 'fergusonbequest/attraction.html', {
         'attraction': attraction,
         'available_slots': available_slots,
     })
