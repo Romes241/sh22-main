@@ -21,3 +21,6 @@ urlpatterns = [
     path('waiting-list/cancel/<int:pk>/', views.cancel_ticket_draw_entry, name='cancel_draw_entry'),
     path("attractions/", views.attractions_view, name="attractions"),
 ]
+
+
+
