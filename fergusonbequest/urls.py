@@ -12,11 +12,13 @@ urlpatterns = [
     path('dashboard/', views.dashboard_view, name='dashboard'),
     path('how-to-book/', views.terms, name='how_to_book'),
     path("ticket-draws/", views.ticket_draws_view, name="ticket_draws"),
+    path("ticket-draws/<slug:slug>/", views.ticket_draw_detail, name="ticket_draw_detail"),
     path('attraction/<int:pk>/', views.attraction, name='attraction'),
     path('attraction/<int:attraction_pk>/book/', views.booking_view, name='attraction_book'),
     path('booking-history/', views.booking_history, name='booking_history'),
     path('booking/<int:pk>/cancel/', views.cancel_booking, name='cancel_booking'),
-    path('ticket-draws/waiting-list/', views.waiting_list, name='waiting_list'),
+    path('waiting-list/', views.waiting_list, name='waiting_list'),
+    path('waiting-list/cancel/<int:pk>/', views.cancel_ticket_draw_entry, name='cancel_draw_entry'),
     path("attractions/", views.attractions_view, name="attractions"),
 ]
 

@@ -1,0 +1,274 @@
+/* Container and Layout */
+.td-detail-container {
+    max-width: 1200px;
+    margin: 40px auto;
+    padding: 0 20px;
+}
+
+.td-main-grid {
+    display: grid;
+    grid-template-columns: 400px 1fr;
+    gap: 30px;
+    align-items: start;
+}
+
+/* Navigation */
+.td-back-nav {
+    margin-bottom: 20px;
+}
+
+.td-back-link {
+    color: #0b2f6b;
+    text-decoration: none;
+    font-weight: 700;
+}
+
+/* Left Identity Card */
+.td-identity-card {
+    border: 2px solid #1a1a1a;
+    border-radius: 26px;
+    overflow: hidden;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+}
+
+.td-header-badge {
+    background: #0b2f6b;
+    color: #fff;
+    padding: 18px;
+    text-align: center;
+}
+
+.td-badge-title {
+    font-size: 24px;
+    font-weight: 900;
+}
+
+.td-image-box {
+    height: 350px;
+    background: #f3f3f3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 2px solid #1a1a1a;
+}
+
+.td-image-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.td-no-image {
+    font-weight: 800;
+    opacity: 0.4;
+}
+
+.td-info-row {
+    border-top: 2px solid #1a1a1a;
+    padding: 16px 12px;
+    text-align: center;
+    background: #fff;
+}
+
+.td-row-label {
+    display: block;
+    font-size: 14px;
+    text-transform: uppercase;
+    color: #0b2f6b;
+    font-weight: 800;
+    margin-bottom: 4px;
+}
+
+.td-row-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1a1a1a;
+}
+
+/* Right Information Card */
+.td-info-card {
+    border: 2px solid #1a1a1a;
+    border-radius: 26px;
+    background: #fff;
+    overflow: hidden;
+    margin-bottom: 24px;
+}
+
+.td-card-header {
+    background: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    padding: 15px 30px;
+}
+
+.td-card-header h2 {
+    margin: 0;
+    font-size: 22px;
+    color: #0b2f6b;
+}
+
+.td-card-body {
+    padding: 30px;
+}
+
+.td-card-body h3 {
+    font-size: 18px;
+    font-weight: 800;
+    margin-bottom: 8px;
+}
+
+.td-card-body p {
+    line-height: 1.6;
+    color: #444;
+    margin-bottom: 20px;
+}
+
+.td-card-body hr {
+    border: 0;
+    border-top: 1px solid #eee;
+    margin-bottom: 20px;
+}
+
+/* Contact Links */
+.td-contact-link {
+    color: #0b2f6b;
+    font-weight: 700;
+}
+
+.td-contact-default {
+    color: #888;
+}
+
+/* Selection Grid and Date Box */
+.td-selection-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.td-date-box {
+    border: 2px solid #1a1a1a;
+    border-radius: 26px;
+    padding: 25px;
+    text-align: center;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.td-date-label {
+    font-weight: 800;
+    margin-bottom: 5px;
+    color: #0b2f6b;
+}
+
+.td-calendar-icon {
+    font-size: 48px;
+}
+
+.td-selector {
+    width: 85%;
+    padding: 12px;
+    border: 2px solid #1a1a1a;
+    border-radius: 12px;
+    font-weight: 700;
+    text-align-last: center;
+    margin-top: 15px;
+}
+
+/* Action Panel and Stats */
+.td-action-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.td-allowance-msg {
+    text-align: center;
+    font-size: 14px;
+    margin-bottom: 10px;
+    font-weight: 800;
+    color: #0b2f6b;
+}
+
+.td-stat-box {
+    border: 2px solid #1a1a1a;
+    border-radius: 16px;
+    padding: 15px;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 12px;
+    flex: 1;
+}
+
+.td-stat-label-small {
+    font-size: 12px;
+}
+
+.td-tickets-count-display {
+    font-size: 24px;
+    font-weight: 900;
+    color: #0b2f6b;
+}
+
+/* Ticket Input */
+.td-ticket-input {
+    text-align: center;
+    font-weight: 700;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    width: 60px;
+}
+
+/* Submit Button */
+.td-submit-btn {
+    width: 100%;
+    padding: 20px;
+    background: #0b2f6b;
+    color: #fff;
+    border: none;
+    border-radius: 16px;
+    font-weight: 800;
+    font-size: 18px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.td-submit-btn:hover {
+    background: #082554;
+}
+
+.td-submit-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+.messages-container {
+    margin-bottom: 20px;
+}
+
+.alert {
+    padding: 15px;
+    border-radius: 8px;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+/* Red styling for error messages */
+.alert-error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+/* Green styling for success messages */
+.alert-success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}

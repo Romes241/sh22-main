@@ -4,19 +4,15 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from django import forms
-from .models import Attraction, VisitSlot, Booking, Profile, TicketDraw, TicketDrawBooking
+from .models import Attraction, VisitSlot, Booking, Profile, TicketDraw, TicketDrawBooking, TicketDrawVisitSlot
 from django.shortcuts import render
 from .forms import BookingForm
 from django.utils import timezone
-from django.db.models import Q
 import datetime
 from django.db import transaction
-from django.db.models import F
-from django.db.models.functions import Least
 from django.db.models import Q, F, Sum
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, Least
 from django.utils.dateparse import parse_date
-from django.db.models.functions import Least
 
 User = get_user_model()
 
@@ -156,10 +152,128 @@ def dashboard_view(request):
 
     return render(request, "fergusonbequest/dashboard.html", {"featured_attractions": featured_attractions})
 
-
+@login_required
 def ticket_draws_view(request):
-    return render(request, "fergusonbequest/ticket_draws.html")
+    draws = TicketDraw.objects.all().order_by("name")
 
+    selected = None
+    date_range = None
+
+    selected_id = request.GET.get("draw")
+    if selected_id:
+        selected = get_object_or_404(TicketDraw, pk=selected_id)
+
+        # Try to compute date range from visit slots
+        # If not, fall back to fields on TicketDraw (start/end or draw_date).
+        try:
+            slots = TicketDrawVisitSlot.objects.filter(ticket_draw=selected).order_by("date")
+            if slots.exists():
+                first_date = slots.first().date
+                last_date = slots.last().date
+                if first_date == last_date:
+                    date_range = first_date.strftime("%d/%m/%Y")
+                else:
+                    date_range = f"{first_date.strftime('%d/%m/%Y')} – {last_date.strftime('%d/%m/%Y')}"
+        except Exception:
+            start_date = getattr(selected, "start_date", None)
+            end_date = getattr(selected, "end_date", None)
+            draw_date = getattr(selected, "draw_date", None)
+
+            if draw_date:
+                try:
+                    date_range = draw_date.strftime("%d/%m/%Y")
+                except Exception:
+                    date_range = str(draw_date)
+            elif start_date and end_date:
+                try:
+                    if start_date == end_date:
+                        date_range = start_date.strftime("%d/%m/%Y")
+                    else:
+                        date_range = f"{start_date.strftime('%d/%m/%Y')} – {end_date.strftime('%d/%m/%Y')}"
+                except Exception:
+                    date_range = f"{start_date} – {end_date}"
+
+    return render(request, "fergusonbequest/ticket_draws.html", {
+        "draws": draws,
+        "selected": selected,
+        "date_range": date_range,
+    })
+
+
+@login_required
+def ticket_draw_detail(request, slug):
+    draw = get_object_or_404(TicketDraw, slug=slug)
+
+    # Count user's current entries to fit the limits
+    existing_entries = TicketDrawBooking.objects.filter(
+        user=request.user,
+        ticket_draw=draw,
+        cancelled=False
+    ).count()
+
+    remaining_allowance = max(0, draw.per_year_limit - existing_entries)
+
+    if request.method == 'POST':
+        # prevent multiple bookings for same draw
+        # Check if user already has any active booking for this draw
+        if existing_entries > 0:
+            messages.error(request, f"You already have an active entry for {draw.name}. You must cancel your existing entry before booking a different date or adding tickets.")
+            return redirect('waiting_list')
+        num_tickets = int(request.POST.get('num_tickets', 1))
+
+        # Error if they exceed their draw limit
+        if num_tickets > remaining_allowance:
+            messages.error(request, f"Max limit reached. You can only choose up to {remaining_allowance} more tickets.")
+            return redirect('ticket_draw_detail', slug=slug)
+
+        slot_id = request.POST.get('slot_id')
+        slot = get_object_or_404(TicketDrawVisitSlot, pk=slot_id)
+
+        if slot.remaining >= num_tickets and draw.is_open():
+            with transaction.atomic():
+                TicketDrawBooking.objects.create(
+                    user=request.user,
+                    ticket_draw=draw,
+                    slot=slot,
+                    num_tickets=num_tickets,
+                    full_name=f"{request.user.first_name} {request.user.last_name}",
+                    email=request.user.email,
+                    agreed_terms=True
+                )
+                slot.remaining = F('remaining') - num_tickets
+                slot.save()
+            messages.success(request, "Successfully entered draw!")
+            return redirect('waiting_list')
+
+    slots = TicketDrawVisitSlot.objects.filter(
+        ticket_draw=draw,
+        date__gte=timezone.now().date()
+    ).order_by("date", "time")
+
+    return render(request, "fergusonbequest/ticket_draw_detail.html", {
+        "draw": draw,
+        "slots": slots,
+        "remaining_allowance": remaining_allowance
+    })
+
+@login_required
+def cancel_ticket_draw_entry(request, pk):
+    """Allows a user to cancel their own ticket draw entry and restores slot capacity."""
+    # Ensure the user owns this booking before allowing cancellation
+    booking = get_object_or_404(TicketDrawBooking, pk=pk, user=request.user)
+
+    if request.method == 'POST':
+        with transaction.atomic():
+            if not booking.cancelled:
+                booking.cancelled = True
+                booking.save()
+                # Add tickets back to the TicketDrawVisitSlot
+                slot = booking.slot
+                slot.remaining = F('remaining') + booking.num_tickets
+                slot.save()
+            messages.success(request, f"Entry for {booking.ticket_draw.name} cancelled.")
+
+    return redirect('waiting_list')
 def logout_view(request):
     """Log the user out and redirect to home.
     """
@@ -353,14 +467,27 @@ def cancel_booking(request, pk):
 @login_required
 def waiting_list(request):
     user = request.user
-    today = timezone.now().date()
-    ticket_draws = TicketDraw.objects.filter(draw_date__gt=today)
-    
-    joined_draws = set(TicketDrawBooking.objects.filter(user=user, cancelled = False).values_list('ticket_draw_id', flat = True))
+    # Get all draws
+    ticket_draws = TicketDraw.objects.all().order_by("name")
 
-    for ticket_draw in ticket_draws:
-        ticket_draw.joined = ticket_draw.id in joined_draws
-    context = {
-        'ticket_draws': ticket_draws,
-    }
-    return render(request, "fergusonbequest/waiting_list.html")
+    # Get user's active bookings
+    user_bookings = TicketDrawBooking.objects.filter(
+        user=user,
+        cancelled=False
+    ).select_related('slot', 'ticket_draw')
+
+    # Create a map: Draw ID -> Booking Object
+    bookings_map = {b.ticket_draw_id: b for b in user_bookings}
+
+    for d in ticket_draws:
+        # Check if this draw exists in the user's bookings
+        if d.id in bookings_map:
+            d.user_booking = bookings_map[d.id]  # Attach the booking object
+            d.joined = True
+        else:
+            d.user_booking = None
+            d.joined = False
+
+    return render(request, "fergusonbequest/waiting_list.html", {
+        "ticket_draws": ticket_draws,
+    })

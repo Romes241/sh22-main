@@ -181,11 +181,12 @@ class Booking(models.Model):
 class TicketDrawBooking(models.Model):
     """One reservation. (Using name/email for now; can swap to auth.User later.)"""
     ticket_draw = models.ForeignKey('TicketDraw', on_delete=models.CASCADE)
-    slot = models.ForeignKey(VisitSlot, on_delete=models.PROTECT)
+    slot = models.ForeignKey(TicketDrawVisitSlot, on_delete=models.PROTECT)
     full_name = models.CharField(max_length=120)
     email = models.EmailField()
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
                               blank=True, related_name='ticket_draw_bookings')
+    num_tickets = models.PositiveIntegerField(default=1)
     agreed_terms = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled = models.BooleanField(default=False)
