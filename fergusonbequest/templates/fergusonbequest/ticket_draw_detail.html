@@ -1,0 +1,172 @@
+{% extends "fergusonbequest/base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'fergusonbequest/css/ticket_draw_detail.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="td-detail-container">
+
+    {% if messages %}
+        <div class="messages-container">
+          {% for message in messages %}
+            <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
+              {{ message }}
+            </div>
+          {% endfor %}
+        </div>
+    {% endif %}
+  <nav class="td-back-nav">
+    <a href="{% url 'ticket_draws' %}" class="td-back-link">&larr; Back to all ticket draws</a>
+  </nav>
+
+  <div class="td-main-grid">
+
+    <div class="td-identity-card">
+      <div class="td-header-badge">
+        <div class="td-badge-title">{{ draw.name }}</div>
+      </div>
+
+      <div class="td-image-box">
+        {% if draw.image %}
+          <img src="{{ draw.image.url }}" alt="{{ draw.name }}">
+        {% else %}
+          <div class="td-no-image">No image available</div>
+        {% endif %}
+      </div>
+
+      <div class="td-info-row">
+        <span class="td-row-label">Opens</span>
+        <span class="td-row-value">{{ draw.booking_open|date:"d/m/Y H:i"|default:"Now" }}</span>
+      </div>
+
+      <div class="td-info-row">
+        <span class="td-row-label">Closes</span>
+        <span class="td-row-value">{{ draw.booking_close|date:"d/m/Y H:i"|default:"TBC" }}</span>
+      </div>
+
+      <div class="td-info-row">
+        <span class="td-row-label">Location</span>
+        <span class="td-row-value">{{ draw.location|default:"Edinburgh" }}</span>
+      </div>
+    </div>
+
+    <div class="td-content-stack">
+
+      <div class="td-info-card">
+        <div class="td-card-header">
+          <h2>Draw Information & Terms</h2>
+        </div>
+        <div class="td-card-body">
+          <h3>How to book</h3>
+          <p>{{ draw.description|default:"Please select a date below to enter the draw." }}</p>
+
+          <hr>
+          <h3>Terms & Conditions</h3>
+          <p>{{ draw.terms|default:"Participation is subject to standard eligibility rules." }}</p>
+
+          <hr>
+          <h3>Contact Information</h3>
+          <p>
+            For queries regarding this draw, please contact:
+            {% if draw.contact_email %}
+              <a href="mailto:{{ draw.contact_email }}" class="td-contact-link">{{ draw.contact_email }}</a>
+            {% else %}
+              <span class="td-contact-default">fergusonbequest@glasgow.ac.uk</span>
+            {% endif %}
+          </p>
+        </div>
+      </div>
+
+      <form method="POST" action="" class="td-selection-grid">
+        {% csrf_token %}
+        <div class="td-date-box">
+          <p class="td-date-label">Select Entry Date</p>
+          <div class="td-calendar-icon">🗓️</div>
+          <select id="slot-selector" name="slot_id" class="td-selector">
+            {% for s in slots %}
+              <option value="{{ s.id }}" data-remaining="{{ s.remaining }}">
+                {{ s.date|date:"D, M d" }} {% if s.time %}({{ s.time|time:"H:i" }}){% endif %}
+              </option>
+            {% empty %}
+              <option disabled>No dates available</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="td-action-panel">
+          <div class="td-stat-box">
+            <span class="td-row-label td-stat-label-small">Availability</span>
+            <span id="tickets-left" class="td-tickets-count-display">--</span>
+          </div>
+
+          <div class="td-allowance-msg">
+            {% if remaining_allowance > 0 %}
+                You can choose a maximum of {{ remaining_allowance }} ticket(s)
+            {% else %}
+                You have reached the maximum number of tickets for this draw
+            {% endif %}
+          </div>
+
+          <div class="td-stat-box">
+              <span class="td-row-label td-stat-label-small">SELECT NUMBER OF TICKETS</span>
+              <input type="number" id="ticket-count" name="num_tickets"
+                     value="{% if remaining_allowance > 0 %}1{% else %}0{% endif %}"
+                     min="1"
+                     max="{{ remaining_allowance }}"
+                     class="td-ticket-input"
+                     {% if remaining_allowance <= 0 %}disabled{% endif %}>
+          </div>
+
+          {% if remaining_allowance > 0 %}
+              <button type="submit" class="td-submit-btn">Enter Draw</button>
+          {% else %}
+              <button type="button" class="td-submit-btn" disabled>
+                  Limit Reached
+              </button>
+          {% endif %}
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{# JS to sync availability + ticket limits #}
+<script>
+  const selector = document.getElementById('slot-selector');
+  const display = document.getElementById('tickets-left');
+  const ticketInput = document.getElementById('ticket-count');
+  const maxAllowed = {{ remaining_allowance }};
+
+  // Update availability + enforce limits
+  function updateUI() {
+    const selected = selector.options[selector.selectedIndex];
+    if (selected && selected.dataset.remaining) {
+      const remaining = parseInt(selected.dataset.remaining);
+
+      display.textContent = remaining + " Left";
+
+      // Never allow more than slot stock or personal allowance
+      ticketInput.max = Math.min(remaining, maxAllowed);
+
+      if (parseInt(ticketInput.value) > remaining) {
+        ticketInput.value = remaining;
+      }
+    }
+  }
+
+  if (selector) {
+    selector.addEventListener('change', updateUI);
+    updateUI(); // run on page load
+  }
+
+  if (ticketInput) {
+    ticketInput.addEventListener('input', function () {
+      if (parseInt(this.value) > maxAllowed) {
+        alert("You cannot exceed the entry limit for this draw!");
+        this.value = maxAllowed;
+      }
+    });
+  }
+</script>
+{% endblock %}
