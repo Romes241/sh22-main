@@ -1,0 +1,103 @@
+{% extends 'fergusonbequest/base.html' %}
+{% load static %}
+
+{% block title %}Admin Dashboard - Ferguson Bequest{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'fergusonbequest/css/admin_dashboard.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<h1 class="ad-title">Admin Dashboard</h1>
+
+<section class="ad-grid" aria-label="Admin dashboard">
+
+  <!-- Four blue cards on the left -->
+  <div class="ad-main">
+    <a class="ad-card" href="{% url 'ticket_draws' %}">
+      <div class="ad-card__icon" aria-hidden="true">📅</div>
+      <div class="ad-card__text">
+        <div class="ad-card__label">Active Draws</div>
+        <div class="ad-card__value">{{ active_draws_count }}</div>
+      </div>
+    </a>
+
+    <a class="ad-card" href="{% url 'attractions' %}">
+      <div class="ad-card__icon" aria-hidden="true">📍</div>
+      <div class="ad-card__text">
+        <div class="ad-card__label">Open Venues</div>
+        <div class="ad-card__value">{{ open_venues_count }}</div>
+      </div>
+    </a>
+
+    <a class="ad-card" href="/admin/fergusonbequest/booking/">
+      <div class="ad-card__icon" aria-hidden="true">📖</div>
+      <div class="ad-card__text">
+        <div class="ad-card__label">Bookings</div>
+        <div class="ad-card__value">{{ bookings_count }}</div>
+      </div>
+    </a>
+
+    <a class="ad-card" href="/admin/fergusonbequest/ticketdrawbooking/">
+      <div class="ad-card__icon" aria-hidden="true">🕒</div>
+      <div class="ad-card__text">
+        <div class="ad-card__label">Pending Requests</div>
+        <div class="ad-card__value">{{ pending_requests_count }}</div>
+      </div>
+    </a>
+  </div>
+
+  <!-- Quick Links + Reminders -->
+  <aside class="ad-side" aria-label="Admin quick actions">
+
+    <div class="ad-panel">
+      <div class="ad-panel__title">Quick Links</div>
+      <div class="ad-panel__body">
+        <a class="ad-link" href="/admin/fergusonbequest/ticketdraw/add/">
+          <span class="ad-link__icon" aria-hidden="true">+</span>
+          <span class="ad-link__text">Create Draw</span>
+          <span class="ad-link__chev" aria-hidden="true">›</span>
+        </a>
+
+        <a class="ad-link" href="/admin/fergusonbequest/attraction/add/">
+          <span class="ad-link__icon" aria-hidden="true">🏛</span>
+          <span class="ad-link__text">Add Venue</span>
+          <span class="ad-link__chev" aria-hidden="true">›</span>
+        </a>
+
+        <a class="ad-link" href="/admin/">
+          <span class="ad-link__icon" aria-hidden="true">🛠</span>
+          <span class="ad-link__text">Manage Content</span>
+          <span class="ad-link__chev" aria-hidden="true">›</span>
+        </a>
+
+        <a class="ad-link" href="/admin/fergusonbequest/booking/">
+          <span class="ad-link__icon" aria-hidden="true">⬆</span>
+          <span class="ad-link__text">View Bookings</span>
+          <span class="ad-link__chev" aria-hidden="true">›</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="ad-panel ad-panel--reminders">
+      <div class="ad-panel__title">Reminders</div>
+      <div class="ad-panel__body">
+        <a class="ad-link" href="/admin/fergusonbequest/ticketdrawbooking/">
+          <span class="ad-link__icon" aria-hidden="true">🔔</span>
+          <span class="ad-link__text">Review Pending Requests</span>
+          <span class="ad-link__chev" aria-hidden="true">›</span>
+        </a>
+
+        <a class="ad-link" href="/admin/fergusonbequest/visitslot/">
+          <span class="ad-link__icon" aria-hidden="true">🔁</span>
+          <span class="ad-link__text">Update schedules</span>
+          <span class="ad-link__chev" aria-hidden="true">›</span>
+        </a>
+      </div>
+    </div>
+
+  </aside>
+</section>
+
+{% endblock %}

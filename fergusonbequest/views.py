@@ -13,10 +13,42 @@ from django.db import transaction
 from django.db.models import Q, F, Sum
 from django.db.models.functions import Coalesce, Least
 from django.utils.dateparse import parse_date
+from django.contrib.admin.views.decorators import staff_member_required
+
 
 User = get_user_model()
 
 # Create your views here.
+
+@staff_member_required
+def admin_dashboard(request):
+    """
+    Tier A (Lightweight Version): Admin Workbench Page
+    - Statistics: Active Draws / Open Venues / Bookings / Pending Requests
+    - Entry Point: Redirects to Django Admin or an existing page
+    - Permissions: Staff only
+    """
+    now = timezone.now()
+
+    # TicketDraw.is_open / Attraction.is_open are Python methods and cannot be directly filtered by an ORM, so sum + iteration is used.
+    active_draws_count = sum(1 for d in TicketDraw.objects.all() if d.is_open(now))
+    open_venues_count = sum(1 for a in Attraction.objects.all() if a.is_open(now))
+
+    bookings_count = Booking.objects.filter(cancelled=False).count()
+    pending_requests_count = TicketDrawBooking.objects.filter(cancelled=False).count()
+
+    return render(
+        request,
+        "fergusonbequest/admin_dashboard.html",
+        {
+            "active_draws_count": active_draws_count,
+            "open_venues_count": open_venues_count,
+            "bookings_count": bookings_count,
+            "pending_requests_count": pending_requests_count,
+        },
+    )
+
+
 def home(request):
     if request.user.is_authenticated:
         return redirect('dashboard')
