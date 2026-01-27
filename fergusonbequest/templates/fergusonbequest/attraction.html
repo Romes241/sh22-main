@@ -20,22 +20,34 @@
     <!-- LEFT PANEL -->
     <div class="panel left-panel">
 
-      <a class="pill-link" href="{% url 'home' %}">
-        <div class="left-title">Attraction Name</div>
+      <a class="pill-link" href="{% url 'attraction' attraction.pk %}">
+        <div class="left-title">{{ attraction.name|default:"Attraction Name" }}</div>
       </a>
 
       <a class="clickable-box" href="{% url 'home' %}">
         <div class="image-box">
-          <div class="image-inner">Attraction Image</div>
+          {% if attraction.image %}
+            <img class="image-inner" src="{{ attraction.image.url }}" alt="{{ attraction.name }}">
+          {% else %}
+            <div class="image-inner">Attraction Image</div>
+          {% endif %}
         </div>
       </a>
 
-      <a class="location-row location-link"
-         href="https://www.google.com/maps"
-         target="_blank" rel="noopener">
-        <span class="location-icon">📍</span>
-        <span>Location of attraction</span>
-      </a>
+
+      {% if attraction.location %}
+        <a class="location-row location-link"
+           href="https://www.google.com/maps/search/?api=1&query={{ attraction.location|urlencode }}"
+           target="_blank" rel="noopener">
+          <span class="location-icon">📍</span>
+          <span>{{ attraction.location }}</span>
+        </a>
+      {% else %}
+        <div class="location-row">
+          <span class="location-icon">📍</span>
+          <span>Google Maps</span>
+        </div>
+      {% endif %}
 
     </div>
 
@@ -64,26 +76,43 @@
         </a>
 
         <div class="panel-body">
-          <div class="allowance">
-            Your remaining allowance: #/3 attractions this year
-          </div>
+          {% if remaining_allowance is not None %}
+            <div class="allowance">Your remaining allowance: {{ remaining_allowance }}/3 attractions this year</div>
+          {% else %}
+            <div class="allowance">Your remaining allowance: —/3 attractions this year</div>
+          {% endif %}
 
-          <div class="form-line">
-            <label>Select date:</label>
-            <input type="date">
-          </div>
+          {% if available_slots %}
+            <form method="POST" action="{% url 'attraction_book' attraction_pk=attraction.pk %}">
+                {% csrf_token %}
 
-          <div class="form-line">
-            <label>Select time:</label>
-            <select>
-              <option>Drop down</option>
-            </select>
-          </div>
+              <!-- Date dropdown -->
+              <div class="form-line">
+                <label for="date-select">Select date:</label>
+                <select id="date-select" name="date_choice" required>
+                  <option value="" selected disabled>Choose a date</option>
+                </select>
+              </div>
 
-          <a class="btn primary"
-                 href="{% url 'attraction_book' attraction_pk=attraction.pk %}">
+
+              <!-- Time dropdown -->
+              <div class="form-line">
+                <label for="time-select">Select time:</label>
+                <select id="time-select" required disabled>
+                  <option value="" selected disabled>Choose a time</option>
+                </select>
+              </div>
+
+              <input type="hidden" id="slot-id" name="slot" value="">
+
+              <button class="btn primary" type="submit" id="book-btn" disabled>
                 Book now
-          </a>
+              </button>
+            </form>
+          {% else %}
+            <div class="detail-line">No future slots available for booking.</div>
+            <button class="btn primary" type="button" disabled>Book now</button>
+          {% endif %}
         </div>
       </div>
 
