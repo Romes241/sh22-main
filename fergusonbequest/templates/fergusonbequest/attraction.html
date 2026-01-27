@@ -86,29 +86,25 @@
             <form method="POST" action="{% url 'attraction_book' attraction_pk=attraction.pk %}">
                 {% csrf_token %}
 
-              <!-- Date dropdown -->
-              <div class="form-line">
-                <label for="date-select">Select date:</label>
-                <select id="date-select" name="date_choice" required>
-                  <option value="" selected disabled>Choose a date</option>
-                </select>
-              </div>
+                <div class="form-line">
+                  <label for="slot-select">Select date & time:</label>
+                  <select id="slot-select" name="slot" required>
+                    <option value="" selected disabled>Choose a slot</option>
 
-
-              <!-- Time dropdown -->
-              <div class="form-line">
-                <label for="time-select">Select time:</label>
-                <select id="time-select" required disabled>
-                  <option value="" selected disabled>Choose a time</option>
-                </select>
-              </div>
-
-              <input type="hidden" id="slot-id" name="slot" value="">
-
+                    {% for s in available_slots %}
+                      {% if s.remaining > 0 %}
+                        <option value="{{ s.id }}">
+                          {{ s.date|date:"d/m/Y" }} — {{ s.time|time:"H:i" }} ({{ s.remaining }} left)
+                        </option>
+                      {% endif %}
+                    {% endfor %}
+                  </select>
+                </div>
               <button class="btn primary" type="submit" id="book-btn" disabled>
                 Book now
               </button>
             </form>
+
           {% else %}
             <div class="detail-line">No future slots available for booking.</div>
             <button class="btn primary" type="button" disabled>Book now</button>
