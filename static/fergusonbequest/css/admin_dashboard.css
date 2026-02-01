@@ -41,7 +41,7 @@
   border-radius: 18px;
   text-decoration: none;
   color: #fff;
-  background: linear-gradient(135deg, #1f5cff 0%, #1233a3 100%);
+  background: linear-gradient(135deg, #002663 0%, #001a80 100%);
   box-shadow: 0 14px 28px rgba(0,0,0,0.18);
   position: relative;
   overflow: hidden;
@@ -103,11 +103,7 @@
   padding: 14px 18px;
   font-weight: 600;
   color: #fff;
-  background: linear-gradient(135deg, #1f5cff 0%, #1233a3 100%);
-}
-
-.ad-panel--reminders .ad-panel__title {
-  background: linear-gradient(135deg, #ff8a00 0%, #f06b00 100%);
+  background: linear-gradient(135deg, #002663 0%, #001a80 100%);
 }
 
 .ad-panel__body {
@@ -126,11 +122,7 @@
 }
 
 .ad-link:hover {
-  background: rgba(31, 92, 255, 0.08);
-}
-
-.ad-panel--reminders .ad-link:hover {
-  background: rgba(255, 138, 0, 0.12);
+  background: rgba(0, 38, 99, 0.08);
 }
 
 .ad-link__icon {
@@ -142,10 +134,6 @@
   align-items: center;
   justify-content: center;
   font-weight: 700;
-}
-
-.ad-panel--reminders .ad-link__icon {
-  background: rgba(255, 138, 0, 0.14);
 }
 
 .ad-link__text {
