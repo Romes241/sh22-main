@@ -11,7 +11,7 @@
 
 <div class="attraction-page">
 
-  <a class="back-link" href="{% url 'home' %}">
+  <a class="back-link" href="{% url 'attractions' %}">
     <span class="back-text">Back to attractions</span> ←
   </a>
 
@@ -20,11 +20,8 @@
     <!-- LEFT PANEL -->
     <div class="panel left-panel">
 
-      <a class="pill-link" href="{% url 'attraction' attraction.pk %}">
         <div class="left-title">{{ attraction.name|default:"Attraction Name" }}</div>
-      </a>
 
-      <a class="clickable-box" href="{% url 'home' %}">
         <div class="image-box">
           {% if attraction.image %}
             <img class="image-inner" src="{{ attraction.image.url }}" alt="{{ attraction.name }}">
@@ -32,8 +29,6 @@
             <div class="image-inner">Attraction Image</div>
           {% endif %}
         </div>
-      </a>
-
 
       {% if attraction.location %}
         <a class="location-row location-link"
@@ -55,25 +50,35 @@
     <div class="right-col">
 
       <div class="panel">
-        <a class="heading-link" href="{% url 'home' %}">
           <div class="panel-heading">Details</div>
-        </a>
 
         <div class="panel-body">
-          <div class="detail-line">Available dates:</div>
-          <div class="detail-line">Duration:</div>
-          <div class="detail-line">Description:</div>
+        <div class="detail-line">
+            <strong>Available dates:</strong>
+            {{ available_slots.0.date|date:"d/m/Y" }}
+        </div>
+            <div class="detail-line">
+            <strong>Duration:</strong>
+            {% if attraction.duration_minutes %}
+              {{ attraction.duration_minutes }} minutes
+            {% else %}
+              —
+            {% endif %}
+            </div>
+          <div class="detail-line">
+            <strong>Description:</strong> {{ attraction.description|default:"—" }}
+          </div>
 
           <div class="spacer"></div>
 
-          <div class="detail-line">Contact:</div>
+          <div class="detail-line">
+            <strong>Contact:</strong> {{ attraction.contact_email|default:"—" }}
+          </div>
         </div>
       </div>
 
       <div class="panel">
-        <a class="heading-link" href="{% url 'dashboard' %}">
           <div class="panel-heading">Reserve Attraction</div>
-        </a>
 
         <div class="panel-body">
           {% if remaining_allowance is not None %}
@@ -100,7 +105,7 @@
                     {% endfor %}
                   </select>
                 </div>
-              <button class="btn primary" type="submit" id="book-btn" disabled>
+              <button class="btn primary" type="submit" id="book-btn" >
                 Book now
               </button>
             </form>
@@ -111,10 +116,7 @@
           {% endif %}
         </div>
       </div>
-
     </div>
-
   </div>
 </div>
-
 {% endblock %}
