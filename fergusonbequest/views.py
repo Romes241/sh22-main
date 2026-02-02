@@ -155,32 +155,49 @@ def register_view(request):
 
 @login_required
 def dashboard_view(request):
-    featured_attractions = [
-        {
-            "title": "Blair Drummond Safari Park",
-            "subtitle": "Safari and adventure park.",
-            "image": "fergusonbequest/img/blair_drumond.jpg",
-            "url": "https://www.blairdrummond.com",
-        },
-        {
-            "title": "Glasgow Clan Ice Hockey",
-            "subtitle": "The city's professional hockey team.",
-            "image": "fergusonbequest/img/glasgow_clan.jpg",
-            "url": "https://clanihc.com",
-        },
-        {
-            "title": "Edinburgh Zoo",
-            "subtitle": "Scotland's most famous zoo.",
-            "image": "fergusonbequest/img/edinburgh_zoo.jpg",
-            "url": "https://www.edinburghzoo.org.uk",
-        },
-        {
-            "title": "Ghostbusters Screening",
-            "subtitle": "Who you gonna call?",
-            "image": "fergusonbequest/img/ghostbusters.jpg",
-            "url": "https://www.imdb.com/title/tt0087332/",
-        },
-    ]
+    attractions_qs = Attraction.objects.all().order_by('name')[:4]
+    
+    featured_attractions = []
+    for attr in attractions_qs:
+        featured_attractions.append({
+            "title": attr.name,
+            "subtitle": attr.description[:100] if attr.description else attr.location or "Book now to visit",
+            "image": attr.image.name if attr.image else "fergusonbequest/img/placeholder.jpg",
+            "id": attr.id,
+            "url": f"/attraction/{attr.id}/book/",
+        })
+    
+    if not featured_attractions:
+        featured_attractions = [
+            {
+                "title": "Blair Drummond Safari Park",
+                "subtitle": "Safari and adventure park.",
+                "image": "fergusonbequest/img/blair_drumond.jpg",
+                "id": None,
+                "url": "/attractions/",
+            },
+            {
+                "title": "Glasgow Clan Ice Hockey",
+                "subtitle": "The city's professional hockey team.",
+                "image": "fergusonbequest/img/glasgow_clan.jpg",
+                "id": None,
+                "url": "/attractions/",
+            },
+            {
+                "title": "Edinburgh Zoo",
+                "subtitle": "Scotland's most famous zoo.",
+                "image": "fergusonbequest/img/edinburgh_zoo.jpg",
+                "id": None,
+                "url": "/attractions/",
+            },
+            {
+                "title": "Ghostbusters Screening",
+                "subtitle": "Who you gonna call?",
+                "image": "fergusonbequest/img/ghostbusters.jpg",
+                "id": None,
+                "url": "/attractions/",
+            },
+        ]
 
     return render(request, "fergusonbequest/dashboard.html", {"featured_attractions": featured_attractions})
 
