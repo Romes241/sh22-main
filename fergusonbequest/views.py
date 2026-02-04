@@ -6,7 +6,7 @@ from django.contrib import messages
 from django import forms
 from .models import Attraction, VisitSlot, Booking, Profile, TicketDraw, TicketDrawBooking, TicketDrawVisitSlot
 from django.shortcuts import render
-from .forms import BookingForm
+from .forms import BookingForm, AttractionCreateForm, TicketDrawCreateForm
 from django.utils import timezone
 import datetime
 from django.db import transaction
@@ -523,3 +523,89 @@ def waiting_list(request):
     return render(request, "fergusonbequest/waiting_list.html", {
         "ticket_draws": ticket_draws,
     })
+
+@staff_member_required
+def create_attraction(request):
+    """
+    Staff-only view to create a new attraction.
+    """
+    if request.method == 'POST':
+        form = AttractionCreateForm(request.POST, request.FILES)
+        if form.is_valid():
+            attraction = form.save()
+            messages.success(request, f'Attraction "{attraction.name}" created successfully!')
+            return redirect('admin_dashboard')
+    else:
+        form = AttractionCreateForm()
+    
+    return render(request, 'fergusonbequest/create_attraction.html', {
+        'form': form,
+        'title': 'Create New Attraction'
+    })
+
+
+@staff_member_required
+def create_ticket_draw(request):
+    """
+    Staff-only view to create a new ticket draw.
+    """
+    if request.method == 'POST':
+        form = TicketDrawCreateForm(request.POST, request.FILES)
+        if form.is_valid():
+            ticket_draw = form.save()
+            messages.success(request, f'Ticket Draw "{ticket_draw.name}" created successfully!')
+            return redirect('admin_dashboard')
+    else:
+        form = TicketDrawCreateForm()
+    
+    return render(request, 'fergusonbequest/create_ticket_draw.html', {
+        'form': form,
+        'title': 'Create New Ticket Draw'
+    })
+
+
+@staff_member_required
+def edit_attraction(request, pk):
+    """
+    Staff-only view to edit an existing attraction.
+    """
+    attraction = get_object_or_404(Attraction, pk=pk)
+    
+    if request.method == 'POST':
+        form = AttractionCreateForm(request.POST, request.FILES, instance=attraction)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Attraction "{attraction.name}" updated successfully!')
+            return redirect('admin_dashboard')
+    else:
+        form = AttractionCreateForm(instance=attraction)
+    
+    return render(request, 'fergusonbequest/edit_attraction.html', {
+        'form': form,
+        'title': 'Edit Attraction',
+        'attraction': attraction
+    })
+
+
+@staff_member_required
+def edit_ticket_draw(request, pk):
+    """
+    Staff-only view to edit an existing ticket draw.
+    """
+    ticket_draw = get_object_or_404(TicketDraw, pk=pk)
+    
+    if request.method == 'POST':
+        form = TicketDrawCreateForm(request.POST, request.FILES, instance=ticket_draw)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Ticket Draw "{ticket_draw.name}" updated successfully!')
+            return redirect('admin_dashboard')
+    else:
+        form = TicketDrawCreateForm(instance=ticket_draw)
+    
+    return render(request, 'fergusonbequest/edit_ticket_draw.html', {
+        'form': form,
+        'title': 'Edit Ticket Draw',
+        'ticket_draw': ticket_draw
+    })
+

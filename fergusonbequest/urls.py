@@ -21,6 +21,10 @@ urlpatterns = [
     path('waiting-list/cancel/<int:pk>/', views.cancel_ticket_draw_entry, name='cancel_draw_entry'),
     path("attractions/", views.attractions_view, name="attractions"),
     path("admin-dashboard/", views.admin_dashboard, name="admin_dashboard"),
+    path("create-attraction/", views.create_attraction, name="create_attraction"),
+    path("edit-attraction/<int:pk>/", views.edit_attraction, name="edit_attraction"),
+    path("create-ticket-draw/", views.create_ticket_draw, name="create_ticket_draw"),
+    path("edit-ticket-draw/<int:pk>/", views.edit_ticket_draw, name="edit_ticket_draw"),
 ]
 
 
