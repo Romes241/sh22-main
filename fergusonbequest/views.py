@@ -430,7 +430,7 @@ def booking_view(request, attraction_pk):
 
     booking_summary = {"price": "Free"}
 
-    # --- Allowance (per calendar year) ---
+    #  Allowance (per calendar year)
     current_year = timezone.now().year
 
     # Count active bookings in the current year (cancelled bookings do NOT count)
@@ -447,7 +447,6 @@ def booking_view(request, attraction_pk):
         messages.error(request, msg)
         return redirect("booking_history")
 
-    # ✅ OPTION 2: block immediately when clicking "Book now" (GET)
     if request.method == "GET":
         # 1) Allowance check first (don’t let them fill anything)
         if remaining_allowance <= 0:
