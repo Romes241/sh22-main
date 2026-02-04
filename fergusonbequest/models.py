@@ -62,16 +62,16 @@ class Attraction(models.Model):
         """
         return sum(s.remaining for s in self.slots.all())
 
-        cancel_deadline = models.DateTimeField(
-            null=True,
-            blank=True,
-            help_text="Users can cancel their booking until this date/time. Leave empty for 'no cancellation allowed'."
-        )
+    cancel_deadline = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Users can cancel their booking until this date/time. Leave empty for 'no cancellation allowed'."
+    )
 
-        def can_cancel_booking(self):
-            if not self.cancel_deadline:
-                return False
-            return timezone.now() <= self.cancel_deadline
+    def can_cancel_booking(self):
+        if not self.cancel_deadline:
+            return False
+        return timezone.now() <= self.cancel_deadline
 
 class TicketDraw(models.Model):
     name = models.CharField(max_length=120)
@@ -186,9 +186,9 @@ class Booking(models.Model):
         ordering = ("-created_at",)
         constraints = [
             models.UniqueConstraint(
-                fields=["user", "attraction"],
+                fields=["user", "slot"],
                 condition=Q(cancelled=False),
-                name="unique_active_booking_per_attraction_per_user",
+                name="unique_active_booking_per_slot_per_user",
             )
         ]
 

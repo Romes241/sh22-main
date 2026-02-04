@@ -13,6 +13,7 @@ from django.db.models.functions import Coalesce, Least
 from django.utils.dateparse import parse_date
 from django.contrib.admin.views.decorators import staff_member_required
 from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_http_methods
 
 User = get_user_model()
 MAX_ATTRACTIONS_PER_YEAR = 3
@@ -418,6 +419,7 @@ def attractions_view(request):
         "types": [],
         "type_filter": "",
     })
+
 @login_required
 def booking_view(request, attraction_pk):
     attraction = get_object_or_404(Attraction, pk=attraction_pk)
@@ -430,7 +432,7 @@ def booking_view(request, attraction_pk):
 
     booking_summary = {"price": "Free"}
 
-    #  Allowance (per calendar year)
+    # Allowance (per calendar year)
     current_year = timezone.now().year
 
     # Count active bookings in the current year (cancelled bookings do NOT count)
@@ -447,28 +449,38 @@ def booking_view(request, attraction_pk):
         messages.error(request, msg)
         return redirect("booking_history")
 
+    # GET: show booking form
     if request.method == "GET":
-        # 1) Allowance check first (don’t let them fill anything)
+        # Allowance check first
         if remaining_allowance <= 0:
             return redirect_to_history_with(
                 f"You have reached your yearly limit of {MAX_ATTRACTIONS_PER_YEAR} attractions. "
                 "Please cancel/delete an existing booking in Booking History before booking again."
             )
 
-        # 2) Duplicate booking for same attraction check
-        already = Booking.objects.filter(
-            user=request.user,
-            attraction=attraction,
-            cancelled=False
-        ).exists()
+        # Duplicate booking check (specific slot)
+        slot_id = request.GET.get("slot")
 
-        if already:
+        # ADDED: validate slot belongs to this attraction
+        if slot_id and not available_slots.filter(pk=slot_id).exists():
             return redirect_to_history_with(
-                "Oops — you already have a booking for this attraction. "
-                "Please cancel/delete your old booking in Booking History before booking again."
+                "Invalid slot selected for this attraction."
             )
 
-        slot_id = request.GET.get("slot")
+        if slot_id:
+            already = Booking.objects.filter(
+                user=request.user,
+                slot_id=slot_id,
+                cancelled=False
+            ).exists()
+
+            if already:
+                return redirect_to_history_with(
+                    "Oops — you already have a booking for this time slot. "
+                    "Please cancel it in Booking History before booking again."
+                )
+
+        # Pre-select slot in the form if provided in querystring
         form = BookingForm(
             attraction=attraction,
             initial={"slot": slot_id} if slot_id else None
@@ -484,12 +496,11 @@ def booking_view(request, attraction_pk):
             "now": timezone.now(),
         })
 
-    # POST
+    # POST: attempt to create booking
     form = BookingForm(request.POST, attraction=attraction)
 
     if form.is_valid():
-        # Allowance check (POST safety)
-        # Recompute inside POST in case they opened the page earlier and used up allowance elsewhere.
+        # Recompute allowance inside POST in case they opened the page earlier and used up allowance elsewhere
         active_yearly_count = Booking.objects.filter(
             user=request.user,
             cancelled=False,
@@ -497,33 +508,44 @@ def booking_view(request, attraction_pk):
         ).count()
         remaining_allowance = max(0, MAX_ATTRACTIONS_PER_YEAR - active_yearly_count)
 
+        # Allowance check (POST safety)
         if remaining_allowance <= 0:
             return redirect_to_history_with(
                 f"You have reached your yearly limit of {MAX_ATTRACTIONS_PER_YEAR} attractions. "
                 "Please cancel/delete an existing booking in Booking History before booking again."
             )
 
-        # Duplicate per attraction (POST safety)
+        # Build the booking object once
+        booking = form.save(commit=False)
+        booking.user = request.user
+        booking.attraction = attraction
+
+        # ADDED: validate slot belongs to this attraction
+        if booking.slot.attraction_id != attraction.id:
+            return redirect_to_history_with(
+                "Invalid slot selected for this attraction."
+            )
+
+        # Duplicate booking check (specific slots only)
         already = Booking.objects.filter(
             user=request.user,
-            attraction=attraction,
+            slot=booking.slot,
             cancelled=False
         ).exists()
 
         if already:
             return redirect_to_history_with(
-                "Oops — you already have a booking for this attraction. "
-                "Please cancel/delete your old booking in Booking History before booking again."
+                "Oops — you already have a booking for this time slot. "
+                "Please cancel it in Booking History before booking again."
             )
 
-        booking = form.save(commit=False)
-        booking.user = request.user
-        booking.attraction = attraction
-
         try:
+            # capacity update + save booking
             with transaction.atomic():
+                # Lock the slot row so remaining tickets can't be oversold
                 slot = VisitSlot.objects.select_for_update().get(pk=booking.slot.pk)
 
+                # Server-side availability check
                 if slot.remaining < booking.num_tickets:
                     form.add_error("slot", "Not enough tickets remaining for this slot.")
                     return render(request, "fergusonbequest/booking_page.html", {
@@ -536,21 +558,24 @@ def booking_view(request, attraction_pk):
                         "now": timezone.now(),
                     })
 
+                # Save booking
                 booking.save()
 
-                slot.remaining = F("remaining") - booking.num_tickets
-                slot.save(update_fields=["remaining"])
+                # Decrement slot remaining
+                VisitSlot.objects.filter(pk=slot.pk).update(
+                    remaining=F("remaining") - booking.num_tickets
+                )
 
             messages.success(request, "Booking confirmed!")
             return redirect("booking_history")
 
         except IntegrityError:
             return redirect_to_history_with(
-                "Duplicate booking detected. "
-                "Please cancel your old booking in Booking History before booking again."
+                "Duplicate booking detected for this time slot. "
+                "Please cancel it in Booking History before booking again."
             )
 
-    # Form invalid
+    # Form invalid re-render with errors
     return render(request, "fergusonbequest/booking_page.html", {
         "attraction": attraction,
         "available_slots": available_slots,
