@@ -4,6 +4,63 @@
   padding: 20px;
   background: #f5f7fb;
 }
+/* Error message for duplicate bookings */
+.fb-messages{
+  width: min(1100px, 92%);
+  margin: 18px auto 0;
+}
+
+.fb-alert{
+  border: 1px solid #cfcfcf;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  background: #fff;
+}
+
+.fb-alert--error{
+  border-color: #dc2626;
+  background: rgba(220,38,38,0.08);
+}
+
+.fb-alert--success{
+  border-color: #16a34a;
+  background: rgba(22,163,74,0.08);
+}
+
+.fb-alert--warning{
+  border-color: #f59e0b;
+  background: rgba(245,158,11,0.10);
+}
+
+.fb-alert--info{
+  border-color: #2563eb;
+  background: rgba(37,99,235,0.08);
+}
+
+/* booking allowance */
+.bh-allowance {
+  margin-top: 10px;
+  margin-bottom: 18px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #eef3ff;
+  color: #0b2f6b;
+  font-weight: 600;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.bh-allowance strong {
+  font-weight: 800;
+}
+
+.bh-allowance--none {
+  background: #fde8e8;
+  color: #b91c1c;
+}
 
 .booking-controls-card {
   border-radius: 20px;

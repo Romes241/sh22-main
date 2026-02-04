@@ -10,19 +10,35 @@
 {% block content %}
 
 <div class="bh-page">
-
+  {% if messages %}
+  <div class="fb-messages">
+    {% for message in messages %}
+      <div class="fb-alert
+                  {% if message.tags %}fb-alert--{{ message.tags }}{% endif %}"
+           role="alert">
+        {{ message }}
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
   <form method="get" class="fb-card booking-controls-card" id="filter-form">
     
     <div class="bh-controls-row">
       <div class="bh-left-section">
         <h1 class="bh-title">Booking History</h1>
+
         <div class="bh-search-group">
           <label class="fb-label" for="bh-search">Search:</label>
           <input id="bh-search" name="q" type="search" class="bh-search-input" placeholder="Search Bar" value="{{ request.GET.q|default:'' }}" />
         </div>
       </div>
-      
+
       <div class="bh-middle-section">
+          <div class="bh-allowance {% if remaining_allowance == 0 %}bh-allowance--none{% endif %}">
+          <strong>Your yearly booking allowance:</strong>
+          <strong>{{ remaining_allowance }}/{{ max_allowance }}</strong>
+        </div>
+
         <div class="bh-filter-group">
           <span class="fb-label">Filter By:</span>
           <select id="when-filter" name="when" class="bh-filter-dropdown" onchange="document.getElementById('filter-form').submit();">
@@ -55,6 +71,7 @@
             <th>Return Date</th>
             <th>Venue Name</th>
             <th>Collection Location</th>
+            <th>Tickets</th>
             <th>Ticket Number</th>
             <th>Cancel Status</th>
           </tr>
@@ -66,12 +83,18 @@
               <td>{{ b.created_at|date:"d/m/Y" }}</td>
               <td class="bh-venue">{{ b.attraction.name }}</td>
               <td>{{ b.email|default:"E-ticket" }}</td>
+              <td>{{ b.num_tickets }}</td>
               <td class="bh-ticket">{{ b.ticket_code|default:b.id }}</td>
               <td class="bh-cancel-cell">
                 {% if b.cancelled %}
                   Cancelled
+                {% elif b.attraction.cancel_deadline and now <= b.attraction.cancel_deadline %}
+                  <form method="post" action="{% url 'cancel_booking' b.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="fb-btn fb-btn--primary">Cancel</button>
+                  </form>
                 {% else %}
-                  <button type="button" class="fb-btn fb-btn--primary" data-booking-id="{{ b.id }}">Cancel</button>
+                  Not available
                 {% endif %}
               </td>
             </tr>
@@ -98,6 +121,7 @@
             <th>Return Date</th>
             <th>Venue Name</th>
             <th>Collection Location</th>
+            <th>Tickets</th>
             <th>Ticket Number</th>
             <th>Collected/Cancelled</th>
           </tr>
@@ -109,6 +133,7 @@
               <td>{{ b.created_at|date:"d/m/Y" }}</td>
               <td class="bh-venue">{{ b.attraction.name }}</td>
               <td>{{ b.email|default:"E-ticket" }}</td>
+              <td>{{ b.num_tickets }}</td>
               <td class="bh-ticket">{{ b.ticket_code|default:b.id }}</td>
               <td>
                 {% if b.cancelled %}

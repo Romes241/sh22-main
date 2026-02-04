@@ -1,21 +1,21 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import login, logout, authenticate, get_user_model
+from django.contrib.auth import login, logout, get_user_model
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from django import forms
 from .models import Attraction, VisitSlot, Booking, Profile, TicketDraw, TicketDrawBooking, TicketDrawVisitSlot
 from .forms import BookingForm
 from django.utils import timezone
 import datetime
-from django.db import transaction
-from django.db.models import Q, F, Sum
+from django.db import transaction, IntegrityError
+from django.db.models import Q, F, Sum, Count
 from django.db.models.functions import Coalesce, Least
 from django.utils.dateparse import parse_date
 from django.contrib.admin.views.decorators import staff_member_required
-
+from django.views.decorators.http import require_POST
 
 User = get_user_model()
+MAX_ATTRACTIONS_PER_YEAR = 3
 
 # Create your views here.
 
@@ -367,9 +367,20 @@ def attractions_view(request):
     location = request.GET.get("location", "").strip()
     sort = request.GET.get("sort", "name").strip()
 
+    today = timezone.now().date()
+
     attractions = (
         Attraction.objects
-        .annotate(tickets_left_total=Coalesce(Sum("slots__remaining"), 0))
+        .annotate(
+            future_slots_count=Count("slots", filter=Q(slots__date__gte=today), distinct=True),
+            tickets_left_total=Coalesce(
+                Sum("slots__remaining", filter=Q(slots__date__gte=today)),
+                0
+            ),
+        )
+        # hide past attractions
+        .filter(future_slots_count__gt=0)
+        .distinct()
     )
 
     if q:
@@ -387,10 +398,7 @@ def attractions_view(request):
         attractions = attractions.filter(location__iexact=location)
 
     if d:
-        attractions = attractions.filter(
-            slots__date__gte=d,
-            slots__remaining__gt=0
-        ).distinct()
+        attractions = attractions.filter(slots__date__gte=d).distinct()
 
     if sort == "tickets":
         attractions = attractions.order_by("-tickets_left_total", "name")
@@ -410,37 +418,160 @@ def attractions_view(request):
         "types": [],
         "type_filter": "",
     })
+@login_required
 def booking_view(request, attraction_pk):
     attraction = get_object_or_404(Attraction, pk=attraction_pk)
-    available_slots = VisitSlot.objects.filter(attraction=attraction, date__gte=timezone.now().date())
-    booking_summary = {'price': 'Free'}
-    if request.method == 'POST':
-        form = BookingForm(request.POST, attraction=attraction)
-        if form.is_valid():
-            booking = form.save(commit=False)
-            if request.user.is_authenticated:
-                booking.user = request.user
-            booking.attraction = attraction
-            booking.save()
-            # reduce slot remaining
-            booking.slot.remaining = max(0, booking.slot.remaining - 1)
-            booking.slot.save()
-            return redirect('dashboard')
-    else:
+
+    # Only future slots should be selectable
+    available_slots = VisitSlot.objects.filter(
+        attraction=attraction,
+        date__gte=timezone.now().date()
+    ).order_by("date", "time")
+
+    booking_summary = {"price": "Free"}
+
+    # --- Allowance (per calendar year) ---
+    current_year = timezone.now().year
+
+    # Count active bookings in the current year (cancelled bookings do NOT count)
+    active_yearly_count = Booking.objects.filter(
+        user=request.user,
+        cancelled=False,
+        created_at__year=current_year
+    ).count()
+
+    remaining_allowance = max(0, MAX_ATTRACTIONS_PER_YEAR - active_yearly_count)
+
+    # Helper: redirect with consistent message
+    def redirect_to_history_with(msg):
+        messages.error(request, msg)
+        return redirect("booking_history")
+
+    # ✅ OPTION 2: block immediately when clicking "Book now" (GET)
+    if request.method == "GET":
+        # 1) Allowance check first (don’t let them fill anything)
+        if remaining_allowance <= 0:
+            return redirect_to_history_with(
+                f"You have reached your yearly limit of {MAX_ATTRACTIONS_PER_YEAR} attractions. "
+                "Please cancel/delete an existing booking in Booking History before booking again."
+            )
+
+        # 2) Duplicate booking for same attraction check
+        already = Booking.objects.filter(
+            user=request.user,
+            attraction=attraction,
+            cancelled=False
+        ).exists()
+
+        if already:
+            return redirect_to_history_with(
+                "Oops — you already have a booking for this attraction. "
+                "Please cancel/delete your old booking in Booking History before booking again."
+            )
+
         form = BookingForm(attraction=attraction)
 
-    return render(request, 'fergusonbequest/booking_page.html', {
-        'attraction': attraction,
-        'available_slots': available_slots,
-        'form': form,
-        'booking_summary': booking_summary,
-    })
+        return render(request, "fergusonbequest/booking_page.html", {
+            "attraction": attraction,
+            "available_slots": available_slots,
+            "form": form,
+            "booking_summary": booking_summary,
+            "remaining_allowance": remaining_allowance,
+            "max_allowance": MAX_ATTRACTIONS_PER_YEAR,
+            "now": timezone.now(),
+        })
 
+    # POST
+    form = BookingForm(request.POST, attraction=attraction)
+
+    if form.is_valid():
+        # Allowance check (POST safety)
+        # Recompute inside POST in case they opened the page earlier and used up allowance elsewhere.
+        active_yearly_count = Booking.objects.filter(
+            user=request.user,
+            cancelled=False,
+            created_at__year=current_year
+        ).count()
+        remaining_allowance = max(0, MAX_ATTRACTIONS_PER_YEAR - active_yearly_count)
+
+        if remaining_allowance <= 0:
+            return redirect_to_history_with(
+                f"You have reached your yearly limit of {MAX_ATTRACTIONS_PER_YEAR} attractions. "
+                "Please cancel/delete an existing booking in Booking History before booking again."
+            )
+
+        # Duplicate per attraction (POST safety)
+        already = Booking.objects.filter(
+            user=request.user,
+            attraction=attraction,
+            cancelled=False
+        ).exists()
+
+        if already:
+            return redirect_to_history_with(
+                "Oops — you already have a booking for this attraction. "
+                "Please cancel/delete your old booking in Booking History before booking again."
+            )
+
+        booking = form.save(commit=False)
+        booking.user = request.user
+        booking.attraction = attraction
+
+        try:
+            with transaction.atomic():
+                slot = VisitSlot.objects.select_for_update().get(pk=booking.slot.pk)
+
+                if slot.remaining < booking.num_tickets:
+                    form.add_error("slot", "Not enough tickets remaining for this slot.")
+                    return render(request, "fergusonbequest/booking_page.html", {
+                        "attraction": attraction,
+                        "available_slots": available_slots,
+                        "form": form,
+                        "booking_summary": booking_summary,
+                        "remaining_allowance": remaining_allowance,
+                        "max_allowance": MAX_ATTRACTIONS_PER_YEAR,
+                        "now": timezone.now(),
+                    })
+
+                booking.save()
+
+                slot.remaining = F("remaining") - booking.num_tickets
+                slot.save(update_fields=["remaining"])
+
+            messages.success(request, "Booking confirmed!")
+            return redirect("dashboard")
+
+        except IntegrityError:
+            return redirect_to_history_with(
+                "Duplicate booking detected. "
+                "Please cancel your old booking in Booking History before booking again."
+            )
+
+    # Form invalid
+    return render(request, "fergusonbequest/booking_page.html", {
+        "attraction": attraction,
+        "available_slots": available_slots,
+        "form": form,
+        "booking_summary": booking_summary,
+        "remaining_allowance": remaining_allowance,
+        "max_allowance": MAX_ATTRACTIONS_PER_YEAR,
+        "now": timezone.now(),
+    })
 
 @login_required
 def booking_history(request):
     """Show list of bookings for the logged in user."""
     user = request.user
+
+    current_year = timezone.now().year
+
+    active_yearly_count = Booking.objects.filter(
+        user=request.user,
+        cancelled=False,
+        created_at__year=current_year
+    ).count()
+
+    remaining_allowance = max(0, MAX_ATTRACTIONS_PER_YEAR - active_yearly_count)
 
     # Base queryset
     bookings = Booking.objects.filter(user=user).select_related('slot', 'attraction')
@@ -499,12 +630,16 @@ def booking_history(request):
         'future_bookings': future_bookings,
         'past_bookings': past_bookings,
         'when': when,
+        'now': timezone.now(),
+        "remaining_allowance": remaining_allowance,
+        "max_allowance": MAX_ATTRACTIONS_PER_YEAR,
     })
 
-
+@require_POST
 @login_required
 def cancel_booking(request, pk):
     """Allow the booking owner (or superuser) to cancel a future booking.
+       Cancelling restores slot capacity and also restores yearly allowance because cancelled bookings don't count.
     """
     booking = get_object_or_404(Booking, pk=pk)
 
@@ -512,18 +647,35 @@ def cancel_booking(request, pk):
     if not (request.user == booking.user or request.user.is_superuser):
         return redirect('booking_history')
 
+    # Only allow cancelling future bookings
     if booking.slot.date < timezone.now().date():
         return redirect('booking_history')
 
-    if request.method == 'POST':
-        with transaction.atomic():
-            b = Booking.objects.select_for_update().get(pk=booking.pk)
-            if not b.cancelled:
-                b.cancelled = True
-                b.save()
-                VisitSlot.objects.filter(pk=b.slot.pk).update(
-                    remaining=Least(F('remaining') + 1, F('capacity'))
-                )
+    with transaction.atomic():
+        b = Booking.objects.select_for_update().get(pk=booking.pk)
+
+        if not b.cancelled:
+            b.cancelled = True
+            b.save(update_fields=["cancelled"])
+
+            # restore capacity on the slot (cap at capacity)
+            VisitSlot.objects.filter(pk=b.slot.pk).update(
+                remaining=Least(F('remaining') + b.num_tickets, F('capacity'))
+            )
+
+            current_year = timezone.now().year
+            active_yearly_count = Booking.objects.filter(
+                user=b.user,
+                cancelled=False,
+                created_at__year=current_year
+            ).count()
+            remaining_allowance = max(0, MAX_ATTRACTIONS_PER_YEAR - active_yearly_count)
+
+            messages.success(
+                request,
+                f"Booking cancelled. You now have {remaining_allowance}/{MAX_ATTRACTIONS_PER_YEAR} bookings remaining for this year."
+            )
+
     return redirect('booking_history')
 
 
