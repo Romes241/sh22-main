@@ -3,8 +3,8 @@
 
 ## Done when:
 <!-- What needs to be done for this feature to be complete?  -->
-- 
-- 
+- [ ]
+- [ ]
 
 ## Owner + due date
 - Owner: @
