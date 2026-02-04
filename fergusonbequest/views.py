@@ -538,7 +538,7 @@ def booking_view(request, attraction_pk):
                 slot.save(update_fields=["remaining"])
 
             messages.success(request, "Booking confirmed!")
-            return redirect("dashboard")
+            return redirect("booking_history")
 
         except IntegrityError:
             return redirect_to_history_with(
