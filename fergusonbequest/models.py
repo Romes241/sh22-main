@@ -30,6 +30,8 @@ class Attraction(models.Model):
     # how many times a user can book this attraction per year
     # default value is the constant defined above
     per_year_limit = models.PositiveIntegerField(default=YEAR_LIMIT_DEFAULT)
+    # time that attraction would take
+    duration_minutes = models.PositiveIntegerField(null=True, blank=True)
 
     def __str__(self):
         return self.name

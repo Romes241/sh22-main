@@ -5,7 +5,6 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from django import forms
 from .models import Attraction, VisitSlot, Booking, Profile, TicketDraw, TicketDrawBooking, TicketDrawVisitSlot
-from django.shortcuts import render
 from .forms import BookingForm
 from django.utils import timezone
 import datetime
@@ -320,10 +319,25 @@ def terms(request):
 def attraction(request, pk):
     """Show attraction detail and available future slots."""
     attraction = get_object_or_404(Attraction, pk=pk)
-    available_slots = VisitSlot.objects.filter(attraction=attraction, date__gte=timezone.now().date())
+
+    available_slots = VisitSlot.objects.filter(
+        attraction=attraction,
+        date__gte=timezone.now().date()
+    ).order_by("date", "time")
+
+    year = timezone.now().year
+    used = Booking.objects.filter(
+        user=request.user,
+        cancelled=False,
+        created_at__year=year
+    ).count()
+
+    remaining_allowance = max(0, 3 - used)
+
     return render(request, 'fergusonbequest/attraction.html', {
         'attraction': attraction,
         'available_slots': available_slots,
+        'remaining_allowance': remaining_allowance,
     })
 
 def attractions_view(request):

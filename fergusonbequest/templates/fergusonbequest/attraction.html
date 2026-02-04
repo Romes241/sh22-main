@@ -11,7 +11,7 @@
 
 <div class="attraction-page">
 
-  <a class="back-link" href="{% url 'home' %}">
+  <a class="back-link" href="{% url 'attractions' %}">
     <span class="back-text">Back to attractions</span> ←
   </a>
 
@@ -20,22 +20,29 @@
     <!-- LEFT PANEL -->
     <div class="panel left-panel">
 
-      <a class="pill-link" href="{% url 'home' %}">
-        <div class="left-title">Attraction Name</div>
-      </a>
+        <div class="left-title">{{ attraction.name|default:"Attraction Name" }}</div>
 
-      <a class="clickable-box" href="{% url 'home' %}">
         <div class="image-box">
-          <div class="image-inner">Attraction Image</div>
+          {% if attraction.image %}
+            <img class="image-inner" src="{{ attraction.image.url }}" alt="{{ attraction.name }}">
+          {% else %}
+            <div class="image-inner">Attraction Image</div>
+          {% endif %}
         </div>
-      </a>
 
-      <a class="location-row location-link"
-         href="https://www.google.com/maps"
-         target="_blank" rel="noopener">
-        <span class="location-icon">📍</span>
-        <span>Location of attraction</span>
-      </a>
+      {% if attraction.location %}
+        <a class="location-row location-link"
+           href="https://www.google.com/maps/search/?api=1&query={{ attraction.location|urlencode }}"
+           target="_blank" rel="noopener">
+          <span class="location-icon">📍</span>
+          <span>{{ attraction.location }}</span>
+        </a>
+      {% else %}
+        <div class="location-row">
+          <span class="location-icon">📍</span>
+          <span>Google Maps</span>
+        </div>
+      {% endif %}
 
     </div>
 
@@ -43,53 +50,73 @@
     <div class="right-col">
 
       <div class="panel">
-        <a class="heading-link" href="{% url 'home' %}">
           <div class="panel-heading">Details</div>
-        </a>
 
         <div class="panel-body">
-          <div class="detail-line">Available dates:</div>
-          <div class="detail-line">Duration:</div>
-          <div class="detail-line">Description:</div>
+        <div class="detail-line">
+            <strong>Available dates:</strong>
+            {{ available_slots.0.date|date:"d/m/Y" }}
+        </div>
+            <div class="detail-line">
+            <strong>Duration:</strong>
+            {% if attraction.duration_minutes %}
+              {{ attraction.duration_minutes }} minutes
+            {% else %}
+              —
+            {% endif %}
+            </div>
+          <div class="detail-line">
+            <strong>Description:</strong> {{ attraction.description|default:"—" }}
+          </div>
 
           <div class="spacer"></div>
 
-          <div class="detail-line">Contact:</div>
+          <div class="detail-line">
+            <strong>Contact:</strong> {{ attraction.contact_email|default:"—" }}
+          </div>
         </div>
       </div>
 
       <div class="panel">
-        <a class="heading-link" href="{% url 'dashboard' %}">
           <div class="panel-heading">Reserve Attraction</div>
-        </a>
 
         <div class="panel-body">
-          <div class="allowance">
-            Your remaining allowance: #/3 attractions this year
-          </div>
+          {% if remaining_allowance is not None %}
+            <div class="allowance">Your remaining allowance: {{ remaining_allowance }}/3 attractions this year</div>
+          {% else %}
+            <div class="allowance">Your remaining allowance: —/3 attractions this year</div>
+          {% endif %}
 
-          <div class="form-line">
-            <label>Select date:</label>
-            <input type="date">
-          </div>
+          {% if available_slots %}
+            <form method="POST" action="{% url 'attraction_book' attraction_pk=attraction.pk %}">
+                {% csrf_token %}
 
-          <div class="form-line">
-            <label>Select time:</label>
-            <select>
-              <option>Drop down</option>
-            </select>
-          </div>
+                <div class="form-line">
+                  <label for="slot-select">Select date & time:</label>
+                  <select id="slot-select" name="slot" required>
+                    <option value="" selected disabled>Choose a slot</option>
 
-          <a class="btn primary"
-                 href="{% url 'attraction_book' attraction_pk=attraction.pk %}">
+                    {% for s in available_slots %}
+                      {% if s.remaining > 0 %}
+                        <option value="{{ s.id }}">
+                          {{ s.date|date:"d/m/Y" }} — {{ s.time|time:"H:i" }} ({{ s.remaining }} left)
+                        </option>
+                      {% endif %}
+                    {% endfor %}
+                  </select>
+                </div>
+              <button class="btn primary" type="submit" id="book-btn" >
                 Book now
-          </a>
+              </button>
+            </form>
+
+          {% else %}
+            <div class="detail-line">No future slots available for booking.</div>
+            <button class="btn primary" type="button" disabled>Book now</button>
+          {% endif %}
         </div>
       </div>
-
     </div>
-
   </div>
 </div>
-
 {% endblock %}
