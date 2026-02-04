@@ -82,8 +82,7 @@
 
         <!-- Bottom grey bar + Book now button -->
         <div class="fb-home-slider-footer">
-          <a id="fb-book-btn" href="#" class="fb-btn fb-btn--primary"
-             target="_blank" rel="noopener">
+          <a id="fb-book-btn" href="#" class="fb-btn fb-btn--primary">
             Book now
           </a>
         </div>
@@ -115,6 +114,15 @@
       var prevBtn = document.querySelector('.fb-slider-arrow--prev');
       var nextBtn = document.querySelector('.fb-slider-arrow--next');
 
+      function updateBookButtonUrl() {
+        if (slides[currentIndex]) {
+          var url = slides[currentIndex].getAttribute('data-book-url');
+          if (url) {
+            bookBtn.href = url;
+          }
+        }
+      }
+
       function showSlide(index) {
         if (index < 0) {
           index = slides.length - 1;
@@ -132,6 +140,8 @@
             dot.classList.toggle('fb-dot--active', i === currentIndex);
           });
         }
+
+        updateBookButtonUrl();
       }
 
       // Initial slide
