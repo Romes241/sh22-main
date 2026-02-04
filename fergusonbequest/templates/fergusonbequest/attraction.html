@@ -88,12 +88,13 @@
           {% endif %}
 
           {% if available_slots %}
-            <form method="POST" action="{% url 'attraction_book' attraction_pk=attraction.pk %}">
-                {% csrf_token %}
-
-                <div class="form-line">
+            <form method="GET"
+                  action="{% url 'attraction_book' attraction_pk=attraction.pk %}"
+                  novalidate>
+                <div class="form-line {% if form and form.errors.slot %}fb-form-row--error{% endif %}">
                   <label for="slot-select">Select date & time:</label>
-                  <select id="slot-select" name="slot" required>
+
+                  <select id="slot-select" name="slot">
                     <option value="" selected disabled>Choose a slot</option>
 
                     {% for s in available_slots %}
@@ -104,6 +105,12 @@
                       {% endif %}
                     {% endfor %}
                   </select>
+
+                  {% if form and form.errors.slot %}
+                    <div class="fb-field-error">
+                      {{ form.errors.slot|striptags }}
+                    </div>
+                  {% endif %}
                 </div>
               <button class="btn primary" type="submit" id="book-btn" >
                 Book now

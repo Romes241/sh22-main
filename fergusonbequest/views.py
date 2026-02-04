@@ -468,7 +468,11 @@ def booking_view(request, attraction_pk):
                 "Please cancel/delete your old booking in Booking History before booking again."
             )
 
-        form = BookingForm(attraction=attraction)
+        slot_id = request.GET.get("slot")
+        form = BookingForm(
+            attraction=attraction,
+            initial={"slot": slot_id} if slot_id else None
+        )
 
         return render(request, "fergusonbequest/booking_page.html", {
             "attraction": attraction,

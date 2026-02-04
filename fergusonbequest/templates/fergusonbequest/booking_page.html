@@ -8,7 +8,9 @@
 {% endblock %}
 
 {% block content %}
-    <p class="mt-3"><a href="{% url 'attraction' attraction.pk %}">Back to attraction</a></p>
+    <a class="back-link" href="{% url 'attraction' attraction.pk %}">
+      <span class="back-text">Back to attraction</span> ←
+    </a>
     <h1 class="fb-h1">Book: {{ attraction.name }}</h1>
     <div class="booking-grid">
 
