@@ -1,6 +1,9 @@
 from django.db import models
 from django.utils import timezone
 from django.conf import settings
+from django.core.validators import MinValueValidator, MaxValueValidator
+from django.db.models import Q
+
 # Create your models here.
 YEAR_LIMIT_DEFAULT = 3
 """
@@ -58,7 +61,18 @@ class Attraction(models.Model):
             self.slots -> all VisitSlot objects linked to this attraction.
         """
         return sum(s.remaining for s in self.slots.all())
-    
+
+    cancel_deadline = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Users can cancel their booking until this date/time. Leave empty for 'no cancellation allowed'."
+    )
+
+    def can_cancel_booking(self):
+        if not self.cancel_deadline:
+            return False
+        return timezone.now() <= self.cancel_deadline
+
 class TicketDraw(models.Model):
     name = models.CharField(max_length=120)
     # short URL-safe identifier (e.g. "edinburgh-zoo")
@@ -125,7 +139,7 @@ class VisitSlot(models.Model):
     def __str__(self):
         t = self.time.strftime("%H:%M") if self.time else "Any time"
         return f"{self.attraction.name} – {self.date} {t}"
-    
+
 class TicketDrawVisitSlot(models.Model):
     """A dated (optionally timed) bookable slot with capacity control."""
     ticket_draw = models.ForeignKey('TicketDraw', related_name='slots', on_delete=models.CASCADE)
@@ -143,40 +157,58 @@ class TicketDrawVisitSlot(models.Model):
 
 
 class Booking(models.Model):
-    """One reservation. (Using name/email for now; can swap to auth.User later.)"""
-    attraction = models.ForeignKey('Attraction', on_delete=models.CASCADE)
-    slot = models.ForeignKey(VisitSlot, on_delete=models.PROTECT)
+    attraction = models.ForeignKey("Attraction", on_delete=models.CASCADE)
+    slot = models.ForeignKey("VisitSlot", on_delete=models.PROTECT)
+
+    # Data for history
     full_name = models.CharField(max_length=120)
     email = models.EmailField()
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
-                              blank=True, related_name='bookings')
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="bookings"
+    )
+
+    num_tickets = models.PositiveSmallIntegerField(
+        default=1,
+        validators=[MinValueValidator(1), MaxValueValidator(2)]
+    )
+
     agreed_terms = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled = models.BooleanField(default=False)
     ticket_code = models.CharField(max_length=16, unique=True, null=True, blank=True)
 
     class Meta:
-        ordering = ('-created_at',)
+        ordering = ("-created_at",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "slot"],
+                condition=Q(cancelled=False),
+                name="unique_active_booking_per_slot_per_user",
+            )
+        ]
 
     def __str__(self):
-        who = self.user.username if self.user else self.full_name
-        return f"{who} → {self.attraction.name} @ {self.slot}"
+        return f"{self.user.username} → {self.attraction.name} @ {self.slot}"
 
     @property
     def year(self):
         return self.created_at.year
-    
+
     def save(self, *args, **kwargs):
         if not self.ticket_code:
             import uuid
-            base = 'FB-' + uuid.uuid4().hex[:8].upper()
-            from django.db import IntegrityError
+            base = "FB-" + uuid.uuid4().hex[:8].upper()
             tries = 0
             while tries < 5:
                 if not Booking.objects.filter(ticket_code=base).exists():
                     self.ticket_code = base
                     break
-                base = 'FB-' + uuid.uuid4().hex[:8].upper()
+                base = "FB-" + uuid.uuid4().hex[:8].upper()
                 tries += 1
         super().save(*args, **kwargs)
 
@@ -212,13 +244,13 @@ class TicketDrawBooking(models.Model):
             from django.db import IntegrityError
             tries = 0
             while tries < 5:
-                if not Booking.objects.filter(ticket_code=base).exists():
+                if not TicketDrawBooking.objects.filter(ticket_code=base).exists():
                     self.ticket_code = base
                     break
                 base = 'FB-' + uuid.uuid4().hex[:8].upper()
                 tries += 1
         super().save(*args, **kwargs)
-    
+
 class Profile(models.Model):
     """User profile to extend default User model."""
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile')
