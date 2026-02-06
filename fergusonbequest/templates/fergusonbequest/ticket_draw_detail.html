@@ -19,6 +19,9 @@
     {% endif %}
   <nav class="td-back-nav">
     <a href="{% url 'ticket_draws' %}" class="td-back-link">&larr; Back to all ticket draws</a>
+    {% if user.is_staff %}
+      <a href="{% url 'edit_ticket_draw' draw.pk %}" class="td-edit-link">Edit</a>
+    {% endif %}
   </nav>
 
   <div class="td-main-grid">
