@@ -64,6 +64,11 @@ urlpatterns = [
     path("admin-reports/", views.admin_reports, name="admin_reports"),
     path("admin-dashboard/management/draws/<int:draw_id>/delete/", views.mng_delete_draw, name="mng_delete_draw"),
     path("admin-dashboard/management/attractions/<int:attraction_id>/delete/", views.mng_delete_attraction, name="mng_delete_attraction"),
+    path("calendar/", views.calendar_view, name="calendar"),
+    path("calendar/<int:year>/<int:month>/", views.calendar_view, name="calendar"),
+    path("staff/draws/", views.staff_draws_entry, name="staff_draws_entry"),
+    path("staff/draws/<int:pk>/json/", views.staff_draw_json, name="staff_draw_json"),
+
 ]
 
 
