@@ -43,6 +43,10 @@ urlpatterns = [
     path("waiting-list-attraction/join/<int:pk>/", views.waiting_listattraction_join, name="waiting_listattraction_join"),
     path("waiting-list-attraction/leave/<int:pk>/", views.waiting_listattraction_leave, name="waiting_listattraction_leave"),
 
+    path("calendar/", views.calendar_view, name="calendar"),
+    path("calendar/<int:year>/<int:month>/", views.calendar_view, name="calendar"),
+    path("staff/draws/", views.staff_draws_entry, name="staff_draws_entry"),
+    path("staff/draws/<int:pk>/json/", views.staff_draw_json, name="staff_draw_json"),
 
 ]
 

@@ -1,0 +1,141 @@
+.sde-title {
+  margin: 18px 0 20px;
+  font-size: 32px;
+  font-weight: 600;
+  color: #002663;
+}
+
+.sde-layout {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .sde-layout { grid-template-columns: 1fr; }
+}
+
+.sde-panel, .sde-detail__box {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 14px 28px rgba(0,0,0,0.12);
+  overflow: hidden;
+}
+
+.sde-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #002663 0%, #001a80 100%);
+  color: #fff;
+}
+
+.sde-panel__heading { font-weight: 600; }
+
+.sde-adminlink {
+  color: #fff;
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.sde-grid {
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 520px) {
+  .sde-grid { grid-template-columns: 1fr; }
+}
+
+.sde-drawbtn {
+  text-align: left;
+  border: 1px solid rgba(0, 38, 99, 0.18);
+  border-radius: 14px;
+  padding: 12px 12px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.sde-drawbtn:hover {
+  background: rgba(0, 38, 99, 0.06);
+}
+
+.sde-drawbtn.is-active {
+  border-color: rgba(0, 38, 99, 0.45);
+  box-shadow: 0 10px 18px rgba(0,0,0,0.12);
+  transform: translateY(-1px);
+}
+
+.sde-drawbtn__title {
+  font-weight: 600;
+  color: #002663;
+}
+
+.sde-drawbtn__meta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgba(0,0,0,0.55);
+}
+
+.sde-empty { padding: 16px; }
+
+.sde-detail__box { padding: 16px; }
+
+.sde-detail__title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #002663;
+  margin-bottom: 10px;
+}
+
+.sde-detail__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 0 12px;
+}
+
+.sde-badge {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(0, 38, 99, 0.10);
+  color: #002663;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sde-detail__desc {
+  min-height: 84px;
+  color: rgba(0,0,0,0.82);
+  line-height: 1.5;
+}
+
+.sde-muted { color: rgba(0,0,0,0.55); }
+
+.sde-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.sde-action {
+  padding: 10px 12px;
+  border-radius: 12px;
+  text-decoration: none;
+  border: 1px solid rgba(0, 38, 99, 0.24);
+  color: #002663;
+  background: #fff;
+}
+
+.sde-action:hover { background: rgba(0, 38, 99, 0.06); }
+
+.sde-action--primary {
+  background: linear-gradient(135deg, #002663 0%, #001a80 100%);
+  color: #fff;
+  border: none;
+}

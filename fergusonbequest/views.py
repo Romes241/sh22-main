@@ -1,41 +1,41 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import login, logout, get_user_model
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from django import forms
-from .models import Attraction, VisitSlot, Booking, Profile, TicketDraw, TicketDrawBooking, TicketDrawVisitSlot, AttractionSuggestion
-from .forms import BookingForm, AttractionCreateForm, TicketDrawCreateForm
-from django.utils import timezone
-import datetime
-from django.db import transaction, IntegrityError
-from django.db.models import Q, F, Sum, Count
-from django.db.models.functions import Coalesce, Least
-from django.utils.dateparse import parse_date
-from django.contrib.admin.views.decorators import staff_member_required
 from operator import itemgetter
-import csv
 import calendar
+import csv
+import datetime
 import random
 
-from django.db import transaction
-from django.urls import reverse
-from django.http import HttpResponse
-from django.utils import timezone
+from django import forms
 from django.contrib import messages
-from django.shortcuts import render, redirect
-from django.contrib.auth import get_user_model
 from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth import get_user_model, login, logout
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import LoginView
+from django.db import IntegrityError, transaction
+from django.db.models import Q, F, Sum, Count
+from django.db.models.functions import Coalesce, Least
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse, reverse_lazy
+from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST, require_http_methods
-from django.db.models import Q
 
 from openpyxl import Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.utils import get_column_letter
 
+from .models import (
+    Attraction,
+    VisitSlot,
+    Booking,
+    Profile,
+    TicketDraw,
+    TicketDrawBooking,
+    TicketDrawVisitSlot,
+    AttractionSuggestion,
+)
+from .forms import BookingForm, AttractionCreateForm, TicketDrawCreateForm
 from .forms_suggestions import AttractionSuggestionForm
-from django.contrib.auth.views import LoginView
-from django.urls import reverse_lazy
-
 User = get_user_model()
 MAX_ATTRACTIONS_PER_YEAR = 3
 
@@ -106,7 +106,37 @@ def admin_dashboard(request):
         },
     )
 
-User = get_user_model()
+@staff_member_required
+def staff_draws_entry(request):
+    draws = TicketDraw.objects.all().order_by("-id")
+    selected = draws.first()
+
+    return render(
+        request,
+        "fergusonbequest/staff_draws_entry.html",
+        {
+            "draws": draws,
+            "selected_draw": selected,
+        },
+    )
+
+
+@staff_member_required
+def staff_draw_json(request, pk: int):
+    draw = get_object_or_404(TicketDraw, pk=pk)
+    now = timezone.now()
+
+    payload = {
+        "id": draw.pk,
+        "title": getattr(draw, "title", None)
+                 or getattr(draw, "name", None)
+                 or str(draw),
+        "slug": getattr(draw, "slug", "") or "",
+        "description": getattr(draw, "description", "") or "",
+        "is_open": draw.is_open(now) if hasattr(draw, "is_open") else None,
+    }
+
+    return JsonResponse(payload)
 
 
 @login_required

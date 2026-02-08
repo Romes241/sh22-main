@@ -39,6 +39,7 @@
     {% if user.is_authenticated %}
       {% if user.is_staff %}
         <a href="{% url 'admin_dashboard' %}">Admin Dashboard</a>
+        <a href="{% url 'staff_draws_entry' %}">Staff Draw Entry</a>
       {% else %}
         <a href="{% url 'attractions' %}">Attractions</a>
         <a href="{% url 'ticket_draws' %}">Ticket Draws</a>
