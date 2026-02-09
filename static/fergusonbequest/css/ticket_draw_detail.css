@@ -179,6 +179,13 @@
     margin-top: 15px;
 }
 
+.td-no-slots-note {
+    margin-top: 12px;
+    font-size: 13px;
+    color: #666;
+    font-weight: 600;
+}
+
 /* Action Panel and Stats */
 .td-action-panel {
     display: flex;

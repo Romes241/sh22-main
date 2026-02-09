@@ -259,7 +259,14 @@ def ticket_draw_detail(request, slug):
             return redirect('ticket_draw_detail', slug=slug)
 
         slot_id = request.POST.get('slot_id')
-        slot = get_object_or_404(TicketDrawVisitSlot, pk=slot_id)
+        if not slot_id:
+            messages.error(request, "No available dates for this draw. Please check back later.")
+            return redirect('ticket_draw_detail', slug=slug)
+
+        slot = TicketDrawVisitSlot.objects.filter(pk=slot_id, ticket_draw=draw).first()
+        if slot is None:
+            messages.error(request, "Selected date is no longer available. Please choose another date.")
+            return redirect('ticket_draw_detail', slug=slug)
 
         if slot.remaining >= num_tickets and draw.is_open():
             with transaction.atomic():
@@ -276,6 +283,10 @@ def ticket_draw_detail(request, slug):
                 slot.save()
             messages.success(request, "Successfully entered draw!")
             return redirect('waiting_list')
+        elif not draw.is_open():
+            messages.error(request, "This draw is currently closed.")
+        else:
+            messages.error(request, "Not enough availability for that date.")
 
     slots = TicketDrawVisitSlot.objects.filter(
         ticket_draw=draw,
