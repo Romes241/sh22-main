@@ -127,7 +127,8 @@ class AttractionCreateForm(forms.ModelForm):
             'description': 'Long Description',
             'booking_open': 'Booking Opens',
             'booking_close': 'Booking Closes',
-            'per_year_limit': 'Number of Tickets (Per User Per Year)'
+            'per_year_limit': 'Number of Tickets (Per User Per Year)',
+            'image': 'Attraction Image'
         }
     
     def save(self, commit=True):
@@ -224,7 +225,7 @@ class TicketDrawCreateForm(forms.ModelForm):
             'booking_open': 'Booking Opens',
             'booking_close': 'Booking Closes',
             'per_year_limit': 'Number of Available Tickets',
-            'image': 'Draw Artwork'
+            'image': 'Draw Image'
         }
     
     def save(self, commit=True):
