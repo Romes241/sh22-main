@@ -184,7 +184,7 @@
       </div>
 
       <div class="ar-form-row">
-        <label for="id_venue">Venue / Attraction</label>
+        <label for="id_venue">Attraction/Draw (Search or Select)</label>
 
         <input id="id_venue" name="venue" type="search" value="{{ request.GET.venue|default:'' }}">
 
@@ -202,7 +202,7 @@
 
       <!-- Specific Date -->
       <div class="ar-form-row">
-        <label for="id_specific_date">Specific Date</label>
+        <label for="id_specific_date">Date (Search or Select)</label>
         <input id="id_specific_date" name="specific_date" type="date"
               value="{{ request.GET.specific_date|default:'' }}">
 
@@ -220,8 +220,7 @@
 
       <!-- Time dropdown -->
       <div class="ar-form-row">
-        <label for="id_time_select">Time</label>
-        <label for="id_specific_time">Specific Time</label>
+        <label for="id_specific_time">Time (Search or Select)</label>
         <input id="id_specific_time" name="specific_time" type="time"
               value="{{ request.GET.specific_time|default:'' }}">
 
@@ -240,12 +239,12 @@
 
 
       <div class="ar-form-row">
-        <label for="id_start">Start date</label>
+        <label for="id_start">Start Date (Range)</label>
         <input id="id_start" name="start" type="date" value="{{ request.GET.start|default:'' }}">
       </div>
 
       <div class="ar-form-row">
-        <label for="id_end">End date</label>
+        <label for="id_end">End Date (Range)</label>
         <input id="id_end" name="end" type="date" value="{{ request.GET.end|default:'' }}">
       </div>
 
