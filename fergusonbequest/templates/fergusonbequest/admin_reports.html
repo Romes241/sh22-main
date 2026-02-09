@@ -174,29 +174,70 @@
       </div>
 
       <div class="ar-form-row">
+        <label for="id_status">Status</label>
+        <select id="id_status" name="status">
+          <option value="all" {% if selected_status == 'all' or not selected_status %}selected{% endif %}>All</option>
+          <option value="active" {% if selected_status == 'active' %}selected{% endif %}>Active</option>
+          <option value="cancelled" {% if selected_status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+          <option value="completed" {% if selected_status == 'completed' %}selected{% endif %}>Completed</option>
+        </select>
+      </div>
+
+      <div class="ar-form-row">
         <label for="id_venue">Venue / Attraction</label>
-        <input id="id_venue" name="venue" type="text" value="{{ request.GET.venue|default:'' }}">
+
+        <input id="id_venue" name="venue" type="search" value="{{ request.GET.venue|default:'' }}">
+
+        <select id="id_venue_select" name="venue_select">
+          <option value="">All</option>
+          {% for v in venue_list %}
+            <option value="{{ v }}"
+              {% if request.GET.venue_select == v %}selected{% endif %}>
+              {{ v }}
+            </option>
+          {% endfor %}
+        </select>
       </div>
 
+
+      <!-- Specific Date -->
       <div class="ar-form-row">
-        <label for="id_name">Forename</label>
-        <input id="id_name" name="name" type="text" value="{{ request.GET.name|default:'' }}">
+        <label for="id_specific_date">Specific Date</label>
+        <input id="id_specific_date" name="specific_date" type="date"
+              value="{{ request.GET.specific_date|default:'' }}">
+
+        <select id="id_date_select" name="date_select">
+          <option value="">All</option>
+          {% for d in date_list %}
+            <option value="{{ d|date:'Y-m-d' }}"
+            {% if request.GET.date_select == d|date:'Y-m-d' %}selected{% endif %}>
+            {{ d|date:"M. j, Y" }}
+          </option>
+
+          {% endfor %}
+        </select>
       </div>
 
+      <!-- Time dropdown -->
       <div class="ar-form-row">
-        <label for="id_surname">Surname</label>
-        <input id="id_surname" name="surname" type="text" value="{{ request.GET.surname|default:'' }}">
+        <label for="id_time_select">Time</label>
+        <label for="id_specific_time">Specific Time</label>
+        <input id="id_specific_time" name="specific_time" type="time"
+              value="{{ request.GET.specific_time|default:'' }}">
+
+
+        <select id="id_time_select" name="time_select">
+          <option value="">All</option>
+          {% for t in time_list %}
+            <option value="{{ t|time:'H:i' }}"
+              {% if request.GET.time_select == t|time:'H:i' %}selected{% endif %}>
+              {{ t|time:"g a" }}
+            </option>
+
+          {% endfor %}
+        </select>
       </div>
 
-      <div class="ar-form-row">
-        <label for="id_guid">GUID</label>
-        <input id="id_guid" name="guid" type="text" value="{{ request.GET.guid|default:'' }}">
-      </div>
-
-      <div class="ar-form-row">
-        <label for="id_email">Email</label>
-        <input id="id_email" name="email" type="text" value="{{ request.GET.email|default:'' }}">
-      </div>
 
       <div class="ar-form-row">
         <label for="id_start">Start date</label>
@@ -208,14 +249,25 @@
         <input id="id_end" name="end" type="date" value="{{ request.GET.end|default:'' }}">
       </div>
 
+
       <div class="ar-form-row">
-        <label for="id_status">Status</label>
-        <select id="id_status" name="status">
-          <option value="all" {% if selected_status == 'all' or not selected_status %}selected{% endif %}>All</option>
-          <option value="active" {% if selected_status == 'active' %}selected{% endif %}>Active</option>
-          <option value="cancelled" {% if selected_status == 'cancelled' %}selected{% endif %}>Cancelled</option>
-          <option value="completed" {% if selected_status == 'completed' %}selected{% endif %}>Completed</option>
-        </select>
+        <label for="id_name">Forename</label>
+        <input id="id_name" name="name" type="search" value="{{ request.GET.name|default:'' }}">
+      </div>
+
+      <div class="ar-form-row">
+        <label for="id_surname">Surname</label>
+        <input id="id_surname" name="surname" type="search" value="{{ request.GET.surname|default:'' }}">
+      </div>
+
+      <div class="ar-form-row">
+        <label for="id_guid">GUID</label>
+        <input id="id_guid" name="guid" type="search" value="{{ request.GET.guid|default:'' }}">
+      </div>
+
+      <div class="ar-form-row">
+        <label for="id_email">Email</label>
+        <input id="id_email" name="email" type="search" value="{{ request.GET.email|default:'' }}">
       </div>
 
       <div class="ar-form-row">
@@ -473,6 +525,14 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!this.value.trim()) {
       window.location.href = "{% url 'admin_reports' %}";
     }
+  });
+
+  modal.querySelectorAll('input').forEach(input => {
+    input.addEventListener('keydown', function(e){
+      if(e.key === 'Enter'){
+        e.preventDefault();
+      }
+    });
   });
   
 });

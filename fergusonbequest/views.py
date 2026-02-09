@@ -67,6 +67,13 @@ def admin_reports(request):
     status = request.GET.get('status')
     q = request.GET.get('q')
     booking_type = request.GET.get('booking_type', 'all')
+    venue_select = request.GET.get('venue_select')
+    specific_date = request.GET.get('specific_date')
+    specific_time = request.GET.get('specific_time')
+    date_select = request.GET.get('date_select')
+    time_select = request.GET.get('time_select')
+
+
 
     sort = request.GET.get('sort', 'newest')
 
@@ -95,11 +102,30 @@ def admin_reports(request):
         if end:
             qs = qs.filter(slot__date__lte=end)
 
-        if venue:
+        venue_value = venue if venue else venue_select
+
+        if venue_value:
             if is_draw:
-                qs = qs.filter(ticket_draw__name__icontains=venue)
+                qs = qs.filter(ticket_draw__name__icontains=venue_value)
             else:
-                qs = qs.filter(attraction__name__icontains=venue)
+                qs = qs.filter(attraction__name__icontains=venue_value)
+
+        
+        
+        date_value = specific_date if specific_date else date_select
+        if date_value:
+            qs = qs.filter(slot__date=date_value)
+
+
+        time_value = specific_time if specific_time else time_select
+        if time_value:
+            qs = qs.filter(slot__time=time_value)
+
+
+
+
+
+
 
         if status == "active":
             qs = qs.filter(cancelled=False, slot__date__gte=today)
@@ -342,6 +368,20 @@ def admin_reports(request):
     # Calculate statistics
     statistics = calculate_statistics(combined, filtered_draw_qs, filtered_attraction_qs)
 
+    venue_set = set()
+    date_set = set()
+    time_set = set()
+
+    for b in combined:
+        venue_set.add(b["name"])
+        date_set.add(b["date"])
+        if b["time"]:
+            time_set.add(b["time"])
+
+    venue_list = sorted(venue_set)
+    date_list = sorted(date_set, reverse=True)
+    time_list = sorted(time_set)
+
 
 
     return render(request, "fergusonbequest/admin_reports.html", {
@@ -360,6 +400,9 @@ def admin_reports(request):
         "page_range": range(1, total_pages + 1),
         "start_index": start_idx + 1,
         "end_index": min(end_idx, total_bookings),
+        "venue_list": venue_list,
+        "date_list": date_list,
+        "time_list": time_list,
     })
 
 
