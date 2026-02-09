@@ -220,11 +220,6 @@
 }
 
 
-.ar-modal__panel {
-  scrollbar-width: thin;
-  scrollbar-color: #c5cedf #f1f5f9;
-}
-
 
 @keyframes modalSlideIn {
   from {
