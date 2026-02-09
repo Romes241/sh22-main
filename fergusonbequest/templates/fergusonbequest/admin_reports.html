@@ -1,0 +1,420 @@
+{% extends "fergusonbequest/base.html" %}
+{% load static %}
+
+{% block title %}Reports – Ferguson Bequest{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'fergusonbequest/css/admin_reports.css' %}">
+{% endblock %}
+
+{% block content %}
+<h1 class="fb-h1">Reports</h1>
+
+<div class="ar-toolbar">
+
+  <form method="GET" class="ar-search-form">
+  <div class="ar-search-wrapper">
+      <input
+          id="search-input"
+          type="search"
+          name="q"
+          value="{{ request.GET.q|default:'' }}"
+          class="ar-search-input"
+          placeholder="Search"
+      >
+
+  </div>
+
+  <button type="submit" class="fb-btn fb-btn--primary">Search</button>
+</form>
+
+  <div class="ar-actions">
+      <button id="advanced-filters-btn" class="fb-btn fb-btn--primary" type="button">Filters</button>
+      <a href="#" id="sort-btn" class="fb-btn fb-btn--primary">Sort by</a>
+  </div>
+
+  <div class="ar-stats">
+      <button id="statistics-btn" class="fb-btn fb-btn--primary" type="button">Statistics</button>
+  </div>
+
+  <div class="ar-export">
+      <span>Export to</span>
+      <a href="?{{ request.GET.urlencode }}&export=excel" class="fb-btn fb-btn--primary">Excel</a>
+      <a href="?{{ request.GET.urlencode }}&export=csv" class="fb-btn fb-btn--primary">CSV</a>
+
+  </div>
+
+
+</div>
+
+<div class="ar-card">
+  <div class="ar-table-wrap">
+    <table class="ar-table">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Attraction/Draw</th>
+          <th>Forename</th>
+          <th>Surname</th>
+          <th>GUID</th>
+          <th>Email</th>
+          <th>Booking Date</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for b in bookings %}
+          <tr>
+            <td>{{ b.type }}</td>
+            <td>{{ b.name }}</td>
+            <td>{{ b.first_name }}</td>
+            <td>{{ b.last_name }}</td>
+            <td>{{ b.guid }}</td>
+            <td>{{ b.email }}</td>
+            <td>{{ b.date|date:"d/m/Y" }}, {{ b.time|time:"H:i" }}</td>
+            <td class="ar-col-status">
+              <div class="ar-status-container">
+                {% if b.status_text == "Cancelled" %}
+                  <span class="ar-status ar-status-cancelled">Cancelled</span>
+                {% elif b.status_text == "Completed" %}
+                  <span class="ar-status ar-status-completed">Completed</span>
+                {% else %}
+                  <span class="ar-status ar-status-active">Active</span>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="9" class="ar-empty">No bookings found.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="advanced-filters-modal" class="ar-modal" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="ar-modal__backdrop" id="modal-backdrop"></div>
+
+  <div class="ar-modal__panel" role="document">
+    <form method="get" action="{% url 'admin_reports' %}" class="ar-modal__form">
+
+      <h3>Filters</h3>
+
+      <div class="ar-form-row">
+        <label for="id_booking_type">Booking Type</label>
+        <select id="id_booking_type" name="booking_type">
+          <option value="all" {% if selected_booking_type == 'all' %}selected{% endif %}>All</option>
+          <option value="draw" {% if selected_booking_type == 'draw' %}selected{% endif %}>Ticket Draws</option>
+          <option value="attraction" {% if selected_booking_type == 'attraction' %}selected{% endif %}>Attractions</option>
+        </select>
+      </div>
+
+      <div class="ar-form-row">
+        <label for="id_venue">Venue / Attraction</label>
+        <input id="id_venue" name="venue" type="text" value="{{ request.GET.venue|default:'' }}">
+      </div>
+
+      <div class="ar-form-row">
+        <label for="id_name">Forename</label>
+        <input id="id_name" name="name" type="text" value="{{ request.GET.name|default:'' }}">
+      </div>
+
+      <div class="ar-form-row">
+        <label for="id_surname">Surname</label>
+        <input id="id_surname" name="surname" type="text" value="{{ request.GET.surname|default:'' }}">
+      </div>
+
+      <div class="ar-form-row">
+        <label for="id_guid">GUID</label>
+        <input id="id_guid" name="guid" type="text" value="{{ request.GET.guid|default:'' }}">
+      </div>
+
+      <div class="ar-form-row">
+        <label for="id_email">Email</label>
+        <input id="id_email" name="email" type="text" value="{{ request.GET.email|default:'' }}">
+      </div>
+
+      <div class="ar-form-row">
+        <label for="id_start">Start date</label>
+        <input id="id_start" name="start" type="date" value="{{ request.GET.start|default:'' }}">
+      </div>
+
+      <div class="ar-form-row">
+        <label for="id_end">End date</label>
+        <input id="id_end" name="end" type="date" value="{{ request.GET.end|default:'' }}">
+      </div>
+
+      <div class="ar-form-row">
+        <label for="id_status">Status</label>
+        <select id="id_status" name="status">
+          <option value="all" {% if selected_status == 'all' or not selected_status %}selected{% endif %}>All</option>
+          <option value="active" {% if selected_status == 'active' %}selected{% endif %}>Active</option>
+          <option value="cancelled" {% if selected_status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+          <option value="completed" {% if selected_status == 'completed' %}selected{% endif %}>Completed</option>
+        </select>
+      </div>
+
+      <div class="ar-form-row">
+        <label for="id_q">Search anything</label>
+        <input id="id_q" name="q" type="search" value="{{ request.GET.q|default:'' }}">
+      </div>
+
+      <div class="ar-form-row ar-form-row--actions">
+        <button type="submit" class="fb-btn fb-btn--primary">Apply filters</button>
+        <a href="{% url 'admin_reports' %}" class="fb-btn fb-btn--primary">Reset</a>
+        <button type="button" id="advanced-filters-close" class="fb-btn">Close</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="sort-modal" class="ar-modal" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="ar-modal__backdrop" id="sort-modal-backdrop"></div>
+
+  <div class="ar-modal__panel ar-modal__panel--no-scroll" role="document">
+    <form method="get" action="{% url 'admin_reports' %}" class="ar-modal__form">
+
+      <h3>Sort By</h3>
+
+      <input type="hidden" name="q" value="{{ request.GET.q|default:'' }}">
+      <input type="hidden" name="booking_type" value="{{ selected_booking_type }}">
+      <input type="hidden" name="venue" value="{{ request.GET.venue|default:'' }}">
+      <input type="hidden" name="name" value="{{ request.GET.name|default:'' }}">
+      <input type="hidden" name="surname" value="{{ request.GET.surname|default:'' }}">
+      <input type="hidden" name="guid" value="{{ request.GET.guid|default:'' }}">
+      <input type="hidden" name="email" value="{{ request.GET.email|default:'' }}">
+      <input type="hidden" name="start" value="{{ request.GET.start|default:'' }}">
+      <input type="hidden" name="end" value="{{ request.GET.end|default:'' }}">
+      <input type="hidden" name="status" value="{{ selected_status|default:'all' }}">
+
+      <div class="ar-form-row">
+        <label for="id_sort">Sort By</label>
+        <select id="id_sort" name="sort">
+          <option value="newest" {% if request.GET.sort == 'newest' or not request.GET.sort %}selected{% endif %}>Newest</option>
+          <option value="oldest" {% if request.GET.sort == 'oldest' %}selected{% endif %}>Oldest</option>
+        </select>
+      </div>
+
+      <div class="ar-form-row ar-form-row--actions">
+        <button type="submit" class="fb-btn fb-btn--primary">Apply sort</button>
+        <button type="button" id="sort-modal-close" class="fb-btn">Close</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="statistics-modal" class="ar-modal" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="ar-modal__backdrop" id="statistics-modal-backdrop"></div>
+
+  <div class="ar-modal__panel" role="document">
+    <div class="ar-modal__form">
+      <h3>Statistics</h3>
+      
+      <div class="ar-stats-grid">
+        <!-- Total Bookings -->
+        <div class="ar-stat-card">
+          <div class="ar-stat-number">{{ statistics.total_bookings }}</div>
+          <div class="ar-stat-label">Total Bookings</div>
+        </div>
+        
+        <!-- By Type -->
+        <div class="ar-stat-card">
+          <div class="ar-stat-number">{{ statistics.attraction_count }}</div>
+          <div class="ar-stat-label">Attractions</div>
+        </div>
+        
+        <div class="ar-stat-card">
+          <div class="ar-stat-number">{{ statistics.draw_count }}</div>
+          <div class="ar-stat-label">Ticket Draws</div>
+        </div>
+        
+        <!-- By Status -->
+        <div class="ar-stat-card ar-stat-card--active">
+          <div class="ar-stat-number">{{ statistics.active_count }}</div>
+          <div class="ar-stat-label">Active</div>
+        </div>
+        
+        <div class="ar-stat-card ar-stat-card--completed">
+          <div class="ar-stat-number">{{ statistics.completed_count }}</div>
+          <div class="ar-stat-label">Completed</div>
+        </div>
+        
+        <div class="ar-stat-card ar-stat-card--cancelled">
+          <div class="ar-stat-number">{{ statistics.cancelled_count }}</div>
+          <div class="ar-stat-label">Cancelled</div>
+        </div>
+        
+        <!-- Date Range -->
+        <div class="ar-stat-range">
+          <div class="ar-stat-label">Date Range</div>
+          <div class="ar-stat-dates">
+            {% if statistics.date_range %}
+              {{ statistics.date_range.start|date:"d/m/Y" }} - {{ statistics.date_range.end|date:"d/m/Y" }}
+            {% else %}
+              N/A
+            {% endif %}
+          </div>
+        </div>
+        
+        <!-- Most Popular -->
+        <div class="ar-stat-popular">
+          <div class="ar-stat-label">Most Popular</div>
+          <div class="ar-stat-value">
+            {% if statistics.most_popular %}
+              {{ statistics.most_popular.name }} ({{ statistics.most_popular.count }})
+            {% else %}
+              N/A
+            {% endif %}
+          </div>
+        </div>
+        
+        <!-- Unique Users -->
+        <div class="ar-stat-card">
+          <div class="ar-stat-number">{{ statistics.unique_users }}</div>
+          <div class="ar-stat-label">Unique Users</div>
+        </div>
+        
+        <!-- Average per User -->
+        <div class="ar-stat-card">
+          <div class="ar-stat-number">{{ statistics.avg_per_user|floatformat:1 }}</div>
+          <div class="ar-stat-label">Avg per User</div>
+        </div>
+      </div>
+      
+      <div class="ar-form-row ar-form-row--actions">
+        <button type="button" id="statistics-modal-close" class="fb-btn fb-btn--primary">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const modal = document.getElementById('advanced-filters-modal');
+  const openBtn = document.getElementById('advanced-filters-btn');
+  const closeBtn = document.getElementById('advanced-filters-close');
+  const backdrop = document.getElementById('modal-backdrop');
+
+  function openModal() {
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('ar-modal-open');
+  }
+
+  function closeModal() {
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('ar-modal-open');
+  }
+
+  modal.style.display = 'none';
+  modal.setAttribute('aria-hidden', 'true');
+
+  openBtn.addEventListener('click', openModal);
+  closeBtn.addEventListener('click', closeModal);
+  backdrop.addEventListener('click', closeModal);
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && modal.getAttribute('aria-hidden') === 'false') {
+      closeModal();
+    }
+  });
+
+  const sortModal = document.getElementById('sort-modal');
+  const sortOpenBtn = document.getElementById('sort-btn');
+  const sortCloseBtn = document.getElementById('sort-modal-close');
+  const sortBackdrop = document.getElementById('sort-modal-backdrop');
+
+  function openSortModal() {
+    sortModal.style.display = 'flex';
+    sortModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('ar-modal-open');
+  }
+
+  function closeSortModal() {
+    sortModal.style.display = 'none';
+    sortModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('ar-modal-open');
+  }
+
+  sortModal.style.display = 'none';
+  sortModal.setAttribute('aria-hidden', 'true');
+
+  sortOpenBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    openSortModal();
+  });
+
+  sortCloseBtn.addEventListener('click', closeSortModal);
+  sortBackdrop.addEventListener('click', closeSortModal);
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && sortModal.getAttribute('aria-hidden') === 'false') {
+      closeSortModal();
+    }
+  });
+
+  const searchInput = document.getElementById('search-input');
+  
+  // Track the previous value to detect when it's cleared
+  let previousValue = searchInput.value;
+  
+  // Function to reset to base URL
+  function resetToBaseUrl() {
+    window.location.href = "{% url 'admin_reports' %}";
+  }
+  
+  
+  searchInput.addEventListener('search', function(e) {
+   
+    if (!this.value.trim()) {
+      resetToBaseUrl();
+    }
+  });
+
+  // Statistics Modal
+  const statisticsModal = document.getElementById('statistics-modal');
+  const statisticsOpenBtn = document.getElementById('statistics-btn');
+  const statisticsCloseBtn = document.getElementById('statistics-modal-close');
+  const statisticsBackdrop = document.getElementById('statistics-modal-backdrop');
+
+  function openStatisticsModal() {
+    statisticsModal.style.display = 'flex';
+    statisticsModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('ar-modal-open');
+  }
+
+  function closeStatisticsModal() {
+    statisticsModal.style.display = 'none';
+    statisticsModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('ar-modal-open');
+  }
+
+  statisticsModal.style.display = 'none';
+  statisticsModal.setAttribute('aria-hidden', 'true');
+
+  statisticsOpenBtn.addEventListener('click', openStatisticsModal);
+  statisticsCloseBtn.addEventListener('click', closeStatisticsModal);
+  statisticsBackdrop.addEventListener('click', closeStatisticsModal);
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && statisticsModal.getAttribute('aria-hidden') === 'false') {
+      closeStatisticsModal();
+    }
+  });
+
+  
+  searchInput.addEventListener('search', function(e) {
+    if (!this.value.trim()) {
+      window.location.href = "{% url 'admin_reports' %}";
+    }
+  });
+  
+});
+</script>
+
+{% endblock %}

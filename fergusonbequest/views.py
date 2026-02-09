@@ -14,6 +14,10 @@ from django.db.models import Q, F, Sum
 from django.db.models.functions import Coalesce, Least
 from django.utils.dateparse import parse_date
 from django.contrib.admin.views.decorators import staff_member_required
+from operator import itemgetter
+import csv
+from django.http import HttpResponse
+from openpyxl import Workbook
 
 
 User = get_user_model()
@@ -47,6 +51,281 @@ def admin_dashboard(request):
             "pending_requests_count": pending_requests_count,
         },
     )
+
+@staff_member_required
+def admin_reports(request):
+
+    name = request.GET.get('name')
+    surname = request.GET.get('surname')
+    guid = request.GET.get('guid')
+    email = request.GET.get('email')
+    start = request.GET.get('start')
+    end = request.GET.get('end')
+    venue = request.GET.get('venue')
+    status = request.GET.get('status')
+    q = request.GET.get('q')
+    booking_type = request.GET.get('booking_type', 'all')
+
+    sort = request.GET.get('sort', 'newest')
+
+
+    draw_qs = TicketDrawBooking.objects.select_related('user', 'ticket_draw', 'slot')
+    attraction_qs = Booking.objects.select_related('user', 'attraction', 'slot')
+
+    today = timezone.localdate()
+
+    def apply_filters(qs, is_draw=True):
+        if name:
+            qs = qs.filter(user__first_name__icontains=name)
+
+        if surname:
+            qs = qs.filter(user__last_name__icontains=surname)
+
+        if guid:
+            qs = qs.filter(user__username__icontains=guid)
+
+        if email:
+            qs = qs.filter(user__email__icontains=email)
+
+        if start:
+            qs = qs.filter(slot__date__gte=start)
+
+        if end:
+            qs = qs.filter(slot__date__lte=end)
+
+        if venue:
+            if is_draw:
+                qs = qs.filter(ticket_draw__name__icontains=venue)
+            else:
+                qs = qs.filter(attraction__name__icontains=venue)
+
+        if status == "active":
+            qs = qs.filter(cancelled=False, slot__date__gte=today)
+        elif status == "cancelled":
+            qs = qs.filter(cancelled=True)
+        elif status == "completed":
+            qs = qs.filter(cancelled=False, slot__date__lt=today)
+
+        if q:
+            common_filters = (
+                Q(user__first_name__icontains=q) |
+                Q(user__last_name__icontains=q) |
+                Q(user__username__icontains=q) |
+                Q(user__email__icontains=q) |
+                Q(slot__date__icontains=q) |
+                Q(slot__time__icontains=q)
+            )
+
+            if is_draw:
+                qs = qs.filter(
+                    common_filters |
+                    Q(ticket_draw__name__icontains=q)
+                )
+            else:
+                qs = qs.filter(
+                    common_filters |
+                    Q(attraction__name__icontains=q)
+                )
+
+        return qs
+
+    combined = []
+
+    filtered_draw_qs = None
+    filtered_attraction_qs = None
+
+    if booking_type in ['all', 'draw']:
+        filtered_draw_qs = apply_filters(draw_qs, True)
+        for b in filtered_draw_qs:
+            if b.cancelled:
+                status_text = "Cancelled"
+            elif b.slot.date < today:
+                status_text = "Completed"
+            else:
+                status_text = "Active"
+
+            combined.append({
+                "type": "Draw",
+                "created": b.created_at,
+                "name": b.ticket_draw.name,
+
+                "first_name": b.user.first_name if b.user else "",
+                "last_name": b.user.last_name if b.user else "",
+                "guid": b.user.username if b.user else "",
+                "email": b.user.email if b.user else b.email,
+
+                "date": b.slot.date,
+                "time": b.slot.time,
+                "cancelled": b.cancelled,
+                "status_text": status_text,
+            })
+
+
+
+    if booking_type in ['all', 'attraction']:
+        filtered_attraction_qs = apply_filters(attraction_qs, False)
+        for b in filtered_attraction_qs:
+            if b.cancelled:
+                status_text = "Cancelled"
+            elif b.slot.date < today:
+                status_text = "Completed"
+            else:
+                status_text = "Active"
+
+            combined.append({
+                "type": "Attraction",
+                "created": b.created_at,
+                "name": b.attraction.name,
+
+                "first_name": b.user.first_name if b.user else "",
+                "last_name": b.user.last_name if b.user else "",
+                "guid": b.user.username if b.user else "",
+                "email": b.user.email if b.user else b.email,
+
+                "date": b.slot.date,
+                "time": b.slot.time,
+                "cancelled": b.cancelled,
+                "status_text": status_text,
+            })
+
+
+    reverse = True if sort == 'newest' else False
+    combined.sort(key=itemgetter("created"), reverse=reverse)
+
+    bookings = combined
+
+    export_type = request.GET.get("export")
+
+    if export_type:
+
+        headers = [
+            "Type",
+            "Attraction/Draw",
+            "Forename",
+            "Surname",
+            "GUID",
+            "Email",
+            "Date",
+            "Time",
+            "Status",
+        ]
+
+        if export_type == "csv":
+            response = HttpResponse(content_type="text/csv")
+            response["Content-Disposition"] = 'attachment; filename="reports.csv"'
+
+            writer = csv.writer(response)
+            writer.writerow(headers)
+
+            for b in bookings:
+                writer.writerow([
+                    b["type"],
+                    b["name"],
+                    b["first_name"],
+                    b["last_name"],
+                    b["guid"],
+                    b["email"],
+                    b["date"].strftime("%d/%m/%Y"),
+                    b["time"].strftime("%H:%M") if b["time"] else "",
+                    b["status_text"],
+                ])
+
+            return response
+
+
+        if export_type == "excel":
+
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Reports"
+
+            ws.append(headers)
+
+            for b in bookings:
+                ws.append([
+                    b["type"],
+                    b["name"],
+                    b["first_name"],
+                    b["last_name"],
+                    b["guid"],
+                    b["email"],
+                    b["date"].strftime("%d/%m/%Y"),
+                    b["time"].strftime("%H:%M") if b["time"] else "",
+                    b["status_text"],
+                ])
+
+            response = HttpResponse(
+                content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            response["Content-Disposition"] = 'attachment; filename="reports.xlsx"'
+
+            wb.save(response)
+            return response
+        
+
+    def calculate_statistics(bookings, filtered_draw_qs, filtered_attraction_qs):
+        """Calculate statistics from the filtered bookings"""
+        
+        total_bookings = len(bookings)
+        
+        # Count by type
+        attraction_count = sum(1 for b in bookings if b["type"] == "Attraction")
+        draw_count = total_bookings - attraction_count
+        
+        # Count by status
+        active_count = sum(1 for b in bookings if b["status_text"] == "Active")
+        completed_count = sum(1 for b in bookings if b["status_text"] == "Completed")
+        cancelled_count = sum(1 for b in bookings if b["status_text"] == "Cancelled")
+        
+        # Date range
+        date_range = None
+        if bookings:
+            dates = [b["date"] for b in bookings]
+            min_date = min(dates)
+            max_date = max(dates)
+            date_range = {"start": min_date, "end": max_date}
+        
+        # Most popular attraction/draw
+        popularity = {}
+        for b in bookings:
+            name = b["name"]
+            popularity[name] = popularity.get(name, 0) + 1
+        
+        most_popular = None
+        if popularity:
+            most_popular_name = max(popularity.items(), key=lambda x: x[1])
+            most_popular = {"name": most_popular_name[0], "count": most_popular_name[1]}
+        
+        # Unique users
+        unique_users = len(set(b["email"] for b in bookings))
+        
+        # Average bookings per user
+        avg_per_user = total_bookings / unique_users if unique_users > 0 else 0
+        
+        return {
+            "total_bookings": total_bookings,
+            "attraction_count": attraction_count,
+            "draw_count": draw_count,
+            "active_count": active_count,
+            "completed_count": completed_count,
+            "cancelled_count": cancelled_count,
+            "date_range": date_range,
+            "most_popular": most_popular,
+            "unique_users": unique_users,
+            "avg_per_user": avg_per_user,
+        }
+        
+    # Calculate statistics
+    statistics = calculate_statistics(combined, filtered_draw_qs, filtered_attraction_qs)
+
+
+
+    return render(request, "fergusonbequest/admin_reports.html", {
+        "bookings": combined,
+        "selected_booking_type": booking_type,
+        "selected_status": status,
+        "statistics": statistics,
+    })
 
 
 def home(request):
