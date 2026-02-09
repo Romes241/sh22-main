@@ -101,7 +101,13 @@ class CancelConcurrencyTests(TransactionTestCase):
 
         self.bookings = []
         for i in range(10):
-            b = Booking.objects.create(user=self.user, attraction=self.attraction, slot=self.slot, email=f'user{i}@example.com')
+            # Use different users so we don't violate the (user, slot) active-uniqueness rule.
+            u = User.objects.create_user(
+                username=f'concurrent{i}',
+                email=f'concurrent{i}@example.com',
+                password='pw'
+            )
+            b = Booking.objects.create(user=u, attraction=self.attraction, slot=self.slot, email=f'user{i}@example.com')
             self.bookings.append(b)
 
         self.start_barrier = threading.Barrier(len(self.bookings))
