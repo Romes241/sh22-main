@@ -445,6 +445,135 @@
   }
 }
 
+/* Pagination Styles */
+.ar-pagination {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 2px solid #e5e7eb;
+  gap: 16px;
+}
+
+.ar-pagination-info {
+  font-size: 0.9rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.ar-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ar-pagination-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #f8fafc;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  color: #475569;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ar-pagination-btn:hover {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+.ar-pagination-btn.ar-pagination-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.ar-pagination-btn.ar-pagination-disabled:hover {
+  background: #f8fafc;
+  border-color: #e5e7eb;
+  color: #475569;
+}
+
+.ar-pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ar-pagination-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  color: #475569;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.ar-pagination-page:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.ar-pagination-page.ar-pagination-current {
+  background: #003865;
+  color: white;
+  border-color: #003865;
+}
+
+.ar-pagination-ellipsis {
+  padding: 0 8px;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+/* Responsive pagination */
+@media (max-width: 768px) {
+  .ar-pagination {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .ar-pagination-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .ar-pagination-btn span:not(.sr-only) {
+    display: none;
+  }
+  
+  .ar-pagination-btn {
+    padding: 8px 12px;
+  }
+  
+  .ar-pagination-btn svg {
+    margin: 0;
+  }
+  
+  .ar-pagination-pages {
+    order: -1;
+    width: 100%;
+    justify-content: center;
+    margin-bottom: 8px;
+  }
+}
+
 
 .messages-container {
     margin-bottom: 20px;

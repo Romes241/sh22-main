@@ -93,7 +93,68 @@
       </tbody>
     </table>
   </div>
+
+  {% if total_bookings > 0 %}
+  <div class="ar-pagination">
+    <div class="ar-pagination-info">
+      Showing {{ start_index }} to {{ end_index }} of {{ total_bookings }} bookings
+    </div>
+    
+    <div class="ar-pagination-controls">
+      <!-- Previous Button -->
+      {% if has_previous %}
+        <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ previous_page }}" class="ar-pagination-btn ar-pagination-prev">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Previous
+        </a>
+      {% else %}
+        <span class="ar-pagination-btn ar-pagination-prev ar-pagination-disabled">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Previous
+        </span>
+      {% endif %}
+      
+      <!-- Page Numbers -->
+      <div class="ar-pagination-pages">
+        {% for p in page_range %}
+          {% if p == current_page %}
+            <span class="ar-pagination-page ar-pagination-current">{{ p }}</span>
+          {% else %}
+            {% if p <= 5 or p >= total_pages|add:"-4" or p == 1 or p == total_pages %}
+              <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ p }}" class="ar-pagination-page">{{ p }}</a>
+            {% elif p == 6 and total_pages > 10 %}
+              <span class="ar-pagination-ellipsis">...</span>
+            {% endif %}
+          {% endif %}
+        {% endfor %}
+      </div>
+      
+      <!-- Next Button -->
+      {% if has_next %}
+        <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ next_page }}" class="ar-pagination-btn ar-pagination-next">
+          Next
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M6 4L10 8L6 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+      {% else %}
+        <span class="ar-pagination-btn ar-pagination-next ar-pagination-disabled">
+          Next
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M6 4L10 8L6 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
 </div>
+
+
 
 <div id="advanced-filters-modal" class="ar-modal" aria-hidden="true" role="dialog" aria-modal="true">
   <div class="ar-modal__backdrop" id="modal-backdrop"></div>

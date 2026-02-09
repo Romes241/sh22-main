@@ -192,6 +192,28 @@ def admin_reports(request):
     reverse = True if sort == 'newest' else False
     combined.sort(key=itemgetter("created"), reverse=reverse)
 
+    # Pagination
+    page = request.GET.get('page', 1)
+    per_page = 20
+    
+    # Calculate total pages
+    total_bookings = len(combined)
+    total_pages = (total_bookings + per_page - 1) // per_page  # Ceiling division
+    
+    # Get current page data
+    try:
+        page = int(page)
+        if page < 1:
+            page = 1
+        elif page > total_pages:
+            page = total_pages
+    except (ValueError, TypeError):
+        page = 1
+    
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    paginated_bookings = combined[start_idx:end_idx]
+
     bookings = combined
 
     export_type = request.GET.get("export")
@@ -321,10 +343,21 @@ def admin_reports(request):
 
 
     return render(request, "fergusonbequest/admin_reports.html", {
-        "bookings": combined,
+        "bookings": paginated_bookings,
         "selected_booking_type": booking_type,
         "selected_status": status,
         "statistics": statistics,
+        # Pagination context variables
+        "current_page": page,
+        "total_pages": total_pages,
+        "total_bookings": total_bookings,
+        "has_previous": page > 1,
+        "has_next": page < total_pages,
+        "previous_page": page - 1,
+        "next_page": page + 1,
+        "page_range": range(1, total_pages + 1),
+        "start_index": start_idx + 1,
+        "end_index": min(end_idx, total_bookings),
     })
 
 
