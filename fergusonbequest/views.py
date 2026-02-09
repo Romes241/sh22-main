@@ -12,8 +12,13 @@ from django.db.models import Q, F, Sum, Count
 from django.db.models.functions import Coalesce, Least
 from django.utils.dateparse import parse_date
 from django.contrib.admin.views.decorators import staff_member_required
-from django.views.decorators.http import require_POST
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_POST, require_http_methods
+from django.contrib.auth.decorators import user_passes_test
+
+from .models import AttractionSuggestion
+from .forms_suggestions import AttractionSuggestionForm
+
+
 
 User = get_user_model()
 MAX_ATTRACTIONS_PER_YEAR = 3
@@ -45,6 +50,44 @@ def admin_dashboard(request):
             "open_venues_count": open_venues_count,
             "bookings_count": bookings_count,
             "pending_requests_count": pending_requests_count,
+        },
+    )
+
+User = get_user_model()
+
+def staff_not_admin(user):
+    return user.is_authenticated and user.is_staff and not user.is_superuser
+
+
+@user_passes_test(staff_not_admin)
+def create_attraction_suggestion(request):
+    if request.method == "POST":
+        form = AttractionSuggestionForm(request.POST)
+        if form.is_valid():
+            suggestion = form.save(commit=False)
+            suggestion.submitted_by = request.user
+            suggestion.save()
+            messages.success(request, "Suggestion submitted successfully.")
+            return redirect("create_attraction_suggestion")
+    else:
+        form = AttractionSuggestionForm()
+
+    active_staff_count = User.objects.filter(is_staff=True, is_superuser=False, is_active=True).count()
+    received_count = AttractionSuggestion.objects.count()
+    implemented_count = AttractionSuggestion.objects.filter(status=AttractionSuggestion.STATUS_IMPLEMENTED).count()
+    implementation_rate = round((implemented_count / received_count) * 100) if received_count else 0
+
+    recent = AttractionSuggestion.objects.select_related("submitted_by").order_by("-created_at")[:4]
+
+    return render(
+        request,
+        "fergusonbequest/attraction_suggestion_page.html",
+        {
+            "form": form,
+            "active_staff_count": active_staff_count,
+            "received_count": received_count,
+            "implementation_rate": implementation_rate,
+            "recent_suggestions": recent,
         },
     )
 

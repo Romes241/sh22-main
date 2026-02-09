@@ -263,3 +263,35 @@ class Profile(models.Model):
 
     def __str__(self):
         return f"Profile of {self.user.username}"
+    
+class AttractionSuggestion(models.Model):
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    why_recommended = models.TextField(blank=True)
+
+    website_url = models.URLField(blank=True)
+    location = models.CharField(max_length=200, blank=True)
+
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="attraction_suggestions"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    STATUS_PENDING = "pending"
+    STATUS_IN_PROGRESS = "in_progress"
+    STATUS_IMPLEMENTED = "implemented"
+    STATUS_REJECTED = "rejected"
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Pending"),
+        (STATUS_IN_PROGRESS, "In progress"),
+        (STATUS_IMPLEMENTED, "Implemented"),
+        (STATUS_REJECTED, "Rejected"),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+
+    def __str__(self):
+        return f"{self.name} ({self.status})"
+

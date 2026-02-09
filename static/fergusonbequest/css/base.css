@@ -195,3 +195,18 @@ body{
 }
 .fb-btn--primary:hover{ background:#002a4c; }
 .fb-btn.fb-btn--primary:focus{ outline:2px solid rgba(0,56,101,0.25); }
+
+.fb-fab{
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 999;
+  background: #002663;
+  color: #fff;
+  text-decoration: none;
+  padding: 10px 14px;
+  border-radius: 999px;
+  box-shadow: 0 14px 28px rgba(0,0,0,0.18);
+  font-weight: 800;
+}
+.fb-fab:hover{ filter: brightness(1.05); }
