@@ -738,14 +738,45 @@ def waiting_list(request):
 
 @staff_member_required
 def management_view(request):
-    draws = TicketDraw.objects.all().order_by("-id")
-    attractions = Attraction.objects.all().order_by("name")
+    tab = request.GET.get("tab", "draws")
+    q = (request.GET.get("q") or "").strip()
+
+    sort_draws = request.GET.get("sort_draws", "close_date_desc")
+    sort_attractions = request.GET.get("sort_attractions", "date_desc")
+
+    draws_qs = TicketDraw.objects.all()
+    attractions_qs = Attraction.objects.all()
+
+    if q:
+        draws_qs = draws_qs.filter(name__icontains=q)
+        attractions_qs = attractions_qs.filter(name__icontains=q)
+
+    #  Draw sorting
+    if sort_draws == "open_first":
+        draws_qs = draws_qs.order_by("-booking_open", "-booking_close", "name")
+    elif sort_draws == "close_date":
+        draws_qs = draws_qs.order_by("booking_close", "name")
+    elif sort_draws == "close_date_desc":
+        draws_qs = draws_qs.order_by("-booking_close", "name")
+    else:
+        draws_qs = draws_qs.order_by("name")
+
+    #  Attraction sorting (date and location)
+    if sort_attractions == "date":
+        attractions_qs = attractions_qs.order_by("booking_open", "name")
+    elif sort_attractions == "date_desc":
+        attractions_qs = attractions_qs.order_by("-booking_open", "name")
+    else:
+        attractions_qs = attractions_qs.order_by("name")
 
     return render(request, "fergusonbequest/management.html", {
-        "draws": draws,
-        "attractions": attractions,
+        "draws": draws_qs,
+        "attractions": attractions_qs,
+        "tab": tab,
+        "q": q,
+        "sort_draws": sort_draws,
+        "sort_attractions": sort_attractions,
     })
-
 
 @staff_member_required
 @require_POST
