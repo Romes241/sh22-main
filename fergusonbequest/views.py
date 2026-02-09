@@ -36,6 +36,30 @@ from .models import (
 )
 from .forms import BookingForm, AttractionCreateForm, TicketDrawCreateForm
 from .forms_suggestions import AttractionSuggestionForm
+from django.db.models import Q, F, Sum, Count
+from django.db.models.functions import Coalesce, Least
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render, redirect, get_object_or_404
+from django.utils import timezone
+from django.utils.dateparse import parse_date
+from django.views.decorators.http import require_POST, require_http_methods
+
+from openpyxl import Workbook
+from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl.utils import get_column_letter
+
+from .models import (
+    Attraction,
+    VisitSlot,
+    Booking,
+    Profile,
+    TicketDraw,
+    TicketDrawBooking,
+    TicketDrawVisitSlot,
+    AttractionSuggestion,
+)
+from .forms import BookingForm, AttractionCreateForm, TicketDrawCreateForm
+from .forms_suggestions import AttractionSuggestionForm
 from django.contrib.auth.views import LoginView
 from django.urls import reverse_lazy
 
@@ -1685,6 +1709,12 @@ def add_events(objects, events_by_day, start, end, event_type):
 
 
 def get_calendar(year=None, month=None):
+    """
+    Build calendar data for dashboard/calendar template rendering.
+
+    IMPORTANT: returns a dict (NOT a rendered response), so it can be merged into
+    dashboard context via **calendar_data.
+    """
     today = timezone.localdate()
     year = int(year or today.year)
     month = int(month or today.month)
@@ -1711,31 +1741,41 @@ def get_calendar(year=None, month=None):
 
     weeks = []
     for i in range(0, len(month_days), 7):
-        week = month_days[i:i+7]
+        week = month_days[i:i + 7]
         week_info = []
         for day in week:
             day_events = events_by_day.get(day.day, []) if day.month == month else []
-            week_info.append({'date': day, 'events': day_events})
+            week_info.append({
+                'date': day,
+                'events': day_events,
+            })
         weeks.append(week_info)
 
-    # context = { 
-    #     'year': year,
-    #     'month': month,
-    #     'month_name': calendar.month_name[month],
-    #     'weeks': weeks,
-    #     'today': today,
-    #     'prev_year': prev_year,
-    #     'prev_month': prev_month,
-    #     'next_year': next_year,
-    #     'next_month': next_month,
-    # }
+    return {
+        'year': year,
+        'month': month,
+        'month_name': calendar.month_name[month],
+        'weeks': weeks,
+        'today': today,
+        'prev_year': prev_year,
+        'prev_month': prev_month,
+        'next_year': next_year,
+        'next_month': next_month,
+    }
 
+
+def calendar_view(request, year=None, month=None):
+    """
+    Standalone calendar page.
+    (Dashboard can also embed calendar using get_calendar().)
+    """
+    context = get_calendar(year, month)
+    return render(request, 'fergusonbequest/calendar.html', context)
 
 
 @login_required
 def waiting_listattraction(request):
     attractions = Attraction.objects.all().order_by("name")
-
     joined_ids = set(request.session.get("attraction_waitlist_ids", []))
 
     for a in attractions:
@@ -1770,4 +1810,39 @@ def waiting_listattraction_leave(request, pk):
 
     messages.success(request, f"You left the waiting list for {attraction.name}.")
     return redirect("waiting_listattraction")
-    return context
+
+
+@staff_member_required
+def admin_management(request):
+    """
+    Admin management page for draws and attractions.
+    (Name aligned to urls.py: name="admin_management")
+    """
+    draws = TicketDraw.objects.all().order_by("-id")
+    attractions = Attraction.objects.all().order_by("name")
+
+    return render(request, "fergusonbequest/management.html", {
+        "draws": draws,
+        "attractions": attractions,
+    })
+
+
+@staff_member_required
+@require_POST
+def run_draw(request, draw_id):
+    draw = get_object_or_404(TicketDraw, pk=draw_id)
+
+    entries_qs = TicketDrawBooking.objects.filter(
+        ticket_draw=draw,
+        cancelled=False
+    ).select_related("user")
+
+    if not entries_qs.exists():
+        messages.error(request, "No active entries for this draw.")
+        return redirect("admin_management")
+
+    winner = random.choice(list(entries_qs))
+    winner_name = (winner.user.username if winner.user else winner.full_name)
+    messages.success(request, f"Winner selected: {winner_name}")
+
+    return redirect("admin_management")

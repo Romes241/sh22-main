@@ -53,6 +53,8 @@ urlpatterns = [
     path("waiting-list-attraction/leave/<int:pk>/", views.waiting_listattraction_leave, name="waiting_listattraction_leave"),
     path('dashboard/<int:year>/<int:month>/', views.dashboard_view, name='dashboard'),
 
+    path("admin-dashboard/management/", views.management_view, name="management"),
+    path("admin-dashboard/management/draw/<int:draw_id>/run/", views.run_draw, name="run_draw"),
 ]
 
 
