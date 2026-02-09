@@ -6,7 +6,7 @@ from django import forms
 from .models import Attraction, VisitSlot, Booking, Profile, TicketDraw, TicketDrawBooking, TicketDrawVisitSlot
 from .forms import BookingForm
 from django.utils import timezone
-import datetime
+import datetime, random
 from django.db import transaction, IntegrityError
 from django.db.models import Q, F, Sum, Count
 from django.db.models.functions import Coalesce, Least
@@ -734,3 +734,38 @@ def waiting_list(request):
     return render(request, "fergusonbequest/waiting_list.html", {
         "ticket_draws": ticket_draws,
     })
+
+
+@staff_member_required
+def management_view(request):
+    draws = TicketDraw.objects.all().order_by("-id")
+    attractions = Attraction.objects.all().order_by("name")
+
+    return render(request, "fergusonbequest/management.html", {
+        "draws": draws,
+        "attractions": attractions,
+    })
+
+
+@staff_member_required
+@require_POST
+def run_draw(request, draw_id):
+    draw = get_object_or_404(TicketDraw, pk=draw_id)
+
+    # all entries for this draw that are not cancelled
+    entries_qs = TicketDrawBooking.objects.filter(
+        ticket_draw=draw,
+        cancelled=False
+    ).select_related("user")
+
+    if not entries_qs.exists():
+        messages.error(request, "No active entries for this draw.")
+        return redirect("management")
+
+    # pick winner at random
+    winner = random.choice(list(entries_qs))
+
+    winner_name = (winner.user.username if winner.user else winner.full_name)
+    messages.success(request, f"Winner selected: {winner_name}")
+
+    return redirect("management")
