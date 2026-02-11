@@ -47,6 +47,76 @@ def admin_dashboard(request):
             "pending_requests_count": pending_requests_count,
         },
     )
+@staff_member_required
+def ticket_upload(request):
+    q = (request.GET.get("q") or "").strip()
+    venue_id = (request.GET.get("venue") or "").strip()
+    sort = (request.GET.get("sort") or "date_desc").strip()
+
+    venues = Attraction.objects.all().order_by("name")
+
+    qs = Booking.objects.select_related("user", "attraction", "slot").filter(cancelled=False)
+
+    if venue_id:
+        qs = qs.filter(attraction_id=venue_id)
+
+    if q:
+        qs = qs.filter(
+            Q(attraction__name__icontains=q)
+            | Q(user__first_name__icontains=q)
+            | Q(user__last_name__icontains=q)
+            | Q(id__icontains=q)
+        )
+
+    if sort == "date_asc":
+        qs = qs.order_by("slot__date", "slot__time")
+    elif sort == "surname":
+        qs = qs.order_by("user__last_name", "user__first_name")
+    elif sort == "venue":
+        qs = qs.order_by("attraction__name", "-slot__date")
+    else:
+        qs = qs.order_by("-slot__date", "-slot__time")
+
+    rows = []
+    for b in qs[:50]:
+        rows.append({
+            "id": b.id,
+            "venue_name": b.attraction.name if b.attraction else "",
+            "first_name": b.user.first_name if b.user else "",
+            "last_name": b.user.last_name if b.user else "",
+            "guid": f"{b.id}",  # placeholder
+            "booking_date": b.slot.date.strftime("%d/%m/%Y") if b.slot and b.slot.date else "",
+        })
+
+    empty_rows = [None] * max(0, 6 - len(rows))
+
+    return render(request, "fergusonbequest/ticket_upload.html", {
+        "venues": venues,
+        "rows": rows,
+        "empty_rows": empty_rows,
+        "q": q,
+        "venue_id": venue_id,
+        "sort": sort,
+    })
+@staff_member_required
+@require_http_methods(["POST"])
+def ticket_upload_send(request):
+    row_id = request.POST.get("row_id")
+    messages.success(request, f"Ticket sent successfully for booking #{row_id} (demo).")
+    return redirect("ticket_upload")
+
+
+@staff_member_required
+@require_http_methods(["POST"])
+def ticket_upload_view_all(request):
+    return redirect("ticket_upload")
+
+
+@staff_member_required
+@require_http_methods(["POST"])
+def ticket_upload_random(request):
+    messages.success(request, "Tickets randomly distributed (demo).")
+    return redirect("ticket_upload")
 
 
 def home(request):

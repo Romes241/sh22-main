@@ -1,0 +1,126 @@
+{% extends 'fergusonbequest/base.html' %}
+{% load static %}
+
+{% block title %}Ticket Upload | Ferguson Bequest{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'fergusonbequest/css/ticket_upload.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="tu-wrap">
+
+  <h1 class="tu-h1">Ticket Upload</h1>
+
+  <form class="tu-bar" method="get" action="{% url 'ticket_upload' %}">
+    <div class="tu-bar-left">
+      <input
+        class="tu-input"
+        type="text"
+        name="q"
+        value="{{ q|default:'' }}"
+        placeholder="Search"
+        aria-label="Search"
+      >
+      <button class="tu-btn tu-btn--chip" type="submit">Search</button>
+
+      <div class="tu-select-chip">
+        <span class="tu-chip-label">Venue</span>
+        <select name="venue" aria-label="Venue">
+          <option value=""></option>
+          {% for v in venues %}
+            <option value="{{ v.id }}" {% if venue_id == v.id|stringformat:"s" %}selected{% endif %}>
+              {{ v.name }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="tu-bar-right">
+      <button class="tu-btn tu-btn--chip" type="button">Filters</button>
+
+      <div class="tu-sort">
+        <button class="tu-btn tu-btn--chip" type="button">Sort by</button>
+        <select name="sort" aria-label="Sort">
+          <option value="date_desc" {% if sort == "date_desc" %}selected{% endif %}>Date (newest)</option>
+          <option value="date_asc" {% if sort == "date_asc" %}selected{% endif %}>Date (oldest)</option>
+          <option value="surname" {% if sort == "surname" %}selected{% endif %}>Surname</option>
+          <option value="venue" {% if sort == "venue" %}selected{% endif %}>Venue</option>
+        </select>
+      </div>
+    </div>
+  </form>
+
+  <div class="tu-main">
+    <div class="tu-card">
+      <div class="tu-table-head">
+        <div>Venue Name</div>
+        <div>Forename</div>
+        <div>Surname</div>
+        <div>GUID</div>
+        <div>Booking Date</div>
+        <div></div>
+      </div>
+
+      <div class="tu-table-body">
+        {% if rows %}
+          {% for r in rows %}
+            <div class="tu-row">
+              <div class="tu-cell tu-venue">{{ r.venue_name }}</div>
+              <div class="tu-cell">{{ r.first_name }}</div>
+              <div class="tu-cell">{{ r.last_name }}</div>
+              <div class="tu-cell">{{ r.guid }}</div>
+              <div class="tu-cell">{{ r.booking_date }}</div>
+
+              <div class="tu-cell tu-action">
+                <form method="post" action="{% url 'ticket_upload_send' %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="row_id" value="{{ r.id }}">
+                  <button class="tu-btn tu-btn--primary" type="submit">Send Ticket</button>
+                </form>
+              </div>
+            </div>
+          {% endfor %}
+
+          {% for _ in empty_rows %}
+  <div class="tu-row tu-row--blank">
+    <div class="tu-cell">&nbsp;</div>
+    <div class="tu-cell"></div>
+    <div class="tu-cell"></div>
+    <div class="tu-cell"></div>
+    <div class="tu-cell"></div>
+    <div class="tu-cell"></div>
+  </div>
+{% endfor %}
+
+
+        {% else %}
+          <div class="tu-empty">No tickets found.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <aside class="tu-side">
+      <form method="post" action="{% url 'ticket_upload' %}">
+        {% csrf_token %}
+        <button class="tu-btn tu-btn--side" type="submit">View all Tickets</button>
+      </form>
+
+      <form method="post" action="{% url 'ticket_upload_random' %}">
+        {% csrf_token %}
+        <button class="tu-btn tu-btn--side" type="submit">Randomly Distribute Tickets</button>
+      </form>
+    </aside>
+  </div>
+
+</div>
+
+<script>
+  const venue = document.querySelector('select[name="venue"]');
+  const sort = document.querySelector('select[name="sort"]');
+  if (venue) venue.addEventListener("change", () => venue.form.submit());
+  if (sort) sort.addEventListener("change", () => sort.form.submit());
+</script>
+
+{% endblock %}
