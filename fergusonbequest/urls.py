@@ -22,6 +22,7 @@ urlpatterns = [
     path("attractions/", views.attractions_view, name="attractions"),
     path("admin-dashboard/", views.admin_dashboard, name="admin_dashboard"),
     path("staff/suggestions/", views.create_attraction_suggestion, name="create_attraction_suggestion"),
+    path("admin-reports/", views.admin_reports, name = "admin_reports"),
 ]
 
 
