@@ -23,6 +23,9 @@ urlpatterns = [
     path("admin-dashboard/", views.admin_dashboard, name="admin_dashboard"),
     path("admin-dashboard/management/", views.management_view, name="management"),
     path("admin-dashboard/management/draw/<int:draw_id>/run/", views.run_draw, name="run_draw"),
+    path("suggestions/", views.create_attraction_suggestion, name="create_attraction_suggestion"),
+    path("admin-export/suggestions.xlsx", views.export_suggestions_excel, name="export_suggestions_excel"),
+    path("admin-reports/", views.admin_reports, name="admin_reports"),
 ]
 
 
