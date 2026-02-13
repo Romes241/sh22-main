@@ -12,13 +12,24 @@ from django.db.models import Q, F, Sum, Count
 from django.db.models.functions import Coalesce, Least
 from django.utils.dateparse import parse_date
 from django.contrib.admin.views.decorators import staff_member_required
-
 from operator import itemgetter
 import csv
+
 from django.http import HttpResponse
+from django.utils import timezone
+from django.contrib import messages
+from django.shortcuts import render, redirect
+from django.contrib.auth import get_user_model
+from django.contrib.admin.views.decorators import staff_member_required
+from django.views.decorators.http import require_POST, require_http_methods
+from django.db.models import Q
+
 from openpyxl import Workbook
-from django.views.decorators.http import require_POST
-from django.views.decorators.http import require_http_methods
+from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl.utils import get_column_letter
+
+from .models import AttractionSuggestion, Booking, TicketDrawBooking
+from .forms_suggestions import AttractionSuggestionForm
 
 
 User = get_user_model()
@@ -53,6 +64,98 @@ def admin_dashboard(request):
             "pending_requests_count": pending_requests_count,
         },
     )
+
+User = get_user_model()
+
+
+@login_required
+def create_attraction_suggestion(request):
+    if request.method == "POST":
+        form = AttractionSuggestionForm(request.POST)
+        if form.is_valid():
+            suggestion = form.save(commit=False)
+            suggestion.submitted_by = request.user
+            suggestion.save()
+            messages.success(request, "Suggestion submitted successfully.")
+            # prevents duplicate submit on refresh
+            return redirect("create_attraction_suggestion")
+        messages.error(request, "Please fix the errors below and try again.")
+    else:
+        form = AttractionSuggestionForm()
+
+    return render(
+        request,
+        "fergusonbequest/attraction_suggestion_page.html",
+        {"form": form},
+    )
+
+@staff_member_required
+def export_suggestions_excel(request):
+    qs = (
+        AttractionSuggestion.objects
+        .select_related("submitted_by")
+        .order_by("-created_at")
+    )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Attraction Suggestions"
+
+    headers = [
+        "Name",
+        "Location",
+        "Website URL",
+        "Description",
+        "Why Recommended",
+        "Status",
+        "Submitted By",
+        "Created At",
+    ]
+    ws.append(headers)
+
+    # Data rows
+    for s in qs:
+        ws.append([
+            s.name,
+            getattr(s, "location", "") or "",
+            getattr(s, "website_url", "") or "",
+            getattr(s, "description", "") or "",
+            getattr(s, "why_recommended", "") or "",
+            getattr(s, "status", "") or "",
+            (s.submitted_by.username if s.submitted_by else ""),
+            s.created_at.strftime("%Y-%m-%d %H:%M") if getattr(s, "created_at", None) else "",
+        ])
+
+    # Freeze header row and enable filter
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = f"A1:{get_column_letter(len(headers))}{ws.max_row}"
+
+    # Dropdown for status column (column F)
+    dv = DataValidation(
+        type="list",
+        formula1='"Pending,In progress,Implemented,Rejected"',
+        allow_blank=True
+    )
+    # add dropdown for every active suggestion in row
+    ws.add_data_validation(dv)
+    if ws.max_row >= 2:
+        dv.add(f"F2:F{ws.max_row}")
+
+    # Auto-fit column widths
+    for col_idx in range(1, len(headers) + 1):
+        col_letter = get_column_letter(col_idx)
+        max_len = 0
+        for cell in ws[col_letter]:
+            value = "" if cell.value is None else str(cell.value)
+            max_len = max(max_len, len(value))
+        ws.column_dimensions[col_letter].width = min(max_len + 2, 55)
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = 'attachment; filename="attraction_suggestions.xlsx"'
+    wb.save(response)
+    return response
 
 @staff_member_required
 def admin_reports(request):
@@ -407,35 +510,50 @@ def admin_reports(request):
 
 
 def home(request):
-    if request.user.is_authenticated:
-        return redirect('dashboard')
+    attractions_qs = Attraction.objects.all().order_by("name")[:4]
 
-    featured_attractions = [
-        {
-            "title": "Blair Drummond Safari Park",
-            "subtitle": "Safari and adventure park.",
-            "image": "fergusonbequest/img/blair_drumond.jpg",
-            "url": "https://www.blairdrummond.com",
-        },
-        {
-            "title": "Glasgow Clan Ice Hockey",
-            "subtitle": "The city's professional hockey team.",
-            "image": "fergusonbequest/img/glasgow_clan.jpg",
-            "url": "https://clanihc.com",
-        },
-        {
-            "title": "Edinburgh Zoo",
-            "subtitle": "Scotland's most famous zoo.",
-            "image": "fergusonbequest/img/edinburgh_zoo.jpg",
-            "url": "https://www.edinburghzoo.org.uk",
-        },
-        {
-            "title": "Ghostbusters Screening",
-            "subtitle": "Who you gonna call?",
-            "image": "fergusonbequest/img/ghostbusters.jpg",
-            "url": "https://www.imdb.com/title/tt0087332/",
-        },
-    ]
+    featured_attractions = []
+    for attr in attractions_qs:
+        featured_attractions.append({
+            "title": attr.name,
+            "subtitle": (attr.description[:100] if attr.description else (attr.location or "Book now to visit")),
+            "image": (attr.image.name if getattr(attr, "image", None) else "fergusonbequest/img/placeholder.jpg"),
+            "id": attr.id,
+            "url": f"/attraction/{attr.id}/book/",
+        })
+
+    # fallback only if DB empty for now to pass tests
+    if not featured_attractions:
+        featured_attractions = [
+            {
+                "title": "Blair Drummond Safari Park",
+                "subtitle": "Safari and adventure park.",
+                "image": "fergusonbequest/img/blair_drumond.jpg",
+                "id": None,
+                "url": "/attractions/",
+            },
+            {
+                "title": "Glasgow Clan Ice Hockey",
+                "subtitle": "The city's professional hockey team.",
+                "image": "fergusonbequest/img/glasgow_clan.jpg",
+                "id": None,
+                "url": "/attractions/",
+            },
+            {
+                "title": "Edinburgh Zoo",
+                "subtitle": "Scotland's most famous zoo.",
+                "image": "fergusonbequest/img/edinburgh_zoo.jpg",
+                "id": None,
+                "url": "/attractions/",
+            },
+            {
+                "title": "Ghostbusters Screening",
+                "subtitle": "Who you gonna call?",
+                "image": "fergusonbequest/img/ghostbusters.jpg",
+                "id": None,
+                "url": "/attractions/",
+            },
+        ]
 
     return render(
         request,

@@ -1,0 +1,77 @@
+{% extends "fergusonbequest/base.html" %}
+{% load static %}
+
+{% block title %}Suggestions{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'fergusonbequest/css/suggestions.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<section class="sg-hero">
+  <div class="sg-hero__icon" aria-hidden="true">💡</div>
+  <h1 class="sg-hero__title">We value your ideas</h1>
+  <p class="sg-hero__subtitle">
+    Suggest new attractions that could benefit staff. Admins will review submissions for vendor outreach.
+  </p>
+</section>
+
+<section class="sg-card">
+  <div class="sg-card__head">
+    <h2 class="sg-card__title">Submit your suggestion</h2>
+    <p class="sg-card__desc">Please include enough detail for vendor outreach.</p>
+  </div>
+
+  <div class="sg-card__body">
+    {% if messages %}
+      <div class="sg-alert">
+        {% for message in messages %}
+          <div class="sg-alert__item">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <form method="post" class="sg-form">
+      {% csrf_token %}
+
+      <div class="sg-grid">
+        <div class="sg-field">
+          <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+          {{ form.name }}
+          {% if form.name.errors %}<div class="sg-error">{{ form.name.errors }}</div>{% endif %}
+        </div>
+
+        <div class="sg-field">
+          <label for="{{ form.location.id_for_label }}">{{ form.location.label }}</label>
+          {{ form.location }}
+          {% if form.location.errors %}<div class="sg-error">{{ form.location.errors }}</div>{% endif %}
+        </div>
+      </div>
+
+      <div class="sg-field">
+        <label for="{{ form.website_url.id_for_label }}">{{ form.website_url.label }}</label>
+        {{ form.website_url }}
+        {% if form.website_url.errors %}<div class="sg-error">{{ form.website_url.errors }}</div>{% endif %}
+      </div>
+
+      <div class="sg-field">
+        <label for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+        {{ form.description }}
+        {% if form.description.errors %}<div class="sg-error">{{ form.description.errors }}</div>{% endif %}
+      </div>
+
+      <div class="sg-field">
+        <label for="{{ form.why_recommended.id_for_label }}">{{ form.why_recommended.label }}</label>
+        {{ form.why_recommended }}
+        {% if form.why_recommended.errors %}<div class="sg-error">{{ form.why_recommended.errors }}</div>{% endif %}
+      </div>
+
+      <button type="submit" class="sg-submit">
+        Submit suggestion
+      </button>
+    </form>
+  </div>
+</section>
+
+{% endblock %}
