@@ -20,12 +20,13 @@ from django.utils import timezone
 from django.contrib import messages
 from django.shortcuts import render, redirect
 from django.contrib.auth import get_user_model
-from django.contrib.auth.decorators import user_passes_test
 from django.contrib.admin.views.decorators import staff_member_required
 from django.views.decorators.http import require_POST, require_http_methods
 from django.db.models import Q
 
 from openpyxl import Workbook
+from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl.utils import get_column_letter
 
 from .models import AttractionSuggestion, Booking, TicketDrawBooking
 from .forms_suggestions import AttractionSuggestionForm
@@ -66,11 +67,8 @@ def admin_dashboard(request):
 
 User = get_user_model()
 
-def staff_not_admin(user):
-    return user.is_authenticated and user.is_staff and not user.is_superuser
 
-
-@user_passes_test(staff_not_admin)
+@login_required
 def create_attraction_suggestion(request):
     if request.method == "POST":
         form = AttractionSuggestionForm(request.POST)
@@ -79,28 +77,86 @@ def create_attraction_suggestion(request):
             suggestion.submitted_by = request.user
             suggestion.save()
             messages.success(request, "Suggestion submitted successfully.")
+            # prevents duplicate submit on refresh
             return redirect("create_attraction_suggestion")
+        messages.error(request, "Please fix the errors below and try again.")
     else:
         form = AttractionSuggestionForm()
-
-    active_staff_count = User.objects.filter(is_staff=True, is_superuser=False, is_active=True).count()
-    received_count = AttractionSuggestion.objects.count()
-    implemented_count = AttractionSuggestion.objects.filter(status=AttractionSuggestion.STATUS_IMPLEMENTED).count()
-    implementation_rate = round((implemented_count / received_count) * 100) if received_count else 0
-
-    recent = AttractionSuggestion.objects.select_related("submitted_by").order_by("-created_at")[:4]
 
     return render(
         request,
         "fergusonbequest/attraction_suggestion_page.html",
-        {
-            "form": form,
-            "active_staff_count": active_staff_count,
-            "received_count": received_count,
-            "implementation_rate": implementation_rate,
-            "recent_suggestions": recent,
-        },
+        {"form": form},
     )
+
+@staff_member_required
+def export_suggestions_excel(request):
+    qs = (
+        AttractionSuggestion.objects
+        .select_related("submitted_by")
+        .order_by("-created_at")
+    )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Attraction Suggestions"
+
+    headers = [
+        "Name",
+        "Location",
+        "Website URL",
+        "Description",
+        "Why Recommended",
+        "Status",
+        "Submitted By",
+        "Created At",
+    ]
+    ws.append(headers)
+
+    # Data rows
+    for s in qs:
+        ws.append([
+            s.name,
+            getattr(s, "location", "") or "",
+            getattr(s, "website_url", "") or "",
+            getattr(s, "description", "") or "",
+            getattr(s, "why_recommended", "") or "",
+            getattr(s, "status", "") or "",
+            (s.submitted_by.username if s.submitted_by else ""),
+            s.created_at.strftime("%Y-%m-%d %H:%M") if getattr(s, "created_at", None) else "",
+        ])
+
+    # Freeze header row and enable filter
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = f"A1:{get_column_letter(len(headers))}{ws.max_row}"
+
+    # Dropdown for status column (column F)
+    dv = DataValidation(
+        type="list",
+        formula1='"Pending,In progress,Implemented,Rejected"',
+        allow_blank=True
+    )
+    # add dropdown for every active suggestion in row
+    ws.add_data_validation(dv)
+    if ws.max_row >= 2:
+        dv.add(f"F2:F{ws.max_row}")
+
+    # Auto-fit column widths
+    for col_idx in range(1, len(headers) + 1):
+        col_letter = get_column_letter(col_idx)
+        max_len = 0
+        for cell in ws[col_letter]:
+            value = "" if cell.value is None else str(cell.value)
+            max_len = max(max_len, len(value))
+        ws.column_dimensions[col_letter].width = min(max_len + 2, 55)
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = 'attachment; filename="attraction_suggestions.xlsx"'
+    wb.save(response)
+    return response
+
 @staff_member_required
 def admin_reports(request):
 

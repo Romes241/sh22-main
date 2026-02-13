@@ -17,32 +17,6 @@
   </p>
 </section>
 
-<section class="sg-stats">
-  <div class="sg-stat">
-    <div class="sg-stat__icon" aria-hidden="true">👥</div>
-    <div>
-      <div class="sg-stat__value">{{ active_staff_count }}</div>
-      <div class="sg-stat__label">Active staff</div>
-    </div>
-  </div>
-
-  <div class="sg-stat">
-    <div class="sg-stat__icon" aria-hidden="true">⭐</div>
-    <div>
-      <div class="sg-stat__value">{{ received_count }}</div>
-      <div class="sg-stat__label">Suggestions received</div>
-    </div>
-  </div>
-
-  <div class="sg-stat">
-    <div class="sg-stat__icon" aria-hidden="true">📈</div>
-    <div>
-      <div class="sg-stat__value">{{ implementation_rate }}%</div>
-      <div class="sg-stat__label">Implementation rate</div>
-    </div>
-  </div>
-</section>
-
 <section class="sg-card">
   <div class="sg-card__head">
     <h2 class="sg-card__title">Submit your suggestion</h2>
@@ -94,47 +68,9 @@
       </div>
 
       <button type="submit" class="sg-submit">
-        <span aria-hidden="true">✈️</span>
         Submit suggestion
       </button>
     </form>
-  </div>
-</section>
-
-<section class="sg-recent">
-  <h2 class="sg-recent__title">Recent suggestions</h2>
-
-  <div class="sg-recent__grid">
-    {% for s in recent_suggestions %}
-      <article class="sg-item">
-        <div class="sg-item__left" aria-hidden="true">🧭</div>
-
-        <div class="sg-item__main">
-          <div class="sg-item__name">{{ s.name }}</div>
-          <div class="sg-item__meta">
-            Suggested by {{ s.submitted_by.get_full_name|default:s.submitted_by.username }} ·
-            {{ s.created_at|date:"d M Y" }}
-          </div>
-          {% if s.description %}
-            <div class="sg-item__desc">{{ s.description|truncatechars:120 }}</div>
-          {% endif %}
-        </div>
-
-        <div class="sg-item__right">
-          {% if s.status == "implemented" %}
-            <span class="sg-badge sg-badge--ok">Implemented</span>
-          {% elif s.status == "in_progress" %}
-            <span class="sg-badge sg-badge--run">In progress</span>
-          {% elif s.status == "rejected" %}
-            <span class="sg-badge sg-badge--bad">Rejected</span>
-          {% else %}
-            <span class="sg-badge sg-badge--wait">Pending</span>
-          {% endif %}
-        </div>
-      </article>
-    {% empty %}
-      <p class="sg-empty">No suggestions yet. Be the first to submit one.</p>
-    {% endfor %}
   </div>
 </section>
 
