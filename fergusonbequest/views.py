@@ -994,6 +994,8 @@ def booking_view(request, attraction_pk):
         booking = form.save(commit=False)
         booking.user = request.user
         booking.attraction = attraction
+        booking.full_name = f"{request.user.first_name} {request.user.last_name}".strip()
+        booking.email = request.user.email
 
         # ADDED: validate slot belongs to this attraction
         if booking.slot.attraction_id != attraction.id:
