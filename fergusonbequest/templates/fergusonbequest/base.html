@@ -23,12 +23,8 @@
 
     <span class="fb-header__divider" aria-hidden="true"></span>
 
-    {% if user.is_authenticated %}
-      {% if user.is_staff %}
-        <a href="{% url 'admin_dashboard' %}" class="fb-header__brand">Ferguson Bequest</a>
-      {% else %}
-        <a href="{% url 'dashboard' %}" class="fb-header__brand">Ferguson Bequest</a>
-      {% endif %}
+    {% if user.is_authenticated and user.is_staff %}
+      <a href="{% url 'admin_dashboard' %}" class="fb-header__brand">Ferguson Bequest</a>
     {% else %}
       <a href="{% url 'home' %}" class="fb-header__brand">Ferguson Bequest</a>
     {% endif %}
@@ -46,25 +42,14 @@
         <a href="{% url 'dashboard' %}">Dashboard</a>
         <a href="{% url 'how_to_book' %}">Terms &amp; Conditions</a>
       {% endif %}
-
-          {% if user.is_staff and not user.is_superuser %}
-              <a href="{% url 'create_attraction_suggestion' %}">Suggestions</a>
-          {% endif %}
-
       <a href="{% url 'logout' %}">Logout</a>
-      
     {% else %}
       <a href="{% url 'login' %}">Login</a>
       <a href="{% url 'register' %}">Register</a>
       <a href="{% url 'how_to_book' %}">Terms &amp; Conditions</a>
     {% endif %}
-
-
-  
-
   </nav>
 </header>
-
 
 <main class="fb-container">
   {% block content %}{% endblock %}
@@ -79,10 +64,6 @@
 </footer>
 
 {% block extra_js %}{% endblock %}
-
-{% if user.is_staff and not user.is_superuser %}
-  <a class="fb-fab" href="{% url 'create_attraction_suggestion' %}">Suggestions</a>
-{% endif %}
 
 </body>
 </html>
