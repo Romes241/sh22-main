@@ -26,6 +26,8 @@ urlpatterns = [
     path("suggestions/", views.create_attraction_suggestion, name="create_attraction_suggestion"),
     path("admin-export/suggestions.xlsx", views.export_suggestions_excel, name="export_suggestions_excel"),
     path("admin-reports/", views.admin_reports, name="admin_reports"),
+    path("admin-dashboard/management/draws/<int:draw_id>/delete/", views.mng_delete_draw, name="mng_delete_draw"),
+    path("admin-dashboard/management/attractions/<int:attraction_id>/delete/", views.mng_delete_attraction, name="mng_delete_attraction"),
 ]
 
 

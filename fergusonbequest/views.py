@@ -1311,3 +1311,20 @@ def run_draw(request, draw_id):
     )
     messages.success(request, f"Winner selected: {winner_name}")
     return redirect(f"{reverse('management')}?tab=draws")
+
+@staff_member_required
+@require_POST
+def mng_delete_draw(request, draw_id):
+    draw = get_object_or_404(TicketDraw, pk=draw_id)
+    draw.delete()
+    messages.success(request, "Draw deleted.")
+    return redirect("/admin-dashboard/management/?tab=draws")
+
+
+@staff_member_required
+@require_POST
+def mng_delete_attraction(request, attraction_id):
+    attraction = get_object_or_404(Attraction, pk=attraction_id)
+    attraction.delete()
+    messages.success(request, "Attraction deleted.")
+    return redirect("/admin-dashboard/management/?tab=attractions")
