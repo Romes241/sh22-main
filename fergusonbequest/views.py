@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django import forms
 from .models import Attraction, VisitSlot, Booking, Profile, TicketDraw, TicketDrawBooking, TicketDrawVisitSlot
-from .forms import BookingForm
+from .forms import BookingForm, AttractionCreateForm, TicketDrawCreateForm
 from django.utils import timezone
 import datetime, random
 from django.db import transaction, IntegrityError
@@ -752,7 +752,14 @@ def ticket_draw_detail(request, slug):
             return redirect('ticket_draw_detail', slug=slug)
 
         slot_id = request.POST.get('slot_id')
-        slot = get_object_or_404(TicketDrawVisitSlot, pk=slot_id)
+        if not slot_id:
+            messages.error(request, "No available dates for this draw. Please check back later.")
+            return redirect('ticket_draw_detail', slug=slug)
+
+        slot = TicketDrawVisitSlot.objects.filter(pk=slot_id, ticket_draw=draw).first()
+        if slot is None:
+            messages.error(request, "Selected date is no longer available. Please choose another date.")
+            return redirect('ticket_draw_detail', slug=slug)
 
         if slot.remaining >= num_tickets and draw.is_open():
             with transaction.atomic():
@@ -769,6 +776,10 @@ def ticket_draw_detail(request, slug):
                 slot.save()
             messages.success(request, "Successfully entered draw!")
             return redirect('waiting_list')
+        elif not draw.is_open():
+            messages.error(request, "This draw is currently closed.")
+        else:
+            messages.error(request, "Not enough availability for that date.")
 
     slots = TicketDrawVisitSlot.objects.filter(
         ticket_draw=draw,
@@ -1025,6 +1036,8 @@ def booking_view(request, attraction_pk):
         booking = form.save(commit=False)
         booking.user = request.user
         booking.attraction = attraction
+        booking.full_name = f"{request.user.first_name} {request.user.last_name}".strip()
+        booking.email = request.user.email
 
         # ADDED: validate slot belongs to this attraction
         if booking.slot.attraction_id != attraction.id:
@@ -1328,3 +1341,88 @@ def mng_delete_attraction(request, attraction_id):
     attraction.delete()
     messages.success(request, "Attraction deleted.")
     return redirect("/admin-dashboard/management/?tab=attractions")
+
+@staff_member_required
+def create_attraction(request):
+    """
+    Staff-only view to create a new attraction.
+    """
+    if request.method == 'POST':
+        form = AttractionCreateForm(request.POST, request.FILES)
+        if form.is_valid():
+            attraction = form.save()
+            messages.success(request, f'Attraction "{attraction.name}" created successfully!')
+            return redirect('admin_dashboard')
+    else:
+        form = AttractionCreateForm()
+    
+    return render(request, 'fergusonbequest/create_attraction.html', {
+        'form': form,
+        'title': 'Create New Attraction'
+    })
+
+
+@staff_member_required
+def create_ticket_draw(request):
+    """
+    Staff-only view to create a new ticket draw.
+    """
+    if request.method == 'POST':
+        form = TicketDrawCreateForm(request.POST, request.FILES)
+        if form.is_valid():
+            ticket_draw = form.save()
+            messages.success(request, f'Ticket Draw "{ticket_draw.name}" created successfully!')
+            return redirect('admin_dashboard')
+    else:
+        form = TicketDrawCreateForm()
+    
+    return render(request, 'fergusonbequest/create_ticket_draw.html', {
+        'form': form,
+        'title': 'Create New Ticket Draw'
+    })
+
+
+@staff_member_required
+def edit_attraction(request, pk):
+    """
+    Staff-only view to edit an existing attraction.
+    """
+    attraction = get_object_or_404(Attraction, pk=pk)
+    
+    if request.method == 'POST':
+        form = AttractionCreateForm(request.POST, request.FILES, instance=attraction)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Attraction "{attraction.name}" updated successfully!')
+            return redirect('admin_dashboard')
+    else:
+        form = AttractionCreateForm(instance=attraction)
+    
+    return render(request, 'fergusonbequest/edit_attraction.html', {
+        'form': form,
+        'title': 'Edit Attraction',
+        'attraction': attraction
+    })
+
+
+@staff_member_required
+def edit_ticket_draw(request, pk):
+    """
+    Staff-only view to edit an existing ticket draw.
+    """
+    ticket_draw = get_object_or_404(TicketDraw, pk=pk)
+    
+    if request.method == 'POST':
+        form = TicketDrawCreateForm(request.POST, request.FILES, instance=ticket_draw)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Ticket Draw "{ticket_draw.name}" updated successfully!')
+            return redirect('admin_dashboard')
+    else:
+        form = TicketDrawCreateForm(instance=ticket_draw)
+    
+    return render(request, 'fergusonbequest/edit_ticket_draw.html', {
+        'form': form,
+        'title': 'Edit Ticket Draw',
+        'ticket_draw': ticket_draw
+    })
