@@ -1,0 +1,123 @@
+{% extends "fergusonbequest/base.html" %}
+{% load static %}
+
+{% block title %}Create Attraction – Ferguson Bequest{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'fergusonbequest/css/create_form.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="fb-create-form">
+  <h1 class="fb-h1">{{ title }}</h1>
+  
+  {% if messages %}
+    {% for message in messages %}
+      <div class="fb-alert">
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endif %}
+  
+  <div class="fb-card">
+    <form method="post" enctype="multipart/form-data" class="fb-form-grid">
+    {% csrf_token %}
+    
+    <div class="fb-form-group">
+      <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+      {{ form.name }}
+      {% if form.name.errors %}
+        <div class="fb-form-errors">{{ form.name.errors }}</div>
+      {% endif %}
+      {% if form.name.help_text %}
+        <div class="fb-form-help">{{ form.name.help_text }}</div>
+      {% endif %}
+    </div>
+    
+    <div class="fb-form-row">
+      <div class="fb-form-group">
+        <label for="{{ form.location.id_for_label }}">{{ form.location.label }}</label>
+        {{ form.location }}
+        {% if form.location.errors %}
+          <div class="fb-form-errors">{{ form.location.errors }}</div>
+        {% endif %}
+      </div>
+      
+      <div class="fb-form-group">
+        <label for="{{ form.contact_email.id_for_label }}">{{ form.contact_email.label }}</label>
+        {{ form.contact_email }}
+        {% if form.contact_email.errors %}
+          <div class="fb-form-errors">{{ form.contact_email.errors }}</div>
+        {% endif %}
+      </div>
+    </div>
+    
+    <div class="fb-form-group">
+      <label for="{{ form.short_description.id_for_label }}">Short Description</label>
+      {{ form.short_description }}
+      {% if form.short_description.errors %}
+        <div class="fb-form-errors">{{ form.short_description.errors }}</div>
+      {% endif %}
+      {% if form.short_description.help_text %}
+        <div class="fb-form-help">{{ form.short_description.help_text }}</div>
+      {% endif %}
+    </div>
+    
+    <div class="fb-form-row-2col">
+      <label for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+      {{ form.description }}
+      {% if form.description.errors %}
+        <div class="fb-form-errors">{{ form.description.errors }}</div>
+      {% endif %}
+    </div>
+    
+    <div class="fb-form-group">
+      <label for="{{ form.image.id_for_label }}">{{ form.image.label }}</label>
+      {{ form.image }}
+      {% if form.image.errors %}
+        <div class="fb-form-errors">{{ form.image.errors }}</div>
+      {% endif %}
+    </div>
+    
+    <div class="fb-form-row-2col">
+      <div class="fb-form-group">
+        <label for="{{ form.booking_open.id_for_label }}">{{ form.booking_open.label }}</label>
+        {{ form.booking_open }}
+        {% if form.booking_open.errors %}
+          <div class="fb-form-errors">{{ form.booking_open.errors }}</div>
+        {% endif %}
+      </div>
+      
+      <div class="fb-form-group">
+        <label for="{{ form.booking_close.id_for_label }}">{{ form.booking_close.label }}</label>
+        {{ form.booking_close }}
+        {% if form.booking_close.errors %}
+          <div class="fb-form-errors">{{ form.booking_close.errors }}</div>
+        {% endif %}
+      </div>
+    </div>
+    
+    <div class="fb-form-group">
+      <label for="{{ form.per_year_limit.id_for_label }}">{{ form.per_year_limit.label }}</label>
+      {{ form.per_year_limit }}
+      {% if form.per_year_limit.errors %}
+        <div class="fb-form-errors">{{ form.per_year_limit.errors }}</div>
+      {% endif %}
+    </div>
+    
+    <div class="fb-form-group">
+      <label for="{{ form.terms.id_for_label }}">{{ form.terms.label }}</label>
+      {{ form.terms }}
+      {% if form.terms.errors %}
+        <div class="fb-form-errors">{{ form.terms.errors }}</div>
+      {% endif %}
+    </div>
+    
+      <div class="fb-form-actions">
+        <button type="submit" class="fb-btn fb-btn--primary fb-btn-submit">Create Attraction</button>
+        <a href="{% url 'admin_dashboard' %}" class="fb-btn-cancel">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
