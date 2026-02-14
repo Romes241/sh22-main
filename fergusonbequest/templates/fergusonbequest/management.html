@@ -4,7 +4,7 @@
 {% block title %}Management – Ferguson Bequest{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'fergusonbequest/css/management.css' %}">
+<link rel="stylesheet" href="{% static 'fergusonbequest/css/admin_management.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -53,11 +53,12 @@
         + New Draw
       </a>
     </div>
-
+    <div class="mng-card mng-card--fixed mng-card--scroll">
     {% for draw in draws %}
       <div class="mng-row">
         <div>
           <div class="mng-name">{{ draw.name }}</div>
+
           <div class="mng-meta">
             <span class="mng-muted">
               Opens {{ draw.booking_open|date:"d M Y" }}
@@ -66,6 +67,7 @@
               Closes {{ draw.booking_close|date:"d M Y" }}
             </span>
           </div>
+
           <div class="mng-meta">
             {% if draw.winner_booking and not draw.winner_booking.cancelled %}
               <span class="mng-muted">
@@ -87,11 +89,15 @@
             Edit
           </a>
 
-          <a class="mng-btn mng-btn--danger js-confirm"
-             data-confirm="Are you sure you want to delete this draw?"
-             href="{% url 'admin:fergusonbequest_ticketdraw_delete' draw.id %}">
+        <form method="post" action="{% url 'mng_delete_draw' draw.id %}" class="mng-delete-form">
+          {% csrf_token %}
+          <button type="button"
+                  class="mng-btn mng-btn--danger js-open-confirm"
+                  data-title="Delete draw?"
+                  data-message="This will permanently delete “{{ draw.name }}”.">
             Delete
-          </a>
+          </button>
+        </form>
 
           <form method="post" action="{% url 'run_draw' draw.id %}">
             {% csrf_token %}
@@ -105,7 +111,8 @@
     {% empty %}
       <p class="mng-empty">No draws found.</p>
     {% endfor %}
-  </section>
+  </div>
+</section>
 
   <!-- Attraction section -->
   <section class="mng-panel {% if tab == 'attractions' %}is-active{% endif %}">
@@ -116,39 +123,56 @@
         + New Attraction
       </a>
     </div>
+    <div class="mng-card mng-card--fixed mng-card--scroll">
+      {% for a in attractions %}
+        <div class="mng-row">
+          <div>
+            <div class="mng-name">{{ a.name }}</div>
+            <div class="mng-meta">
+              {% if a.booking_open %}
+                <span class="mng-muted">{{ a.booking_open|date:"d M Y" }}</span>
+              {% endif %}
+              {% if a.location %}
+                <span class="mng-muted">• {{ a.location }}</span>
+              {% endif %}
+            </div>
+          </div>
 
-    {% for a in attractions %}
-      <div class="mng-row">
-        <div>
-          <div class="mng-name">{{ a.name }}</div>
-          <div class="mng-meta">
-            {% if a.booking_open %}
-              <span class="mng-muted">{{ a.booking_open|date:"d M Y" }}</span>
-            {% endif %}
-            {% if a.location %}
-              <span class="mng-muted">• {{ a.location }}</span>
-            {% endif %}
+          <div class="mng-actions">
+            <a class="mng-btn mng-btn--ghost"
+               href="{% url 'admin:fergusonbequest_attraction_change' a.id %}">
+              Edit
+            </a>
+
+            <form method="post" action="{% url 'mng_delete_attraction' a.id %}" class="mng-delete-form">
+              {% csrf_token %}
+              <button type="button"
+                      class="mng-btn mng-btn--danger js-open-confirm"
+                      data-title="Delete attraction?"
+                      data-message="This will permanently delete “{{ a.name }}”.">
+                Delete
+              </button>
+            </form>
           </div>
         </div>
+      {% empty %}
+        <p class="mng-empty">No attractions found.</p>
+      {% endfor %}
+    </div>
+  </section>
+    <div class="mng-modal" id="mngConfirm" aria-hidden="true">
+      <div class="mng-modal__backdrop" data-close></div>
 
-        <div class="mng-actions">
-          <a class="mng-btn mng-btn--ghost"
-             href="{% url 'admin:fergusonbequest_attraction_change' a.id %}">
-            Edit
-          </a>
+      <div class="mng-modal__card" role="dialog" aria-modal="true" aria-labelledby="mngConfirmTitle">
+        <h3 class="mng-modal__title" id="mngConfirmTitle">Confirm</h3>
+        <p class="mng-modal__text" id="mngConfirmText">Are you sure?</p>
 
-          <a class="mng-btn mng-btn--danger js-confirm"
-             data-confirm="Are you sure you want to delete this attraction?"
-             href="{% url 'admin:fergusonbequest_attraction_delete' a.id %}">
-            Delete
-          </a>
+        <div class="mng-modal__actions">
+          <button type="button" class="mng-btn mng-btn--ghost" data-close>Cancel</button>
+          <button type="button" class="mng-btn mng-btn--danger" id="mngConfirmYes">Delete</button>
         </div>
       </div>
-    {% empty %}
-      <p class="mng-empty">No attractions found.</p>
-    {% endfor %}
-  </section>
-
+    </div>
 </div>
 
 <script src="{% static 'fergusonbequest/js/management.js' %}"></script>

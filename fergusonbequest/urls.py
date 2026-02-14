@@ -55,6 +55,9 @@ urlpatterns = [
 
     path("admin-dashboard/management/", views.management_view, name="management"),
     path("admin-dashboard/management/draw/<int:draw_id>/run/", views.run_draw, name="run_draw"),
+    path("admin-reports/", views.admin_reports, name="admin_reports"),
+    path("admin-dashboard/management/draws/<int:draw_id>/delete/", views.mng_delete_draw, name="mng_delete_draw"),
+    path("admin-dashboard/management/attractions/<int:attraction_id>/delete/", views.mng_delete_attraction, name="mng_delete_attraction"),
 ]
 
 
