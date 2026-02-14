@@ -16,6 +16,13 @@ from django.db.models.functions import Coalesce, Least
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse, reverse_lazy
+from django.utils.dateparse import parse_date
+from django.contrib.admin.views.decorators import staff_member_required
+from operator import itemgetter
+import csv
+
+from django.urls import reverse
+from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST, require_http_methods
@@ -934,6 +941,28 @@ def cancel_ticket_draw_entry(request, pk):
             messages.info(request, "This entry was already cancelled.")
 
     return redirect(request.META.get("HTTP_REFERER", "draw_waiting_list"))
+    # Ensure the user owns this booking before allowing cancellation
+    @login_required
+    def cancel_ticket_draw_entry(request, pk):
+        """Allows a user to cancel their own ticket draw entry and restores slot capacity."""
+        booking = get_object_or_404(TicketDrawBooking, pk=pk, user=request.user)
+
+        if request.method == 'POST':
+            with transaction.atomic():
+                if not booking.cancelled:
+                    booking.cancelled = True
+                    booking.save(update_fields=["cancelled"])
+                    # Restore slot capacity
+                    slot = booking.slot
+                    slot.remaining = F('remaining') + booking.num_tickets
+                    slot.save(update_fields=["remaining"])
+                    draw = booking.ticket_draw
+                    if getattr(draw, "winner_booking_id", None) == booking.id:
+                        assign_next_winner(draw)
+
+                messages.success(request, f"Entry for {booking.ticket_draw.name} cancelled.")
+
+        return redirect('waiting_list')
 
 def assign_next_winner(draw):
     """
@@ -941,7 +970,7 @@ def assign_next_winner(draw):
     If no active entries then clear winner.
     """
     if draw.winner_booking and not draw.winner_booking.cancelled:
-        return  # winner still valid
+        return  # winner still valid, do nothing
 
     entries = list(
         TicketDrawBooking.objects.filter(ticket_draw=draw, cancelled=False)
@@ -1859,17 +1888,35 @@ def admin_management(request):
 def run_draw(request, draw_id):
     draw = get_object_or_404(TicketDraw, pk=draw_id)
 
-    entries_qs = TicketDrawBooking.objects.filter(
-        ticket_draw=draw,
-        cancelled=False
-    ).select_related("user")
+    # Only allow when closed (safety check)
+    if hasattr(draw, "is_open") and draw.is_open():
+        messages.error(request, "This draw is still open. You can only run it after it has closed.")
+        return redirect("admin_management")
 
-    if not entries_qs.exists():
+    entries = list(
+        TicketDrawBooking.objects.filter(
+            ticket_draw=draw,
+            cancelled=False
+        ).select_related("user")
+    )
+
+    if not entries:
+        draw.winner_booking = None
+        draw.winner_selected_at = None
+        draw.save(update_fields=["winner_booking", "winner_selected_at"])
         messages.error(request, "No active entries for this draw.")
         return redirect("admin_management")
 
-    winner = random.choice(list(entries_qs))
-    winner_name = (winner.user.username if winner.user else winner.full_name)
-    messages.success(request, f"Winner selected: {winner_name}")
+    # Pick and store winner
+    draw.winner_booking = random.choice(entries)
+    draw.winner_selected_at = timezone.now()
+    draw.save(update_fields=["winner_booking", "winner_selected_at"])
 
+    winner = draw.winner_booking
+    winner_name = (
+        winner.full_name
+        or (winner.user.get_username() if winner.user else "Winner")
+    )
+
+    messages.success(request, f"Winner selected: {winner_name}")
     return redirect("admin_management")

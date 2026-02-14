@@ -125,6 +125,16 @@ class TicketDraw(models.Model):
         default='weekly_event'
     )
 
+    # winner info (for run draw results)
+    winner_booking = models.ForeignKey(
+        "TicketDrawBooking",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="won_for_draw"
+    )
+    winner_selected_at = models.DateTimeField(null=True, blank=True)
+
     def __str__(self):
         return self.name
 
