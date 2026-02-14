@@ -3,64 +3,126 @@
 
 {% block title %}Book Attraction – Ferguson Bequest{% endblock %}
 
-{% block extra_css %}{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'fergusonbequest/css/booking_page.css' %}">
+{% endblock %}
 
 {% block content %}
-
-<h1 class="fb-h1">Book: {{ attraction.name }}</h1>
-
-<div class="booking-grid">
+    <a class="back-link" href="{% url 'attraction' attraction.pk %}">
+      <span class="back-text">Back to attraction</span> ←
+    </a>
+    <h1 class="fb-h1">Book: {{ attraction.name }}</h1>
+    <div class="booking-grid">
 
   <section class="booking-card">
     <h2 class="fb-h2">Your booking</h2>
+      <div class="booking-allowance">
+        Remaining allowance:
+        <strong>{{ remaining_allowance }}/{{ max_allowance }}</strong>
+      </div>
 
-    {% if form %}
-      <form method="post" novalidate>
-        {% csrf_token %}
-        {% for field in form.visible_fields %}
-          <div class="fb-form-row fb-form-row--inline">
-            <label class="fb-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-            <div class="fb-field">{{ field }}</div>
-          </div>
+    {# Server-side non-field errors #}
+    {% if form and form.non_field_errors %}
+      <div class="fb-alert fb-alert--error" role="alert">
+        {% for e in form.non_field_errors %}
+          <div>{{ e }}</div>
         {% endfor %}
-
-        <button type="submit" class="fb-btn fb-btn--primary">Confirm booking</button>
-      </form>
-    {% else %}
-      <form method="post">
-        {% csrf_token %}
-
-        <div class="fb-form-row fb-form-row--inline">
-          <label class="fb-label" for="id_date">Date</label>
-          <div class="fb-field"><input type="date" id="id_date" name="date" required></div>
-        </div>
-
-        <div class="fb-form-row fb-form-row--inline">
-          <label class="fb-label" for="id_slot">Time slot</label>
-          <div class="fb-field">
-            <select id="id_slot" name="slot" required>
-              <option value="">Choose a time</option>
-              {% for slot in available_slots %}
-                <option value="{{ slot.id }}">{{ slot.start_time }}{% if slot.capacity %} – {{ slot.capacity }} places{% endif %}</option>
-              {% empty %}
-                <option disabled>No slots available</option>
-              {% endfor %}
-            </select>
-          </div>
-        </div>
-
-        <div class="fb-form-row fb-form-row--inline">
-          <label class="fb-label" for="id_attendees">Attendees</label>
-          <div class="fb-field"><input type="number" id="id_attendees" name="attendees" min="1" value="1" required></div>
-        </div>
-
-        <div class="fb-form-row">
-          <button type="submit" class="fb-btn fb-btn--primary">Confirm booking</button>
-        </div>
-      </form>
+      </div>
     {% endif %}
 
-    <p class="mt-3"><a href="{% url 'attraction' attraction.pk %}">Back to attraction</a></p>
+    <form method="post" id="bookingForm" novalidate>
+      {% csrf_token %}
+
+      {% if form %}
+        <div class="fb-form-row fb-form-row--inline">
+          <label class="fb-label">Name</label>
+          <div class="fb-field">
+            <div class="fb-readonly">
+              {{ request.user.get_full_name|default:request.user.username }}
+            </div>
+          </div>
+        </div>
+
+        <div class="fb-form-row fb-form-row--inline">
+          <label class="fb-label">Email</label>
+          <div class="fb-field">
+            <div class="fb-readonly">
+              {{ request.user.email }}
+            </div>
+          </div>
+        </div>
+
+        {# Render all fields except agreed terms #}
+        {% for field in form.visible_fields %}
+          {% if field.name != "agreed_terms" %}
+            <div class="fb-form-row fb-form-row--inline {% if field.errors %}fb-form-row--error{% endif %}">
+              <label class="fb-label" for="{{ field.id_for_label }}">
+                {{ field.label }}
+                {% if field.field.required %}
+                  <span class="fb-required">*</span>
+                {% endif %}
+              </label>
+
+              <div class="fb-field">
+                {{ field }}
+
+                {% if field.errors %}
+                  <div class="fb-field-error">
+                    {% for e in field.errors %}
+                      <div>{{ e }}</div>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+        {# Hidden agreed terms controlled #}
+        <input type="hidden" id="id_agreed_terms" name="agreed_terms" value="false">
+      {% else %}
+          <div class="fb-form-row fb-form-row--inline">
+            <label class="fb-label">Name</label>
+          <div class="fb-field">
+              <div class="fb-readonly">
+                {{ request.user.get_full_name|default:request.user.username }}
+              </div>
+          </div>
+          </div>
+            <div class="fb-form-row fb-form-row--inline">
+              <label class="fb-label" for="id_slot">Slot <span class="fb-required">*</span></label>
+              <div class="fb-field">
+                <select id="id_slot" name="slot" required>
+                  <option value="">Choose a time</option>
+                  {% for slot in available_slots %}
+                    <option value="{{ slot.id }}">
+                      {{ slot.attraction.name }} – {{ slot.date }} {{ slot.time }}
+                    </option>
+                  {% empty %}
+                    <option disabled>No slots available</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+        <div class="fb-form-row fb-form-row--inline">
+          <label class="fb-label" for="id_num_tickets">Number of tickets <span class="fb-required">*</span></label>
+          <div class="fb-field">
+            <select id="id_num_tickets" name="num_tickets" required>
+              <option value="1" selected>1</option>
+              <option value="2">2</option>
+            </select>
+            <div class="fb-help">Max 2 tickets per booking.</div>
+          </div>
+        </div>
+
+        <input type="hidden" id="id_agreed_terms" name="agreed_terms" value="false">
+      {% endif %}
+
+      {# This does NOT submit; it opens the terms modal #}
+      <button type="button" class="fb-btn fb-btn--primary" id="openTermsModal">
+        Confirm booking
+      </button>
+
+    </form>
   </section>
 
   <aside class="booking-card booking-summary">
@@ -74,8 +136,14 @@
     <ul class="slot-list">
       {% for slot in available_slots|slice:":6" %}
         <li class="slot-item">
-          <div><strong>{{ slot.start_time }}</strong></div>
-          <div class="muted">{{ slot.human_readable_availability }}</div>
+          <div><strong>{{ slot.time }}</strong></div>
+          <div class="muted">
+            {% if slot.remaining %}
+              {{ slot.remaining }} left
+            {% else %}
+              Sold out
+            {% endif %}
+          </div>
         </li>
       {% empty %}
         <li class="slot-item">No slots available</li>
@@ -86,22 +154,46 @@
 
     <h4>Price</h4>
     <p>{{ booking_summary.price|default:"Free" }}</p>
-
     <p class="mt-3"><a href="{% url 'how_to_book' %}">How bookings work</a></p>
-
   </aside>
 
+</div>
+
+{# Terms #}
+<div class="fb-modal" id="termsModal" aria-hidden="true">
+  <div class="fb-modal__backdrop" data-close-modal="1"></div>
+
+  <div class="fb-modal__panel" role="dialog" aria-modal="true" aria-labelledby="termsTitle">
+    <h3 id="termsTitle">Terms &amp; Conditions</h3>
+
+    <div class="fb-modal__body">
+      {% if attraction.terms %}
+        <div class="fb-terms-box">
+          {{ attraction.terms|linebreaksbr }}
+        </div>
+      {% else %}
+        <p class="muted">No terms have been set for this attraction yet.</p>
+      {% endif %}
+
+      <div class="fb-terms-confirm">
+        <label class="fb-terms-checkbox">
+          <input type="checkbox" id="termsAgreeCheckbox">
+          <span>I have read and agree to these terms.</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="fb-modal__actions">
+      <button type="button" class="fb-btn" data-close-modal="1">Back</button>
+      <button type="button" class="fb-btn fb-btn--primary" id="finalConfirmBooking" disabled>
+        I agree, book now
+      </button>
+    </div>
+  </div>
 </div>
 
 {% endblock %}
 
 {% block extra_js %}
-<script>
-document.addEventListener('change', function (e) {
-  if (e.target && e.target.id === 'id_slot') {
-    var attendees = document.getElementById('id_attendees');
-    if (attendees) attendees.focus();
-  }
-});
-</script>
+<script src="{% static 'fergusonbequest/js/booking_page.js' %}"></script>
 {% endblock %}

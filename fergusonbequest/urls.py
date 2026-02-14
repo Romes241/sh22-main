@@ -25,6 +25,9 @@ urlpatterns = [
     path("edit-attraction/<int:pk>/", views.edit_attraction, name="edit_attraction"),
     path("create-ticket-draw/", views.create_ticket_draw, name="create_ticket_draw"),
     path("edit-ticket-draw/<int:pk>/", views.edit_ticket_draw, name="edit_ticket_draw"),
+    path("suggestions/", views.create_attraction_suggestion, name="create_attraction_suggestion"),
+    path("admin-export/suggestions.xlsx", views.export_suggestions_excel, name="export_suggestions_excel"),
+    path("admin-reports/", views.admin_reports, name = "admin_reports"),
 ]
 
 

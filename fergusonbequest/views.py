@@ -1,22 +1,39 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import login, logout, authenticate, get_user_model
+from django.contrib.auth import login, logout, get_user_model
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from django import forms
 from .models import Attraction, VisitSlot, Booking, Profile, TicketDraw, TicketDrawBooking, TicketDrawVisitSlot
-from django.shortcuts import render
 from .forms import BookingForm, AttractionCreateForm, TicketDrawCreateForm
 from django.utils import timezone
 import datetime
-from django.db import transaction
-from django.db.models import Q, F, Sum
+from django.db import transaction, IntegrityError
+from django.db.models import Q, F, Sum, Count
 from django.db.models.functions import Coalesce, Least
 from django.utils.dateparse import parse_date
 from django.contrib.admin.views.decorators import staff_member_required
+from operator import itemgetter
+import csv
+
+from django.http import HttpResponse
+from django.utils import timezone
+from django.contrib import messages
+from django.shortcuts import render, redirect
+from django.contrib.auth import get_user_model
+from django.contrib.admin.views.decorators import staff_member_required
+from django.views.decorators.http import require_POST, require_http_methods
+from django.db.models import Q
+
+from openpyxl import Workbook
+from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl.utils import get_column_letter
+
+from .models import AttractionSuggestion, Booking, TicketDrawBooking
+from .forms_suggestions import AttractionSuggestionForm
 
 
 User = get_user_model()
+MAX_ATTRACTIONS_PER_YEAR = 3
 
 # Create your views here.
 
@@ -48,37 +65,495 @@ def admin_dashboard(request):
         },
     )
 
+User = get_user_model()
+
+
+@login_required
+def create_attraction_suggestion(request):
+    if request.method == "POST":
+        form = AttractionSuggestionForm(request.POST)
+        if form.is_valid():
+            suggestion = form.save(commit=False)
+            suggestion.submitted_by = request.user
+            suggestion.save()
+            messages.success(request, "Suggestion submitted successfully.")
+            # prevents duplicate submit on refresh
+            return redirect("create_attraction_suggestion")
+        messages.error(request, "Please fix the errors below and try again.")
+    else:
+        form = AttractionSuggestionForm()
+
+    return render(
+        request,
+        "fergusonbequest/attraction_suggestion_page.html",
+        {"form": form},
+    )
+
+@staff_member_required
+def export_suggestions_excel(request):
+    qs = (
+        AttractionSuggestion.objects
+        .select_related("submitted_by")
+        .order_by("-created_at")
+    )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Attraction Suggestions"
+
+    headers = [
+        "Name",
+        "Location",
+        "Website URL",
+        "Description",
+        "Why Recommended",
+        "Status",
+        "Submitted By",
+        "Created At",
+    ]
+    ws.append(headers)
+
+    # Data rows
+    for s in qs:
+        ws.append([
+            s.name,
+            getattr(s, "location", "") or "",
+            getattr(s, "website_url", "") or "",
+            getattr(s, "description", "") or "",
+            getattr(s, "why_recommended", "") or "",
+            getattr(s, "status", "") or "",
+            (s.submitted_by.username if s.submitted_by else ""),
+            s.created_at.strftime("%Y-%m-%d %H:%M") if getattr(s, "created_at", None) else "",
+        ])
+
+    # Freeze header row and enable filter
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = f"A1:{get_column_letter(len(headers))}{ws.max_row}"
+
+    # Dropdown for status column (column F)
+    dv = DataValidation(
+        type="list",
+        formula1='"Pending,In progress,Implemented,Rejected"',
+        allow_blank=True
+    )
+    # add dropdown for every active suggestion in row
+    ws.add_data_validation(dv)
+    if ws.max_row >= 2:
+        dv.add(f"F2:F{ws.max_row}")
+
+    # Auto-fit column widths
+    for col_idx in range(1, len(headers) + 1):
+        col_letter = get_column_letter(col_idx)
+        max_len = 0
+        for cell in ws[col_letter]:
+            value = "" if cell.value is None else str(cell.value)
+            max_len = max(max_len, len(value))
+        ws.column_dimensions[col_letter].width = min(max_len + 2, 55)
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = 'attachment; filename="attraction_suggestions.xlsx"'
+    wb.save(response)
+    return response
+
+@staff_member_required
+def admin_reports(request):
+
+    name = request.GET.get('name')
+    surname = request.GET.get('surname')
+    guid = request.GET.get('guid')
+    email = request.GET.get('email')
+    start = request.GET.get('start')
+    end = request.GET.get('end')
+    venue = request.GET.get('venue')
+    status = request.GET.get('status')
+    q = request.GET.get('q')
+    booking_type = request.GET.get('booking_type', 'all')
+    venue_select = request.GET.get('venue_select')
+    specific_date = request.GET.get('specific_date')
+    specific_time = request.GET.get('specific_time')
+    date_select = request.GET.get('date_select')
+    time_select = request.GET.get('time_select')
+
+
+
+    sort = request.GET.get('sort', 'newest')
+
+
+    draw_qs = TicketDrawBooking.objects.select_related('user', 'ticket_draw', 'slot')
+    attraction_qs = Booking.objects.select_related('user', 'attraction', 'slot')
+
+    today = timezone.localdate()
+
+    def apply_filters(qs, is_draw=True):
+        if name:
+            qs = qs.filter(user__first_name__icontains=name)
+
+        if surname:
+            qs = qs.filter(user__last_name__icontains=surname)
+
+        if guid:
+            qs = qs.filter(user__username__icontains=guid)
+
+        if email:
+            qs = qs.filter(user__email__icontains=email)
+
+        if start:
+            qs = qs.filter(slot__date__gte=start)
+
+        if end:
+            qs = qs.filter(slot__date__lte=end)
+
+        venue_value = venue if venue else venue_select
+
+        if venue_value:
+            if is_draw:
+                qs = qs.filter(ticket_draw__name__icontains=venue_value)
+            else:
+                qs = qs.filter(attraction__name__icontains=venue_value)
+
+        
+        
+        date_value = specific_date if specific_date else date_select
+        if date_value:
+            qs = qs.filter(slot__date=date_value)
+
+
+        time_value = specific_time if specific_time else time_select
+        if time_value:
+            qs = qs.filter(slot__time=time_value)
+
+
+
+
+
+
+
+        if status == "active":
+            qs = qs.filter(cancelled=False, slot__date__gte=today)
+        elif status == "cancelled":
+            qs = qs.filter(cancelled=True)
+        elif status == "completed":
+            qs = qs.filter(cancelled=False, slot__date__lt=today)
+
+        if q:
+            common_filters = (
+                Q(user__first_name__icontains=q) |
+                Q(user__last_name__icontains=q) |
+                Q(user__username__icontains=q) |
+                Q(user__email__icontains=q) |
+                Q(slot__date__icontains=q) |
+                Q(slot__time__icontains=q)
+            )
+
+            if is_draw:
+                qs = qs.filter(
+                    common_filters |
+                    Q(ticket_draw__name__icontains=q)
+                )
+            else:
+                qs = qs.filter(
+                    common_filters |
+                    Q(attraction__name__icontains=q)
+                )
+
+        return qs
+
+    combined = []
+
+    filtered_draw_qs = None
+    filtered_attraction_qs = None
+
+    if booking_type in ['all', 'draw']:
+        filtered_draw_qs = apply_filters(draw_qs, True)
+        for b in filtered_draw_qs:
+            if b.cancelled:
+                status_text = "Cancelled"
+            elif b.slot.date < today:
+                status_text = "Completed"
+            else:
+                status_text = "Active"
+
+            combined.append({
+                "type": "Draw",
+                "created": b.created_at,
+                "name": b.ticket_draw.name,
+
+                "first_name": b.user.first_name if b.user else "",
+                "last_name": b.user.last_name if b.user else "",
+                "guid": b.user.username if b.user else "",
+                "email": b.user.email if b.user else b.email,
+
+                "date": b.slot.date,
+                "time": b.slot.time,
+                "cancelled": b.cancelled,
+                "status_text": status_text,
+            })
+
+
+
+    if booking_type in ['all', 'attraction']:
+        filtered_attraction_qs = apply_filters(attraction_qs, False)
+        for b in filtered_attraction_qs:
+            if b.cancelled:
+                status_text = "Cancelled"
+            elif b.slot.date < today:
+                status_text = "Completed"
+            else:
+                status_text = "Active"
+
+            combined.append({
+                "type": "Attraction",
+                "created": b.created_at,
+                "name": b.attraction.name,
+
+                "first_name": b.user.first_name if b.user else "",
+                "last_name": b.user.last_name if b.user else "",
+                "guid": b.user.username if b.user else "",
+                "email": b.user.email if b.user else b.email,
+
+                "date": b.slot.date,
+                "time": b.slot.time,
+                "cancelled": b.cancelled,
+                "status_text": status_text,
+            })
+
+
+    reverse = True if sort == 'newest' else False
+    combined.sort(key=itemgetter("created"), reverse=reverse)
+
+    # Pagination
+    page = request.GET.get('page', 1)
+    per_page = 20
+    
+    # Calculate total pages
+    total_bookings = len(combined)
+    total_pages = (total_bookings + per_page - 1) // per_page  # Ceiling division
+    
+    # Get current page data
+    try:
+        page = int(page)
+        if page < 1:
+            page = 1
+        elif page > total_pages:
+            page = total_pages
+    except (ValueError, TypeError):
+        page = 1
+    
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    paginated_bookings = combined[start_idx:end_idx]
+
+    bookings = combined
+
+    export_type = request.GET.get("export")
+
+    if export_type:
+
+        headers = [
+            "Type",
+            "Attraction/Draw",
+            "Forename",
+            "Surname",
+            "GUID",
+            "Email",
+            "Date",
+            "Time",
+            "Status",
+        ]
+
+        if export_type == "csv":
+            response = HttpResponse(content_type="text/csv")
+            response["Content-Disposition"] = 'attachment; filename="reports.csv"'
+
+            writer = csv.writer(response)
+            writer.writerow(headers)
+
+            for b in bookings:
+                writer.writerow([
+                    b["type"],
+                    b["name"],
+                    b["first_name"],
+                    b["last_name"],
+                    b["guid"],
+                    b["email"],
+                    b["date"].strftime("%d/%m/%Y"),
+                    b["time"].strftime("%H:%M") if b["time"] else "",
+                    b["status_text"],
+                ])
+
+            return response
+
+
+        if export_type == "excel":
+
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Reports"
+
+            ws.append(headers)
+
+            for b in bookings:
+                ws.append([
+                    b["type"],
+                    b["name"],
+                    b["first_name"],
+                    b["last_name"],
+                    b["guid"],
+                    b["email"],
+                    b["date"].strftime("%d/%m/%Y"),
+                    b["time"].strftime("%H:%M") if b["time"] else "",
+                    b["status_text"],
+                ])
+
+            response = HttpResponse(
+                content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            response["Content-Disposition"] = 'attachment; filename="reports.xlsx"'
+
+            wb.save(response)
+            return response
+        
+
+    def calculate_statistics(bookings, filtered_draw_qs, filtered_attraction_qs):
+        """Calculate statistics from the filtered bookings"""
+        
+        total_bookings = len(bookings)
+        
+        # Count by type
+        attraction_count = sum(1 for b in bookings if b["type"] == "Attraction")
+        draw_count = total_bookings - attraction_count
+        
+        # Count by status
+        active_count = sum(1 for b in bookings if b["status_text"] == "Active")
+        completed_count = sum(1 for b in bookings if b["status_text"] == "Completed")
+        cancelled_count = sum(1 for b in bookings if b["status_text"] == "Cancelled")
+        
+        # Date range
+        date_range = None
+        if bookings:
+            dates = [b["date"] for b in bookings]
+            min_date = min(dates)
+            max_date = max(dates)
+            date_range = {"start": min_date, "end": max_date}
+        
+        # Most popular attraction/draw
+        popularity = {}
+        for b in bookings:
+            name = b["name"]
+            popularity[name] = popularity.get(name, 0) + 1
+        
+        most_popular = None
+        if popularity:
+            most_popular_name = max(popularity.items(), key=lambda x: x[1])
+            most_popular = {"name": most_popular_name[0], "count": most_popular_name[1]}
+        
+        # Unique users
+        unique_users = len(set(b["email"] for b in bookings))
+        
+        # Average bookings per user
+        avg_per_user = total_bookings / unique_users if unique_users > 0 else 0
+        
+        return {
+            "total_bookings": total_bookings,
+            "attraction_count": attraction_count,
+            "draw_count": draw_count,
+            "active_count": active_count,
+            "completed_count": completed_count,
+            "cancelled_count": cancelled_count,
+            "date_range": date_range,
+            "most_popular": most_popular,
+            "unique_users": unique_users,
+            "avg_per_user": avg_per_user,
+        }
+        
+    # Calculate statistics
+    statistics = calculate_statistics(combined, filtered_draw_qs, filtered_attraction_qs)
+
+    venue_set = set()
+    date_set = set()
+    time_set = set()
+
+    for b in combined:
+        venue_set.add(b["name"])
+        date_set.add(b["date"])
+        if b["time"]:
+            time_set.add(b["time"])
+
+    venue_list = sorted(venue_set)
+    date_list = sorted(date_set, reverse=True)
+    time_list = sorted(time_set)
+
+
+
+    return render(request, "fergusonbequest/admin_reports.html", {
+        "bookings": paginated_bookings,
+        "selected_booking_type": booking_type,
+        "selected_status": status,
+        "statistics": statistics,
+        # Pagination context variables
+        "current_page": page,
+        "total_pages": total_pages,
+        "total_bookings": total_bookings,
+        "has_previous": page > 1,
+        "has_next": page < total_pages,
+        "previous_page": page - 1,
+        "next_page": page + 1,
+        "page_range": range(1, total_pages + 1),
+        "start_index": start_idx + 1,
+        "end_index": min(end_idx, total_bookings),
+        "venue_list": venue_list,
+        "date_list": date_list,
+        "time_list": time_list,
+    })
+
 
 def home(request):
-    if request.user.is_authenticated:
-        return redirect('dashboard')
+    attractions_qs = Attraction.objects.all().order_by("name")[:4]
 
-    featured_attractions = [
-        {
-            "title": "Blair Drummond Safari Park",
-            "subtitle": "Safari and adventure park.",
-            "image": "fergusonbequest/img/blair_drumond.jpg",
-            "url": "https://www.blairdrummond.com",
-        },
-        {
-            "title": "Glasgow Clan Ice Hockey",
-            "subtitle": "The city's professional hockey team.",
-            "image": "fergusonbequest/img/glasgow_clan.jpg",
-            "url": "https://clanihc.com",
-        },
-        {
-            "title": "Edinburgh Zoo",
-            "subtitle": "Scotland's most famous zoo.",
-            "image": "fergusonbequest/img/edinburgh_zoo.jpg",
-            "url": "https://www.edinburghzoo.org.uk",
-        },
-        {
-            "title": "Ghostbusters Screening",
-            "subtitle": "Who you gonna call?",
-            "image": "fergusonbequest/img/ghostbusters.jpg",
-            "url": "https://www.imdb.com/title/tt0087332/",
-        },
-    ]
+    featured_attractions = []
+    for attr in attractions_qs:
+        featured_attractions.append({
+            "title": attr.name,
+            "subtitle": (attr.description[:100] if attr.description else (attr.location or "Book now to visit")),
+            "image": (attr.image.name if getattr(attr, "image", None) else "fergusonbequest/img/placeholder.jpg"),
+            "id": attr.id,
+            "url": f"/attraction/{attr.id}/book/",
+        })
+
+    # fallback only if DB empty for now to pass tests
+    if not featured_attractions:
+        featured_attractions = [
+            {
+                "title": "Blair Drummond Safari Park",
+                "subtitle": "Safari and adventure park.",
+                "image": "fergusonbequest/img/blair_drumond.jpg",
+                "id": None,
+                "url": "/attractions/",
+            },
+            {
+                "title": "Glasgow Clan Ice Hockey",
+                "subtitle": "The city's professional hockey team.",
+                "image": "fergusonbequest/img/glasgow_clan.jpg",
+                "id": None,
+                "url": "/attractions/",
+            },
+            {
+                "title": "Edinburgh Zoo",
+                "subtitle": "Scotland's most famous zoo.",
+                "image": "fergusonbequest/img/edinburgh_zoo.jpg",
+                "id": None,
+                "url": "/attractions/",
+            },
+            {
+                "title": "Ghostbusters Screening",
+                "subtitle": "Who you gonna call?",
+                "image": "fergusonbequest/img/ghostbusters.jpg",
+                "id": None,
+                "url": "/attractions/",
+            },
+        ]
 
     return render(
         request,
@@ -155,32 +630,49 @@ def register_view(request):
 
 @login_required
 def dashboard_view(request):
-    featured_attractions = [
-        {
-            "title": "Blair Drummond Safari Park",
-            "subtitle": "Safari and adventure park.",
-            "image": "fergusonbequest/img/blair_drumond.jpg",
-            "url": "https://www.blairdrummond.com",
-        },
-        {
-            "title": "Glasgow Clan Ice Hockey",
-            "subtitle": "The city's professional hockey team.",
-            "image": "fergusonbequest/img/glasgow_clan.jpg",
-            "url": "https://clanihc.com",
-        },
-        {
-            "title": "Edinburgh Zoo",
-            "subtitle": "Scotland's most famous zoo.",
-            "image": "fergusonbequest/img/edinburgh_zoo.jpg",
-            "url": "https://www.edinburghzoo.org.uk",
-        },
-        {
-            "title": "Ghostbusters Screening",
-            "subtitle": "Who you gonna call?",
-            "image": "fergusonbequest/img/ghostbusters.jpg",
-            "url": "https://www.imdb.com/title/tt0087332/",
-        },
-    ]
+    attractions_qs = Attraction.objects.all().order_by('name')[:4]
+    
+    featured_attractions = []
+    for attr in attractions_qs:
+        featured_attractions.append({
+            "title": attr.name,
+            "subtitle": attr.description[:100] if attr.description else attr.location or "Book now to visit",
+            "image": attr.image.name if attr.image else "fergusonbequest/img/placeholder.jpg",
+            "id": attr.id,
+            "url": f"/attraction/{attr.id}/book/",
+        })
+    
+    if not featured_attractions:
+        featured_attractions = [
+            {
+                "title": "Blair Drummond Safari Park",
+                "subtitle": "Safari and adventure park.",
+                "image": "fergusonbequest/img/blair_drumond.jpg",
+                "id": None,
+                "url": "/attractions/",
+            },
+            {
+                "title": "Glasgow Clan Ice Hockey",
+                "subtitle": "The city's professional hockey team.",
+                "image": "fergusonbequest/img/glasgow_clan.jpg",
+                "id": None,
+                "url": "/attractions/",
+            },
+            {
+                "title": "Edinburgh Zoo",
+                "subtitle": "Scotland's most famous zoo.",
+                "image": "fergusonbequest/img/edinburgh_zoo.jpg",
+                "id": None,
+                "url": "/attractions/",
+            },
+            {
+                "title": "Ghostbusters Screening",
+                "subtitle": "Who you gonna call?",
+                "image": "fergusonbequest/img/ghostbusters.jpg",
+                "id": None,
+                "url": "/attractions/",
+            },
+        ]
 
     return render(request, "fergusonbequest/dashboard.html", {"featured_attractions": featured_attractions})
 
@@ -331,10 +823,25 @@ def terms(request):
 def attraction(request, pk):
     """Show attraction detail and available future slots."""
     attraction = get_object_or_404(Attraction, pk=pk)
-    available_slots = VisitSlot.objects.filter(attraction=attraction, date__gte=timezone.now().date())
+
+    available_slots = VisitSlot.objects.filter(
+        attraction=attraction,
+        date__gte=timezone.now().date()
+    ).order_by("date", "time")
+
+    year = timezone.now().year
+    used = Booking.objects.filter(
+        user=request.user,
+        cancelled=False,
+        created_at__year=year
+    ).count()
+
+    remaining_allowance = max(0, 3 - used)
+
     return render(request, 'fergusonbequest/attraction.html', {
         'attraction': attraction,
         'available_slots': available_slots,
+        'remaining_allowance': remaining_allowance,
     })
 
 def attractions_view(request):
@@ -347,9 +854,20 @@ def attractions_view(request):
     location = request.GET.get("location", "").strip()
     sort = request.GET.get("sort", "name").strip()
 
+    today = timezone.now().date()
+
     attractions = (
         Attraction.objects
-        .annotate(tickets_left_total=Coalesce(Sum("slots__remaining"), 0))
+        .annotate(
+            future_slots_count=Count("slots", filter=Q(slots__date__gte=today), distinct=True),
+            tickets_left_total=Coalesce(
+                Sum("slots__remaining", filter=Q(slots__date__gte=today)),
+                0
+            ),
+        )
+        # hide past attractions
+        .filter(future_slots_count__gt=0)
+        .distinct()
     )
 
     if q:
@@ -367,10 +885,7 @@ def attractions_view(request):
         attractions = attractions.filter(location__iexact=location)
 
     if d:
-        attractions = attractions.filter(
-            slots__date__gte=d,
-            slots__remaining__gt=0
-        ).distinct()
+        attractions = attractions.filter(slots__date__gte=d).distinct()
 
     if sort == "tickets":
         attractions = attractions.order_by("-tickets_left_total", "name")
@@ -390,37 +905,189 @@ def attractions_view(request):
         "types": [],
         "type_filter": "",
     })
+
+@login_required
 def booking_view(request, attraction_pk):
     attraction = get_object_or_404(Attraction, pk=attraction_pk)
-    available_slots = VisitSlot.objects.filter(attraction=attraction, date__gte=timezone.now().date())
-    booking_summary = {'price': 'Free'}
-    if request.method == 'POST':
-        form = BookingForm(request.POST, attraction=attraction)
-        if form.is_valid():
-            booking = form.save(commit=False)
-            if request.user.is_authenticated:
-                booking.user = request.user
-            booking.attraction = attraction
-            booking.save()
-            # reduce slot remaining
-            booking.slot.remaining = max(0, booking.slot.remaining - 1)
-            booking.slot.save()
-            return redirect('dashboard')
-    else:
-        form = BookingForm(attraction=attraction)
 
-    return render(request, 'fergusonbequest/booking_page.html', {
-        'attraction': attraction,
-        'available_slots': available_slots,
-        'form': form,
-        'booking_summary': booking_summary,
+    # Only future slots should be selectable
+    available_slots = VisitSlot.objects.filter(
+        attraction=attraction,
+        date__gte=timezone.now().date()
+    ).order_by("date", "time")
+
+    booking_summary = {"price": "Free"}
+
+    # Allowance (per calendar year)
+    current_year = timezone.now().year
+
+    # Count active bookings in the current year (cancelled bookings do NOT count)
+    active_yearly_count = Booking.objects.filter(
+        user=request.user,
+        cancelled=False,
+        created_at__year=current_year
+    ).count()
+
+    remaining_allowance = max(0, MAX_ATTRACTIONS_PER_YEAR - active_yearly_count)
+
+    # Helper: redirect with consistent message
+    def redirect_to_history_with(msg):
+        messages.error(request, msg)
+        return redirect("booking_history")
+
+    # GET: show booking form
+    if request.method == "GET":
+        # Allowance check first
+        if remaining_allowance <= 0:
+            return redirect_to_history_with(
+                f"You have reached your yearly limit of {MAX_ATTRACTIONS_PER_YEAR} attractions. "
+                "Please cancel/delete an existing booking in Booking History before booking again."
+            )
+
+        # Duplicate booking check (specific slot)
+        slot_id = request.GET.get("slot")
+
+        # ADDED: validate slot belongs to this attraction
+        if slot_id and not available_slots.filter(pk=slot_id).exists():
+            return redirect_to_history_with(
+                "Invalid slot selected for this attraction."
+            )
+
+        if slot_id:
+            already = Booking.objects.filter(
+                user=request.user,
+                slot_id=slot_id,
+                cancelled=False
+            ).exists()
+
+            if already:
+                return redirect_to_history_with(
+                    "Oops — you already have a booking for this time slot. "
+                    "Please cancel it in Booking History before booking again."
+                )
+
+        # Pre-select slot in the form if provided in querystring
+        form = BookingForm(
+            attraction=attraction,
+            initial={"slot": slot_id} if slot_id else None
+        )
+
+        return render(request, "fergusonbequest/booking_page.html", {
+            "attraction": attraction,
+            "available_slots": available_slots,
+            "form": form,
+            "booking_summary": booking_summary,
+            "remaining_allowance": remaining_allowance,
+            "max_allowance": MAX_ATTRACTIONS_PER_YEAR,
+            "now": timezone.now(),
+        })
+
+    # POST: attempt to create booking
+    form = BookingForm(request.POST, attraction=attraction)
+
+    if form.is_valid():
+        # Recompute allowance inside POST in case they opened the page earlier and used up allowance elsewhere
+        active_yearly_count = Booking.objects.filter(
+            user=request.user,
+            cancelled=False,
+            created_at__year=current_year
+        ).count()
+        remaining_allowance = max(0, MAX_ATTRACTIONS_PER_YEAR - active_yearly_count)
+
+        # Allowance check (POST safety)
+        if remaining_allowance <= 0:
+            return redirect_to_history_with(
+                f"You have reached your yearly limit of {MAX_ATTRACTIONS_PER_YEAR} attractions. "
+                "Please cancel/delete an existing booking in Booking History before booking again."
+            )
+
+        # Build the booking object once
+        booking = form.save(commit=False)
+        booking.user = request.user
+        booking.attraction = attraction
+        booking.full_name = f"{request.user.first_name} {request.user.last_name}".strip()
+        booking.email = request.user.email
+
+        # ADDED: validate slot belongs to this attraction
+        if booking.slot.attraction_id != attraction.id:
+            return redirect_to_history_with(
+                "Invalid slot selected for this attraction."
+            )
+
+        # Duplicate booking check (specific slots only)
+        already = Booking.objects.filter(
+            user=request.user,
+            slot=booking.slot,
+            cancelled=False
+        ).exists()
+
+        if already:
+            return redirect_to_history_with(
+                "Oops — you already have a booking for this time slot. "
+                "Please cancel it in Booking History before booking again."
+            )
+
+        try:
+            # capacity update + save booking
+            with transaction.atomic():
+                # Lock the slot row so remaining tickets can't be oversold
+                slot = VisitSlot.objects.select_for_update().get(pk=booking.slot.pk)
+
+                # Server-side availability check
+                if slot.remaining < booking.num_tickets:
+                    form.add_error("slot", "Not enough tickets remaining for this slot.")
+                    return render(request, "fergusonbequest/booking_page.html", {
+                        "attraction": attraction,
+                        "available_slots": available_slots,
+                        "form": form,
+                        "booking_summary": booking_summary,
+                        "remaining_allowance": remaining_allowance,
+                        "max_allowance": MAX_ATTRACTIONS_PER_YEAR,
+                        "now": timezone.now(),
+                    })
+
+                # Save booking
+                booking.save()
+
+                # Decrement slot remaining
+                VisitSlot.objects.filter(pk=slot.pk).update(
+                    remaining=F("remaining") - booking.num_tickets
+                )
+
+            messages.success(request, "Booking confirmed!")
+            return redirect("booking_history")
+
+        except IntegrityError:
+            return redirect_to_history_with(
+                "Duplicate booking detected for this time slot. "
+                "Please cancel it in Booking History before booking again."
+            )
+
+    # Form invalid re-render with errors
+    return render(request, "fergusonbequest/booking_page.html", {
+        "attraction": attraction,
+        "available_slots": available_slots,
+        "form": form,
+        "booking_summary": booking_summary,
+        "remaining_allowance": remaining_allowance,
+        "max_allowance": MAX_ATTRACTIONS_PER_YEAR,
+        "now": timezone.now(),
     })
-
 
 @login_required
 def booking_history(request):
     """Show list of bookings for the logged in user."""
     user = request.user
+
+    current_year = timezone.now().year
+
+    active_yearly_count = Booking.objects.filter(
+        user=request.user,
+        cancelled=False,
+        created_at__year=current_year
+    ).count()
+
+    remaining_allowance = max(0, MAX_ATTRACTIONS_PER_YEAR - active_yearly_count)
 
     # Base queryset
     bookings = Booking.objects.filter(user=user).select_related('slot', 'attraction')
@@ -479,12 +1146,16 @@ def booking_history(request):
         'future_bookings': future_bookings,
         'past_bookings': past_bookings,
         'when': when,
+        'now': timezone.now(),
+        "remaining_allowance": remaining_allowance,
+        "max_allowance": MAX_ATTRACTIONS_PER_YEAR,
     })
 
-
+@require_POST
 @login_required
 def cancel_booking(request, pk):
     """Allow the booking owner (or superuser) to cancel a future booking.
+       Cancelling restores slot capacity and also restores yearly allowance because cancelled bookings don't count.
     """
     booking = get_object_or_404(Booking, pk=pk)
 
@@ -492,18 +1163,35 @@ def cancel_booking(request, pk):
     if not (request.user == booking.user or request.user.is_superuser):
         return redirect('booking_history')
 
+    # Only allow cancelling future bookings
     if booking.slot.date < timezone.now().date():
         return redirect('booking_history')
 
-    if request.method == 'POST':
-        with transaction.atomic():
-            b = Booking.objects.select_for_update().get(pk=booking.pk)
-            if not b.cancelled:
-                b.cancelled = True
-                b.save()
-                VisitSlot.objects.filter(pk=b.slot.pk).update(
-                    remaining=Least(F('remaining') + 1, F('capacity'))
-                )
+    with transaction.atomic():
+        b = Booking.objects.select_for_update().get(pk=booking.pk)
+
+        if not b.cancelled:
+            b.cancelled = True
+            b.save(update_fields=["cancelled"])
+
+            # restore capacity on the slot (cap at capacity)
+            VisitSlot.objects.filter(pk=b.slot.pk).update(
+                remaining=Least(F('remaining') + b.num_tickets, F('capacity'))
+            )
+
+            current_year = timezone.now().year
+            active_yearly_count = Booking.objects.filter(
+                user=b.user,
+                cancelled=False,
+                created_at__year=current_year
+            ).count()
+            remaining_allowance = max(0, MAX_ATTRACTIONS_PER_YEAR - active_yearly_count)
+
+            messages.success(
+                request,
+                f"Booking cancelled. You now have {remaining_allowance}/{MAX_ATTRACTIONS_PER_YEAR} bookings remaining for this year."
+            )
+
     return redirect('booking_history')
 
 

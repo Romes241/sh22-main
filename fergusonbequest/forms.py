@@ -47,10 +47,17 @@ class BookingForm(forms.ModelForm):
     """
     class Meta:
         model = Booking
-        fields = ("full_name", "email", "slot", "agreed_terms")
-
+        fields = ( "slot","num_tickets", "agreed_terms")
+        labels = {
+            "num_tickets": "Number of tickets",
+        }
     def __init__(self, *args, attraction=None, **kwargs):
         super().__init__(*args, **kwargs)
+        # Hide agreed_terms
+        self.fields["agreed_terms"].widget = forms.HiddenInput()
+        # Make num_tickets a dropdown limited to 1 or 2
+        self.fields["num_tickets"].widget = forms.Select(choices=[(1, "1"), (2, "2")])
+
         if attraction is not None:
             self.fields['slot'].queryset = VisitSlot.objects.filter(attraction=attraction)
 

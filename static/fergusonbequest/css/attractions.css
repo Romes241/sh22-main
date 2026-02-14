@@ -134,7 +134,7 @@
 /* Card base */
 .card {
   position: relative;
-  border: 2px solid #222;
+  border: 1px solid #cfcfcf;
   border-radius: 26px;
   background: #e3e3e3;
   overflow: hidden;
@@ -148,7 +148,7 @@
 /*  Image  */
 .card-image {
   position: relative;
-  height: 180px;
+  height: 220px;
 
   background: #ffffff;
   display: flex;
