@@ -52,7 +52,16 @@
 </header>
 
 <main class="fb-container">
-  {% block content %}{% endblock %}
+    {% if messages %}
+      <div class="fb-messages">
+        {% for message in messages %}
+          <div class="fb-message fb-message--{{ message.tags }}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% block content %}{% endblock %}
 </main>
 
 <footer class="fb-footer">

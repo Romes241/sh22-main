@@ -98,6 +98,14 @@ class TicketDraw(models.Model):
     # date of the draw
     draw_date = models.DateTimeField()
     per_year_limit = models.PositiveIntegerField(default=YEAR_LIMIT_DEFAULT)
+    winner_booking = models.ForeignKey(
+        "TicketDrawBooking",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="won_for_draw"
+    )
+    winner_selected_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.name

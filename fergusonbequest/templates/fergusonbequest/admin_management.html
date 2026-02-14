@@ -66,6 +66,19 @@
               Closes {{ draw.booking_close|date:"d M Y" }}
             </span>
           </div>
+          <div class="mng-meta">
+            {% if draw.winner_booking and not draw.winner_booking.cancelled %}
+              <span class="mng-muted">
+                Winner:
+                <strong>{{ draw.winner_booking.full_name }}</strong>
+                {% if draw.winner_booking.email %}
+                  ({{ draw.winner_booking.email }})
+                {% endif %}
+              </span>
+            {% else %}
+              <span class="mng-muted">Winner: —</span>
+            {% endif %}
+          </div>
         </div>
 
         <div class="mng-actions">
