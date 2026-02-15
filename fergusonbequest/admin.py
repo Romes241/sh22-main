@@ -1,5 +1,15 @@
 from django.contrib import admin
-from .models import Attraction, VisitSlot, Booking, Profile, TicketDraw, TicketDrawBooking, TicketDrawVisitSlot, AttractionSuggestion
+from .models import (
+    Attraction,
+    VisitSlot,
+    Booking,
+    Profile,
+    TicketDraw,
+    TicketDrawBooking,
+    TicketDrawVisitSlot,
+    AttractionSuggestion,
+    DiscountCode,   # ← 确保导入
+)
 
 
 @admin.register(Attraction)
@@ -34,6 +44,7 @@ class TicketDrawAdmin(admin.ModelAdmin):
     list_filter = ("attraction_type", "booking_open", "booking_close")
     search_fields = ("name", "slug", "location")
 
+
 @admin.register(TicketDrawBooking)
 class TicketDrawBookingAdmin(admin.ModelAdmin):
     list_display = ("full_name", "email", "ticket_draw",
@@ -41,11 +52,13 @@ class TicketDrawBookingAdmin(admin.ModelAdmin):
     list_filter = ("ticket_draw", "slot", "cancelled")
     search_fields = ("full_name", "email")
 
+
 @admin.register(TicketDrawVisitSlot)
 class TicketDrawVisitSlotAdmin(admin.ModelAdmin):
     list_display = ("ticket_draw", "date", "time", "capacity", "remaining")
     list_filter = ("ticket_draw", "date")
     ordering = ("date", "time")
+
 
 @admin.register(AttractionSuggestion)
 class AttractionSuggestionAdmin(admin.ModelAdmin):
@@ -53,3 +66,10 @@ class AttractionSuggestionAdmin(admin.ModelAdmin):
     list_filter = ("status", "created_at")
     search_fields = ("name", "description", "why_recommended", "location", "website_url")
     ordering = ("-created_at",)
+
+
+@admin.register(DiscountCode)
+class DiscountCodeAdmin(admin.ModelAdmin):
+    list_display = ("title", "code", "is_active", "valid_until")
+    list_filter = ("is_active",)
+    search_fields = ("title", "code")
