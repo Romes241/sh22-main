@@ -1,7 +1,7 @@
-from operator import itemgetter
 import calendar
 import csv
 import random
+from operator import itemgetter
 
 from django import forms
 from django.contrib import messages
@@ -23,20 +23,24 @@ from openpyxl import Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.utils import get_column_letter
 
+from .forms import (
+    BookingForm,
+    AttractionCreateForm,
+    TicketDrawCreateForm,
+    EmailAuthenticationForm,
+)
+from .forms_suggestions import AttractionSuggestionForm
 from .models import (
     Attraction,
     VisitSlot,
     Booking,
-    Profile,  # keep import if referenced elsewhere
+    Profile,
     TicketDraw,
     TicketDrawBooking,
     TicketDrawVisitSlot,
     AttractionSuggestion,
+    DiscountCode,
 )
-from .forms import BookingForm, AttractionCreateForm, TicketDrawCreateForm
-from .forms_suggestions import AttractionSuggestionForm
-from django.contrib.auth.views import LoginView
-from .forms import EmailAuthenticationForm
 
 User = get_user_model()
 
@@ -180,6 +184,9 @@ def assign_next_winner(draw: TicketDraw):
 # Auth
 # -----------------------------
 class CustomLoginView(LoginView):
+    template_name = "fergusonbequest/login.html"
+    authentication_form = EmailAuthenticationForm
+
     def get_success_url(self):
         return reverse_lazy("home")
 
@@ -234,37 +241,6 @@ class RegistrationForm(forms.ModelForm):
         if commit:
             user.save()
         return user
-@staff_member_required
-def staff_draws_entry(request):
-    draws = TicketDraw.objects.all().order_by("-id")
-    selected = draws.first()
-
-    return render(
-        request,
-        "fergusonbequest/staff_draws_entry.html",
-        {
-            "draws": draws,
-            "selected_draw": selected,
-        },
-    )
-
-
-@staff_member_required
-def staff_draw_json(request, pk: int):
-    draw = get_object_or_404(TicketDraw, pk=pk)
-    now = timezone.now()
-
-    payload = {
-        "id": draw.pk,
-        "title": getattr(draw, "title", None)
-                 or getattr(draw, "name", None)
-                 or str(draw),
-        "slug": getattr(draw, "slug", "") or "",
-        "description": getattr(draw, "description", "") or "",
-        "is_open": draw.is_open(now) if hasattr(draw, "is_open") else None,
-    }
-
-    return JsonResponse(payload)
 
 
 def register_view(request):
@@ -308,34 +284,14 @@ def home(request):
     # fallback if DB empty (helps tests/first run)
     if not featured_attractions:
         featured_attractions = [
-            {
-                "title": "Blair Drummond Safari Park",
-                "subtitle": "Safari and adventure park.",
-                "image": "fergusonbequest/img/blair_drumond.jpg",
-                "id": None,
-                "url": "/attractions/",
-            },
-            {
-                "title": "Glasgow Clan Ice Hockey",
-                "subtitle": "The city's professional hockey team.",
-                "image": "fergusonbequest/img/glasgow_clan.jpg",
-                "id": None,
-                "url": "/attractions/",
-            },
-            {
-                "title": "Edinburgh Zoo",
-                "subtitle": "Scotland's most famous zoo.",
-                "image": "fergusonbequest/img/edinburgh_zoo.jpg",
-                "id": None,
-                "url": "/attractions/",
-            },
-            {
-                "title": "Ghostbusters Screening",
-                "subtitle": "Who you gonna call?",
-                "image": "fergusonbequest/img/ghostbusters.jpg",
-                "id": None,
-                "url": "/attractions/",
-            },
+            {"title": "Blair Drummond Safari Park", "subtitle": "Safari and adventure park.",
+             "image": "fergusonbequest/img/blair_drumond.jpg", "id": None, "url": "/attractions/"},
+            {"title": "Glasgow Clan Ice Hockey", "subtitle": "The city's professional hockey team.",
+             "image": "fergusonbequest/img/glasgow_clan.jpg", "id": None, "url": "/attractions/"},
+            {"title": "Edinburgh Zoo", "subtitle": "Scotland's most famous zoo.",
+             "image": "fergusonbequest/img/edinburgh_zoo.jpg", "id": None, "url": "/attractions/"},
+            {"title": "Ghostbusters Screening", "subtitle": "Who you gonna call?",
+             "image": "fergusonbequest/img/ghostbusters.jpg", "id": None, "url": "/attractions/"},
         ]
 
     if request.user.is_authenticated:
@@ -345,11 +301,7 @@ def home(request):
             {"featured_attractions": featured_attractions},
         )
 
-    return render(
-        request,
-        "fergusonbequest/home.html",
-        {"featured_attractions": featured_attractions},
-    )
+    return render(request, "fergusonbequest/home.html", {"featured_attractions": featured_attractions})
 
 
 @login_required
@@ -369,34 +321,14 @@ def dashboard_view(request, year=None, month=None):
 
     if not featured_attractions:
         featured_attractions = [
-            {
-                "title": "Blair Drummond Safari Park",
-                "subtitle": "Safari and adventure park.",
-                "image": "fergusonbequest/img/blair_drumond.jpg",
-                "id": None,
-                "url": "/attractions/",
-            },
-            {
-                "title": "Glasgow Clan Ice Hockey",
-                "subtitle": "The city's professional hockey team.",
-                "image": "fergusonbequest/img/glasgow_clan.jpg",
-                "id": None,
-                "url": "/attractions/",
-            },
-            {
-                "title": "Edinburgh Zoo",
-                "subtitle": "Scotland's most famous zoo.",
-                "image": "fergusonbequest/img/edinburgh_zoo.jpg",
-                "id": None,
-                "url": "/attractions/",
-            },
-            {
-                "title": "Ghostbusters Screening",
-                "subtitle": "Who you gonna call?",
-                "image": "fergusonbequest/img/ghostbusters.jpg",
-                "id": None,
-                "url": "/attractions/",
-            },
+            {"title": "Blair Drummond Safari Park", "subtitle": "Safari and adventure park.",
+             "image": "fergusonbequest/img/blair_drumond.jpg", "id": None, "url": "/attractions/"},
+            {"title": "Glasgow Clan Ice Hockey", "subtitle": "The city's professional hockey team.",
+             "image": "fergusonbequest/img/glasgow_clan.jpg", "id": None, "url": "/attractions/"},
+            {"title": "Edinburgh Zoo", "subtitle": "Scotland's most famous zoo.",
+             "image": "fergusonbequest/img/edinburgh_zoo.jpg", "id": None, "url": "/attractions/"},
+            {"title": "Ghostbusters Screening", "subtitle": "Who you gonna call?",
+             "image": "fergusonbequest/img/ghostbusters.jpg", "id": None, "url": "/attractions/"},
         ]
 
     calendar_data = get_calendar(year, month)
@@ -830,7 +762,9 @@ def ticket_draw_detail(request, slug):
         cancelled=False,
     ).count()
 
-    remaining_allowance = calculate_remaining_allowance(request.user, getattr(draw, "attraction_type", "weekly_event"))
+    remaining_allowance = calculate_remaining_allowance(
+        request.user, getattr(draw, "attraction_type", "weekly_event")
+    )
     draw_limit = getattr(draw, "per_year_limit", MAX_ATTRACTIONS_PER_YEAR)
     draw_specific_remaining = max(0, draw_limit - existing_entries)
     remaining_allowance = min(remaining_allowance, draw_specific_remaining)
@@ -1045,13 +979,120 @@ def waiting_listattraction_leave(request, pk):
 
 
 # -----------------------------
+# Suggestions (user) + export (staff)
+# -----------------------------
+@login_required
+def create_attraction_suggestion(request):
+    if request.method == "POST":
+        form = AttractionSuggestionForm(request.POST)
+        if form.is_valid():
+            suggestion = form.save(commit=False)
+            suggestion.submitted_by = request.user
+            suggestion.save()
+            messages.success(request, "Suggestion submitted successfully.")
+            # prevents duplicate submit on refresh
+            return redirect("create_attraction_suggestion")
+        messages.error(request, "Please fix the errors below and try again.")
+    else:
+        form = AttractionSuggestionForm()
+
+    return render(
+        request,
+        "fergusonbequest/attraction_suggestion_page.html",
+        {"form": form},
+    )
+
+
+@staff_member_required
+def export_suggestions_excel(request):
+    qs = (
+        AttractionSuggestion.objects
+        .select_related("submitted_by")
+        .order_by("-created_at")
+    )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Attraction Suggestions"
+
+    headers = [
+        "Name",
+        "Location",
+        "Website URL",
+        "Description",
+        "Why Recommended",
+        "Status",
+        "Submitted By",
+        "Created At",
+    ]
+    ws.append(headers)
+
+    for s in qs:
+        ws.append([
+            s.name,
+            getattr(s, "location", "") or "",
+            getattr(s, "website_url", "") or "",
+            getattr(s, "description", "") or "",
+            getattr(s, "why_recommended", "") or "",
+            getattr(s, "status", "") or "",
+            (s.submitted_by.username if s.submitted_by else ""),
+            s.created_at.strftime("%Y-%m-%d %H:%M") if getattr(s, "created_at", None) else "",
+        ])
+
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = f"A1:{get_column_letter(len(headers))}{ws.max_row}"
+
+    dv = DataValidation(
+        type="list",
+        formula1='"Pending,In progress,Implemented,Rejected"',
+        allow_blank=True
+    )
+    ws.add_data_validation(dv)
+    if ws.max_row >= 2:
+        dv.add(f"F2:F{ws.max_row}")
+
+    for col_idx in range(1, len(headers) + 1):
+        col_letter = get_column_letter(col_idx)
+        max_len = 0
+        for cell in ws[col_letter]:
+            value = "" if cell.value is None else str(cell.value)
+            max_len = max(max_len, len(value))
+        ws.column_dimensions[col_letter].width = min(max_len + 2, 55)
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = 'attachment; filename="attraction_suggestions.xlsx"'
+    wb.save(response)
+    return response
+
+
+# -----------------------------
+# Discount Codes (staff page)
+# -----------------------------
+@staff_member_required
+def discount_codes_page(request):
+    now = timezone.now()
+    discounts = DiscountCode.objects.filter(
+        is_active=True,
+        valid_from__lte=now,
+        valid_until__gte=now,
+    ).order_by("-created_at")
+
+    return render(
+        request,
+        "fergusonbequest/discount_codes.html",
+        {"discounts": discounts},
+    )
+
+
+# -----------------------------
 # Staff / Admin dashboard + management
 # -----------------------------
 @staff_member_required
 def admin_dashboard(request):
     now = timezone.now()
 
-    # is_open may or may not accept a parameter depending on your model
     active_draws_count = sum(1 for d in TicketDraw.objects.all() if _call_is_open(d, now))
     open_venues_count = sum(1 for a in Attraction.objects.all() if _call_is_open(a, now))
 
@@ -1120,6 +1161,12 @@ def admin_management(request):
     )
 
 
+# Compatibility alias: urls.py may expect management_view
+@staff_member_required
+def management_view(request):
+    return admin_management(request)
+
+
 @staff_member_required
 @require_POST
 def run_draw(request, draw_id):
@@ -1128,7 +1175,7 @@ def run_draw(request, draw_id):
     now = timezone.now()
     if _call_is_open(draw, now):
         messages.error(request, "This draw is still open. You can only run it after it closes.")
-        return redirect(f"{reverse('management')}?tab=draws")
+        return redirect(f"{reverse('admin_management')}?tab=draws")
 
     entries = list(
         TicketDrawBooking.objects.filter(ticket_draw=draw, cancelled=False).select_related("user")
@@ -1139,7 +1186,7 @@ def run_draw(request, draw_id):
         draw.winner_selected_at = None
         draw.save(update_fields=["winner_booking", "winner_selected_at"])
         messages.error(request, "No active entries for this draw.")
-        return redirect(f"{reverse('management')}?tab=draws")
+        return redirect(f"{reverse('admin_management')}?tab=draws")
 
     draw.winner_booking = random.choice(entries)
     draw.winner_selected_at = timezone.now()
@@ -1149,7 +1196,7 @@ def run_draw(request, draw_id):
     winner_name = winner.full_name or (winner.user.get_username() if winner.user else "Winner")
 
     messages.success(request, f"Winner selected: {winner_name}")
-    return redirect(f"{reverse('management')}?tab=draws")
+    return redirect(f"{reverse('admin_management')}?tab=draws")
 
 
 @staff_member_required
@@ -1159,6 +1206,7 @@ def mng_delete_ticket_draw(request, draw_id):
     draw.delete()
     messages.success(request, "Draw deleted.")
     return redirect("/admin-dashboard/management/?tab=draws")
+
 
 @staff_member_required
 @require_POST
@@ -1252,14 +1300,21 @@ def edit_ticket_draw(request, pk):
     )
 
 
+# -----------------------------
+# Staff tools (draw entry JSON etc.)
+# -----------------------------
 @staff_member_required
 def staff_draws_entry(request):
     draws = TicketDraw.objects.all().order_by("-id")
     selected = draws.first()
+
     return render(
         request,
         "fergusonbequest/staff_draws_entry.html",
-        {"draws": draws, "selected_draw": selected},
+        {
+            "draws": draws,
+            "selected_draw": selected,
+        },
     )
 
 
@@ -1275,141 +1330,8 @@ def staff_draw_json(request, pk: int):
         "description": getattr(draw, "description", "") or "",
         "is_open": _call_is_open(draw, now),
     }
+
     return JsonResponse(payload)
-
-
-def get_calendar(year=None, month=None):
-    """
-    Build calendar data for dashboard/calendar template rendering.
-
-    Returns a dict context (NOT a rendered response), so it can be merged into
-    dashboard context via **calendar_data.
-    """
-    today = timezone.localdate()
-    year = int(year or today.year)
-    month = int(month or today.month)
-
-    # previous month/year
-    if month == 1:
-        prev_month, prev_year = 12, year - 1
-    else:
-        prev_month, prev_year = month - 1, year
-
-    # next month/year
-    if month == 12:
-        next_month, next_year = 1, year + 1
-    else:
-        next_month, next_year = month + 1, year
-
-    cal = calendar.Calendar(firstweekday=0)
-    month_days = list(cal.itermonthdates(year, month))
-    start, end = month_days[0], month_days[-1]
-
-    events_by_day = {}
-    add_events(Attraction.objects.all(), events_by_day, start, end, "attraction")
-    add_events(TicketDraw.objects.all(), events_by_day, start, end, "ticket_draw")
-
-    weeks = []
-    for i in range(0, len(month_days), 7):
-        week = month_days[i:i + 7]
-        week_info = []
-        for day in week:
-            day_events = events_by_day.get(day.day, []) if day.month == month else []
-            week_info.append({"date": day, "events": day_events})
-        weeks.append(week_info)
-
-    return {
-        "year": year,
-        "month": month,
-        "month_name": calendar.month_name[month],
-        "weeks": weeks,
-        "today": today,
-        "prev_year": prev_year,
-        "prev_month": prev_month,
-        "next_year": next_year,
-        "next_month": next_month,
-    }
-
-# -----------------------------
-# Suggestions (user + admin export)
-# -----------------------------
-@login_required
-def create_attraction_suggestion(request):
-    if request.method == "POST":
-        form = AttractionSuggestionForm(request.POST)
-        if form.is_valid():
-            suggestion = form.save(commit=False)
-            suggestion.submitted_by = request.user
-            suggestion.save()
-            messages.success(request, "Suggestion submitted successfully.")
-            return redirect("create_attraction_suggestion")
-        messages.error(request, "Please fix the errors below and try again.")
-    else:
-        form = AttractionSuggestionForm()
-
-    return render(
-        request,
-        "fergusonbequest/attraction_suggestion_page.html",
-        {"form": form},
-    )
-
-
-@staff_member_required
-def export_suggestions_excel(request):
-    qs = AttractionSuggestion.objects.select_related("submitted_by").order_by("-created_at")
-
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Attraction Suggestions"
-
-    headers = [
-        "Name",
-        "Location",
-        "Website URL",
-        "Description",
-        "Why Recommended",
-        "Status",
-        "Submitted By",
-        "Created At",
-    ]
-    ws.append(headers)
-
-    for s in qs:
-        ws.append(
-            [
-                s.name,
-                getattr(s, "location", "") or "",
-                getattr(s, "website_url", "") or "",
-                getattr(s, "description", "") or "",
-                getattr(s, "why_recommended", "") or "",
-                getattr(s, "status", "") or "",
-                (s.submitted_by.username if s.submitted_by else ""),
-                s.created_at.strftime("%Y-%m-%d %H:%M") if getattr(s, "created_at", None) else "",
-            ]
-        )
-
-    ws.freeze_panes = "A2"
-    ws.auto_filter.ref = f"A1:{get_column_letter(len(headers))}{ws.max_row}"
-
-    dv = DataValidation(type="list", formula1='"Pending,In progress,Implemented,Rejected"', allow_blank=True)
-    ws.add_data_validation(dv)
-    if ws.max_row >= 2:
-        dv.add(f"F2:F{ws.max_row}")
-
-    for col_idx in range(1, len(headers) + 1):
-        col_letter = get_column_letter(col_idx)
-        max_len = 0
-        for cell in ws[col_letter]:
-            v = "" if cell.value is None else str(cell.value)
-            max_len = max(max_len, len(v))
-        ws.column_dimensions[col_letter].width = min(max_len + 2, 55)
-
-    response = HttpResponse(
-        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    response["Content-Disposition"] = 'attachment; filename="attraction_suggestions.xlsx"'
-    wb.save(response)
-    return response
 
 
 # -----------------------------
@@ -1432,6 +1354,7 @@ def admin_reports(request):
     specific_time = request.GET.get("specific_time")
     date_select = request.GET.get("date_select")
     time_select = request.GET.get("time_select")
+
     sort = request.GET.get("sort", "newest")
 
     draw_qs = TicketDrawBooking.objects.select_related("user", "ticket_draw", "slot")
@@ -1684,12 +1607,3 @@ def admin_reports(request):
             "time_list": time_list,
         },
     )
-
-# Compatibility alias: urls.py expects management_view
-@staff_member_required
-def management_view(request):
-    return admin_management(request)
-
-class CustomLoginView(LoginView):
-    template_name = "fergusonbequest/login.html"
-    authentication_form = EmailAuthenticationForm

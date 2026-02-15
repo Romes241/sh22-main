@@ -293,14 +293,30 @@ class Profile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    staff_guid = models.CharField(max_length=64, unique=True, blank=True, null=True) # Placeholder for staff GUID
-    eligible= models.BooleanField(default=False) # Placeholder for eligibility status
-    eligibility_reason = models.TextField(blank=True, null=True) # Placeholder for eligibility reason
-    department = models.CharField(max_length=255, blank=True, null=True) # Placeholder for department field
+    staff_guid = models.CharField(max_length=64, unique=True, blank=True, null=True)  # Placeholder for staff GUID
+    eligible = models.BooleanField(default=False)  # Placeholder for eligibility status
+    eligibility_reason = models.TextField(blank=True, null=True)  # Placeholder for eligibility reason
+    department = models.CharField(max_length=255, blank=True, null=True)  # Placeholder for department field
 
     def __str__(self):
         return f"Profile of {self.user.username}"
-    
+
+
+class DiscountCode(models.Model):
+    title = models.CharField(max_length=120)
+    code = models.CharField(max_length=50, unique=True)
+    description = models.TextField(blank=True)
+
+    valid_from = models.DateTimeField()
+    valid_until = models.DateTimeField()
+
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.code} - {self.title}"
+
+
 class AttractionSuggestion(models.Model):
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
@@ -312,7 +328,7 @@ class AttractionSuggestion(models.Model):
     submitted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="attraction_suggestions"
+        related_name="attraction_suggestions",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
