@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Attraction, VisitSlot, Booking, Profile, TicketDraw, TicketDrawBooking, TicketDrawVisitSlot
+from .models import Attraction, VisitSlot, Booking, Profile, TicketDraw, TicketDrawBooking, TicketDrawVisitSlot, AttractionSuggestion
 
 
 @admin.register(Attraction)
@@ -47,3 +47,9 @@ class TicketDrawVisitSlotAdmin(admin.ModelAdmin):
     list_filter = ("ticket_draw", "date")
     ordering = ("date", "time")
 
+@admin.register(AttractionSuggestion)
+class AttractionSuggestionAdmin(admin.ModelAdmin):
+    list_display = ("name", "status", "submitted_by", "created_at")
+    list_filter = ("status", "created_at")
+    search_fields = ("name", "description", "why_recommended", "location", "website_url")
+    ordering = ("-created_at",)

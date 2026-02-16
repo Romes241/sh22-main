@@ -10,9 +10,14 @@
     <div class="td-header">
       <h1 class="td-title">Ticket Draws</h1>
 
-      <a class="td-waitlist-btn" href="{% url 'waiting_list' %}">
-        Waitlist Status
-      </a>
+      <div style="display: flex; gap: 12px;">
+        {% if user.is_staff %}
+        <a href="{% url 'create_ticket_draw' %}" class="fb-btn fb-btn--primary">Create Draw</a>
+        {% endif %}
+        <a class="td-waitlist-btn" href="{% url 'waiting_list' %}">
+          Waitlist Status
+        </a>
+      </div>
     </div>
 
   <div class="td-scroll">

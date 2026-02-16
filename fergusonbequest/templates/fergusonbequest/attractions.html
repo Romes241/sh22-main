@@ -10,8 +10,13 @@
 {% block content %}
 <div class="attractions-page">
 
-  <!-- Page title -->
-  <h1 class="page-title">Attractions</h1>
+  <!-- Page title and actions -->
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h1 class="page-title">Attractions</h1>
+    {% if user.is_staff %}
+    <a href="{% url 'create_attraction' %}" class="fb-btn fb-btn--primary">Create Attraction</a>
+    {% endif %}
+  </div>
 
 <form method="get" class="controls">
 

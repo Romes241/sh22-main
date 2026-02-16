@@ -19,6 +19,9 @@
     {% endif %}
   <nav class="td-back-nav">
     <a href="{% url 'ticket_draws' %}" class="td-back-link">&larr; Back to all ticket draws</a>
+    {% if user.is_staff %}
+      <a href="{% url 'edit_ticket_draw' draw.pk %}" class="td-edit-link">Edit</a>
+    {% endif %}
   </nav>
 
   <div class="td-main-grid">
@@ -84,7 +87,7 @@
         <div class="td-date-box">
           <p class="td-date-label">Select Entry Date</p>
           <div class="td-calendar-icon">🗓️</div>
-          <select id="slot-selector" name="slot_id" class="td-selector">
+          <select id="slot-selector" name="slot_id" class="td-selector" {% if not slots %}disabled{% endif %}>
             {% for s in slots %}
               <option value="{{ s.id }}" data-remaining="{{ s.remaining }}">
                 {{ s.date|date:"D, M d" }} {% if s.time %}({{ s.time|time:"H:i" }}){% endif %}
@@ -93,6 +96,9 @@
               <option disabled>No dates available</option>
             {% endfor %}
           </select>
+          {% if not slots %}
+            <p class="td-no-slots-note">No dates have been added for this draw yet.</p>
+          {% endif %}
         </div>
 
         <div class="td-action-panel">
@@ -116,14 +122,14 @@
                      min="1"
                      max="{{ remaining_allowance }}"
                      class="td-ticket-input"
-                     {% if remaining_allowance <= 0 %}disabled{% endif %}>
+                 {% if remaining_allowance <= 0 or not slots %}disabled{% endif %}>
           </div>
 
-          {% if remaining_allowance > 0 %}
+            {% if remaining_allowance > 0 and slots %}
               <button type="submit" class="td-submit-btn">Enter Draw</button>
           {% else %}
               <button type="button" class="td-submit-btn" disabled>
-                  Limit Reached
+                {% if not slots %}No dates available{% else %}Limit Reached{% endif %}
               </button>
           {% endif %}
         </div>
