@@ -14,6 +14,7 @@ from django.utils.dateparse import parse_date
 from django.contrib.admin.views.decorators import staff_member_required
 from operator import itemgetter
 import csv
+import calendar
 
 from django.http import HttpResponse
 from django.utils import timezone
@@ -1308,3 +1309,76 @@ def edit_ticket_draw(request, pk):
         'ticket_draw': ticket_draw
     })
 
+# Helper function to add events to the calendar view
+def add_events(objects, events_by_day, start, end, event_type):
+    for obj in objects:
+        for field, class_name in [('booking_open', 'booking-open'), ('booking_close', 'booking-close')]:
+            date_value = getattr(obj, field, None)
+            if date_value:
+                event_date = date_value.date()
+                if start <= event_date <= end:
+                    day = event_date.day
+                    events_by_day.setdefault(day, []).append({
+                        'class_name': class_name,
+                        'object': obj,
+                        'event_type': event_type,
+                    })
+
+def calendar_view(request, year = None, month = None):
+
+    today = timezone.localdate()
+    year = int(year or today.year)
+    month = int(month or today.month)
+
+    # Compute previous and next month/year for navigation
+    if month == 1:
+        prev_month = 12
+        prev_year = year - 1
+    else:
+        prev_month = month - 1
+        prev_year = year
+
+    if month == 12:
+        next_month = 1
+        next_year = year + 1
+    else:
+        next_month = month + 1
+        next_year = year
+
+    # Generate calendar for the month
+    cal = calendar.Calendar(firstweekday=0)
+
+    month_days = list(cal.itermonthdates(year, month))
+    start, end = month_days[0], month_days[-1]
+
+    # Gather events for the month (Attraction booking open/close and TicketDraw open/close)
+    eventsByDay = {}
+
+    add_events(Attraction.objects.all(), eventsByDay, start, end, 'attraction')
+    add_events(TicketDraw.objects.all(), eventsByDay, start, end, 'ticket_draw')
+
+    # Structure weeks for template: list of weeks, each week is list of days, each day has date and events
+    weeks = []
+    for i in range(0, len(month_days), 7):
+        week = month_days[i:i+7]
+        week_info = []
+        for day in week:
+            day_events = eventsByDay.get(day.day, []) if day.month == month else []
+            week_info.append({
+                'date': day,
+                'events': day_events,
+            })
+        weeks.append(week_info)
+
+    context = { 
+        'year': year,
+        'month': month,
+        'month_name': calendar.month_name[month],
+        'weeks': weeks,
+        'today': today,
+        'prev_year': prev_year,
+        'prev_month': prev_month,
+        'next_year': next_year,
+        'next_month': next_month,
+    }
+    return render(request, 'fergusonbequest/calendar.html', context)
