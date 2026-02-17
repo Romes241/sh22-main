@@ -6,6 +6,12 @@ from django.db.models import Q
 
 # Create your models here.
 YEAR_LIMIT_DEFAULT = 3
+
+ATTRACTION_TYPE_CHOICES = [
+    ('regular', 'Regular Attraction'),
+    ('weekly_event', 'Weekly Ticket Event'),
+]
+
 """
 Representing an attraction 
 Each attraction can have multiple visit slots and bookings.
@@ -33,6 +39,12 @@ class Attraction(models.Model):
     # how many times a user can book this attraction per year
     # default value is the constant defined above
     per_year_limit = models.PositiveIntegerField(default=YEAR_LIMIT_DEFAULT)
+    # type of attraction: regular or weekly event
+    attraction_type = models.CharField(
+        max_length=20,
+        choices=ATTRACTION_TYPE_CHOICES,
+        default='regular'
+    )
     # time that attraction would take
     duration_minutes = models.PositiveIntegerField(null=True, blank=True)
 
@@ -98,6 +110,12 @@ class TicketDraw(models.Model):
     # date of the draw
     draw_date = models.DateTimeField()
     per_year_limit = models.PositiveIntegerField(default=YEAR_LIMIT_DEFAULT)
+    # type of attraction: regular or weekly event
+    attraction_type = models.CharField(
+        max_length=20,
+        choices=ATTRACTION_TYPE_CHOICES,
+        default='weekly_event'
+    )
 
     def __str__(self):
         return self.name
