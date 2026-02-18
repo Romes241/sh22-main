@@ -292,6 +292,25 @@
   border-color: #003865;
 }
 
+.bh-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.bh-badge--attraction {
+  background: #e3f2fd;
+  color: #0b2f6b;
+}
+
+.bh-badge--draw {
+  background: #fff3e0;
+  color: #e65100;
+}
+
 .bh-form-row--actions {
   flex-direction: row;
   justify-content: flex-end;
