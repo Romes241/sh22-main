@@ -49,7 +49,7 @@
     <div class="mng-section-head">
       <h2>Current Draws</h2>
       <a class="mng-btn mng-btn--primary"
-         href="{% url 'admin:fergusonbequest_ticketdraw_add' %}">
+         href="{% url 'create_ticket_draw' %}">
         + New Draw
       </a>
     </div>
@@ -69,17 +69,6 @@
           </div>
 
           <div class="mng-meta">
-            {% if draw.winner_booking and not draw.winner_booking.cancelled %}
-              <span class="mng-muted">
-                Winner:
-                <strong>{{ draw.winner_booking.full_name }}</strong>
-                {% if draw.winner_booking.email %}
-                  ({{ draw.winner_booking.email }})
-                {% endif %}
-              </span>
-            {% else %}
-              <span class="mng-muted">Winner: —</span>
-            {% endif %}
               {% if draw.winner_booking and not draw.winner_booking.cancelled %}
                 <span class="mng-muted">
                   Winner: <strong>{{ draw.winner_booking.full_name }}</strong>
@@ -97,7 +86,7 @@
 
         <div class="mng-actions">
           <a class="mng-btn mng-btn--ghost"
-             href="{% url 'admin:fergusonbequest_ticketdraw_change' draw.id %}">
+             href="{% url 'edit_ticket_draw' draw.id %}">
             Edit
           </a>
 
@@ -131,7 +120,7 @@
     <div class="mng-section-head">
       <h2>Current Attractions</h2>
       <a class="mng-btn mng-btn--primary"
-         href="{% url 'admin:fergusonbequest_attraction_add' %}">
+         href="{% url 'create_attraction' %}">
         + New Attraction
       </a>
     </div>
@@ -152,7 +141,7 @@
 
           <div class="mng-actions">
             <a class="mng-btn mng-btn--ghost"
-               href="{% url 'admin:fergusonbequest_attraction_change' a.id %}">
+               href="{% url 'edit_attraction' a.id %}">
               Edit
             </a>
 
