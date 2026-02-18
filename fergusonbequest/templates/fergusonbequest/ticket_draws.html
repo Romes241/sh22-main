@@ -24,7 +24,7 @@
     <div class="td-grid">
 
       {% for d in draws %}
-        <div class="td-card">
+        <div class="td-card {% if not d.is_open %}is-closed{% endif %}">
 
           <div class="td-card-image">
             {% if d.image %}
@@ -45,9 +45,13 @@
             </div>
 
           <div class="td-card-actions">
-            <a class="td-btn td-btn-primary" href="{% url 'ticket_draw_detail' d.slug %}">
-              More information
-            </a>
+            {% if d.is_open %}
+              <a class="td-btn td-btn-primary" href="{% url 'ticket_draw_detail' d.slug %}">
+                More information
+              </a>
+            {% else %}
+              <span class="td-btn td-btn-primary">Draw Closed</span>
+            {% endif %}
           </div>
 
         </div>

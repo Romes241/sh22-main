@@ -10,16 +10,6 @@
 {% block content %}
 <h1 class="fb-h1">Waiting List Enrolment</h1>
 
-
-    {% if messages %}
-        <div class="messages-container">
-          {% for message in messages %}
-            <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
-              {{ message }}
-            </div>
-          {% endfor %}
-        </div>
-    {% endif %}
 <div class="wl-card">
   <div class="wl-table-wrap">
     <table class="wl-table">
@@ -27,56 +17,86 @@
         <tr>
           <th>Ticket Draw</th>
           <th>Chosen Date</th>
-          <th>Amount</th>
+          <th>Number of Tickets</th>
           <th class="wl-col-status">Status</th>
         </tr>
       </thead>
 
-    <tbody>
-      {% for td in ticket_draws %}
-        <tr>
-          <td>
-            <a class="wl-link-name" href="{% url 'ticket_draw_detail' td.slug %}">
-                {{ td.name }}
-            </a>
-          </td>
+        <tbody>
+          {% for td in ticket_draws %}
+            <tr>
+              <td>
+                <a class="wl-link-name" href="{% url 'ticket_draw_detail' td.slug %}">
+                    {{ td.name }}
+                </a>
+              </td>
 
-          <td>
-            {% if td.joined %}
-              {{ td.user_booking.slot.date|date:"D, M d" }} at {{ td.user_booking.slot.time|time:"H:i" }}
-            {% else %}
-              <span style="color: #999;">—</span>
-            {% endif %}
-          </td>
+              <td>
+                {% if td.joined %}
+                  {{ td.user_booking.slot.date|date:"D, M d" }} at {{ td.user_booking.slot.time|time:"H:i" }}
+                {% else %}
+                  <span style="color: #999;">—</span>
+                {% endif %}
+              </td>
 
-          <td>
-            {% if td.joined %}
-              <span style="font-weight: 700;">
-                {{ td.user_booking.num_tickets }} Ticket{{ td.user_booking.num_tickets|pluralize }}
-              </span>
-            {% else %}
-              <span style="color: #999;">—</span>
-            {% endif %}
-          </td>
+              <td>
+                {% if td.joined %}
+                  <span style="font-weight: 700;">
+                    {{ td.user_booking.num_tickets }} Ticket{{ td.user_booking.num_tickets|pluralize }}
+                  </span>
+                {% else %}
+                  <span style="color: #999;">—</span>
+                {% endif %}
+              </td>
 
-          <td class="wl-col-status">
-            <div class="wl-status-container">
-              {% if td.joined %}
-                <span class="wl-status wl-status-joined">Joined</span>
+            <td class="wl-col-status">
+              <div class="wl-status-container">
+                {% if td.joined %}
+                    {% if td.user_booking == td.user_booking.ticket_draw.winner_booking %}
 
-                <form method="POST" action="{% url 'cancel_draw_entry' td.user_booking.pk %}"
-                      onsubmit="return confirm('Cancel entry for {{ td.name }}?');">
-                  {% csrf_token %}
-                  <button type="submit" class="wl-cancel-btn">Cancel</button>
-                </form>
-              {% else %}
-                <a href="{% url 'ticket_draw_detail' td.slug %}" class="wl-btn">Join waiting list</a>
-              {% endif %}
-            </div>
-          </td>
-        </tr>
-      {% endfor %}
-    </tbody>
+                      {% if td.user_booking.is_accepted %}
+                        <span class="wl-status wl-status-joined">Winner (Confirmed)</span>
+                      {% else %}
+                        <div class="wl-winner-actions" style="display: flex; flex-direction: column; gap: 8px;">
+                          <span class="wl-status" style="background: #0b2f6b; color: #fff; font-weight: 800; padding: 4px 8px; border-radius: 8px; text-align: center;">YOU WON!</span>
+
+                          <div style="display: flex; gap: 4px;">
+                            <form method="POST" action="{% url 'accept_draw_win' td.user_booking.pk %}">
+                              {% csrf_token %} {# This prevents the 403 error #}
+                              <button type="submit" class="mng-btn mng-btn--primary" style="padding: 6px 10px; font-size: 13px;">Accept</button>
+                            </form>
+
+                            <form method="POST" action="{% url 'decline_draw_win' td.user_booking.pk %}" onsubmit="return confirm('Are you sure you want to decline these tickets?');">
+                              {% csrf_token %}
+                              <button type="submit" class="mng-btn mng-btn--danger" style="padding: 6px 10px; font-size: 13px;">Decline</button>
+                            </form>
+                          </div>
+                        </div>
+                      {% endif %}
+
+                    {% elif td.user_booking.ticket_draw.winner_booking %}
+                      <span class="mng-muted">On Waiting List</span>
+                      <form method="POST" action="{% url 'cancel_draw_entry' td.user_booking.pk %}" onsubmit="return confirm('Remove yourself from the waiting list?');">
+                        {% csrf_token %}
+                        <button type="submit" class="wl-cancel-btn">Leave List</button>
+                      </form>
+
+                    {% else %}
+                      <span class="wl-status wl-status-joined">Entered</span>
+                      <form method="POST" action="{% url 'cancel_draw_entry' td.user_booking.pk %}" onsubmit="return confirm('Cancel entry for {{ td.name }}?');">
+                        {% csrf_token %}
+                        <button type="submit" class="wl-cancel-btn">Cancel</button>
+                      </form>
+                    {% endif %}
+
+                {% else %}
+                    <a href="{% url 'ticket_draw_detail' td.slug %}" class="wl-btn">Join waiting list</a>
+                {% endif %}
+              </div>
+            </td>
+            </tr>
+          {% endfor %}
+        </tbody>
     </table>
   </div>
 </div>

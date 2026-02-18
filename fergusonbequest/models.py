@@ -233,6 +233,7 @@ class TicketDrawBooking(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled = models.BooleanField(default=False)
     ticket_code = models.CharField(max_length=16, unique=True, null=True, blank=True)
+    is_accepted = models.BooleanField(default=False)
 
     class Meta:
         ordering = ('-created_at',)
