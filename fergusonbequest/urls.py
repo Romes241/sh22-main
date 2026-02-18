@@ -22,6 +22,14 @@ urlpatterns = [
     path("attractions/", views.attractions_view, name="attractions"),
     path("admin-dashboard/", views.admin_dashboard, name="admin_dashboard"),
     path("admin-reports/", views.admin_reports, name = "admin_reports"),
+
+
+    
+path("waiting-list-attraction/", views.waiting_listattraction, name="waiting_listattraction"),
+path("waiting-list-attraction/join/<int:pk>/", views.waiting_listattraction_join, name="waiting_listattraction_join"),
+path("waiting-list-attraction/leave/<int:pk>/", views.waiting_listattraction_leave, name="waiting_listattraction_leave"),
+
+
 ]
 
 

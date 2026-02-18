@@ -1091,3 +1091,43 @@ def waiting_list(request):
     return render(request, "fergusonbequest/waiting_list.html", {
         "ticket_draws": ticket_draws,
     })
+
+
+@login_required
+def waiting_listattraction(request):
+    attractions = Attraction.objects.all().order_by("name")
+
+    joined_ids = set(request.session.get("attraction_waitlist_ids", []))
+
+    for a in attractions:
+        a.joined = a.id in joined_ids
+
+    return render(request, "fergusonbequest/waiting_listattraction.html", {
+        "attractions": attractions,
+    })
+
+
+@require_POST
+@login_required
+def waiting_listattraction_join(request, pk):
+    attraction = get_object_or_404(Attraction, pk=pk)
+
+    ids = set(request.session.get("attraction_waitlist_ids", []))
+    ids.add(attraction.id)
+    request.session["attraction_waitlist_ids"] = list(ids)
+
+    messages.success(request, f"You joined the waiting list for {attraction.name}.")
+    return redirect("waiting_listattraction")
+
+
+@require_POST
+@login_required
+def waiting_listattraction_leave(request, pk):
+    attraction = get_object_or_404(Attraction, pk=pk)
+
+    ids = set(request.session.get("attraction_waitlist_ids", []))
+    ids.discard(attraction.id)
+    request.session["attraction_waitlist_ids"] = list(ids)
+
+    messages.success(request, f"You left the waiting list for {attraction.name}.")
+    return redirect("waiting_listattraction")
