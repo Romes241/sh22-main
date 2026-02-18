@@ -30,7 +30,8 @@ class CarouselFunctionalityTests(TestCase):
             location="Stirling",
             description="Safari and adventure park with exotic animals.",
             booking_open=timezone.now() - timedelta(days=1),
-            booking_close=timezone.now() + timedelta(days=30)
+            booking_close=timezone.now() + timedelta(days=30),
+            attraction_type='regular'
         )
         
         self.attraction2 = Attraction.objects.create(
@@ -39,7 +40,8 @@ class CarouselFunctionalityTests(TestCase):
             location="Edinburgh",
             description="Scotland's most famous zoo with pandas and penguins.",
             booking_open=timezone.now() - timedelta(days=1),
-            booking_close=timezone.now() + timedelta(days=30)
+            booking_close=timezone.now() + timedelta(days=30),
+            attraction_type='regular'
         )
         
         self.attraction3 = Attraction.objects.create(
@@ -48,7 +50,8 @@ class CarouselFunctionalityTests(TestCase):
             location="Glasgow",
             description="Interactive science museum with planetarium.",
             booking_open=timezone.now() - timedelta(days=1),
-            booking_close=timezone.now() + timedelta(days=30)
+            booking_close=timezone.now() + timedelta(days=30),
+            attraction_type='regular'
         )
 
     def test_dashboard_requires_login(self):
@@ -311,13 +314,15 @@ class CarouselFunctionalityTests(TestCase):
             name="Kelvingrove Museum",
             slug="kelvingrove",
             location="Glasgow",
-            description="Art gallery and museum."
+            description="Art gallery and museum.",
+            attraction_type='regular'
         )
         Attraction.objects.create(
             name="National Museum",
             slug="national-museum",
             location="Edinburgh",
-            description="Scotland's national museum."
+            description="Scotland's national museum.",
+            attraction_type='regular'
         )
         
         self.client.login(username=self.username, password=self.password)

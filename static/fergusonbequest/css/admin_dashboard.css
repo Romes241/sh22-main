@@ -86,12 +86,13 @@
 }
 
 .ad-side {
-  display: flex;
+  display: flex !important;
   flex-direction: column;
   gap: 22px;
 }
 
 .ad-panel {
+  display: block !important;
   border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 14px 28px rgba(0,0,0,0.14);

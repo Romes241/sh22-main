@@ -13,7 +13,7 @@ class BookingAccessTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='alice', email='alice@example.com', password='testpass')
         self.other = User.objects.create_user(username='bob', email='bob@example.com', password='testpass')
-        self.attraction = Attraction.objects.create(name='Museum', slug='museum')
+        self.attraction = Attraction.objects.create(name='Museum', slug='museum', attraction_type='regular')
         self.slot = VisitSlot.objects.create(
             attraction=self.attraction,
             date=timezone.now().date() + timezone.timedelta(days=5),
@@ -68,8 +68,8 @@ class BookingSearchAndFiltersTests(TestCase):
         future_date2 = today + timezone.timedelta(days=15)
 
         # Attractions
-        self.alpha = Attraction.objects.create(name='Seed Venue Alpha', slug='seed-alpha')
-        self.beta = Attraction.objects.create(name='Beta Gardens', slug='beta-gardens')
+        self.alpha = Attraction.objects.create(name='Seed Venue Alpha', slug='seed-alpha', attraction_type='regular')
+        self.beta = Attraction.objects.create(name='Beta Gardens', slug='beta-gardens', attraction_type='regular')
 
         # Slots
         self.past_slot = VisitSlot.objects.create(attraction=self.alpha, date=past_date, capacity=10, remaining=5)
