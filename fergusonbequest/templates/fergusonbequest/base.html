@@ -23,8 +23,12 @@
 
     <span class="fb-header__divider" aria-hidden="true"></span>
 
-    {% if user.is_authenticated and user.is_staff %}
-      <a href="{% url 'admin_dashboard' %}" class="fb-header__brand">Ferguson Bequest</a>
+    {% if user.is_authenticated %}
+      {% if user.is_staff %}
+        <a href="{% url 'admin_dashboard' %}" class="fb-header__brand">Ferguson Bequest</a>
+      {% else %}
+        <a href="{% url 'dashboard' %}" class="fb-header__brand">Ferguson Bequest</a>
+      {% endif %}
     {% else %}
       <a href="{% url 'home' %}" class="fb-header__brand">Ferguson Bequest</a>
     {% endif %}
