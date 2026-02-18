@@ -80,6 +80,18 @@
             {% else %}
               <span class="mng-muted">Winner: —</span>
             {% endif %}
+              {% if draw.winner_booking and not draw.winner_booking.cancelled %}
+                <span class="mng-muted">
+                  Winner: <strong>{{ draw.winner_booking.full_name }}</strong>
+                  {% if draw.winner_booking.is_accepted %}
+                    <span style="color: green;">(Confirmed)</span>
+                  {% else %}
+                    <span style="color: orange;">(Pending Acceptance)</span>
+                  {% endif %}
+                </span>
+              {% else %}
+                <span class="mng-muted">Winner: —</span>
+              {% endif %}
           </div>
         </div>
 

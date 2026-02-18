@@ -21,6 +21,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from operator import itemgetter
 import csv
 
+from django.db import transaction
 from django.urls import reverse
 from django.http import HttpResponse
 from django.utils import timezone
@@ -973,6 +974,29 @@ def assign_next_winner(draw):
         return  # winner still valid, do nothing
 
     entries = list(
+        TicketDrawBooking.objects
+        .filter(ticket_draw=draw, cancelled=False)
+        .select_related("user")
+    )
+
+    if not entries:
+        draw.winner_booking = None
+        draw.winner_selected_at = None
+    else:
+        draw.winner_booking = random.choice(entries)
+        draw.winner_selected_at = timezone.now()
+
+    draw.save(update_fields=["winner_booking", "winner_selected_at"])
+
+def assign_next_winner(draw):
+    """
+    If current winner entry is cancelled/missing then pick a new winner from active entries.
+    If no active entries then clear winner.
+    """
+    if draw.winner_booking and not draw.winner_booking.cancelled:
+        return  # winner still valid, do nothing
+
+    entries = list(
         TicketDrawBooking.objects.filter(ticket_draw=draw, cancelled=False)
         .select_related("user")
     )
@@ -1005,6 +1029,28 @@ def accept_draw_win(request, pk):
         messages.error(request, "You are not the current winner of this draw.")
 
     return redirect("booking_history")
+
+@login_required
+@require_POST
+@require_POST
+def accept_draw_win(request, pk):
+    """
+    Winner confirms they want the tickets.
+    Sets 'is_accepted' to True on the TicketDrawBooking model.
+    """
+    booking = get_object_or_404(TicketDrawBooking, pk=pk, user=request.user)
+    draw = booking.ticket_draw
+
+    # Verify the user is the currently selected winner
+    if draw.winner_booking == booking:
+        booking.is_accepted = True
+        booking.save(update_fields=['is_accepted'])
+        messages.success(request, f"You have officially accepted your tickets for {draw.name}!")
+    else:
+        messages.error(request, "You are not the current winner of this draw.")
+
+    return redirect('waiting_list')
+
 
 @login_required
 @require_POST
