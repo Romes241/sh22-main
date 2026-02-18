@@ -795,52 +795,42 @@ def ticket_draw_detail(request, slug):
 
 @login_required
 def cancel_ticket_draw_entry(request, pk):
-    """Allows a user to cancel their own ticket draw entry and restores slot capacity."""
-    # Ensure the user owns this booking before allowing cancellation
-    @login_required
-    def cancel_ticket_draw_entry(request, pk):
-        """Allows a user to cancel their own ticket draw entry and restores slot capacity."""
-        booking = get_object_or_404(TicketDrawBooking, pk=pk, user=request.user)
+        booking = get_object_or_404(
+            TicketDrawBooking,
+            pk=pk,
+            user=request.user
+        )
 
-        if request.method == 'POST':
+        if request.method == "POST":
             with transaction.atomic():
                 if not booking.cancelled:
+
+                    # Mark as cancelled
                     booking.cancelled = True
                     booking.save(update_fields=["cancelled"])
+
                     # Restore slot capacity
                     slot = booking.slot
-                    slot.remaining = F('remaining') + booking.num_tickets
+                    slot.remaining = F("remaining") + booking.num_tickets
                     slot.save(update_fields=["remaining"])
+
+                    # If this booking was the winner → pick a new one
                     draw = booking.ticket_draw
                     if getattr(draw, "winner_booking_id", None) == booking.id:
                         assign_next_winner(draw)
 
-                messages.success(request, f"Entry for {booking.ticket_draw.name} cancelled.")
+                    messages.success(
+                        request,
+                        f"Entry for {draw.name} cancelled."
+                    )
+                else:
+                    messages.info(
+                        request,
+                        "This entry was already cancelled."
+                    )
 
-        return redirect('waiting_list')
+        return redirect("waiting_list")
 
-def assign_next_winner(draw):
-    """
-    If current winner entry is cancelled/missing then pick a new winner from active entries.
-    If no active entries then clear winner.
-    """
-    if draw.winner_booking and not draw.winner_booking.cancelled:
-        return  # winner still valid, do nothing
-
-    entries = list(
-        TicketDrawBooking.objects
-        .filter(ticket_draw=draw, cancelled=False)
-        .select_related("user")
-    )
-
-    if not entries:
-        draw.winner_booking = None
-        draw.winner_selected_at = None
-    else:
-        draw.winner_booking = random.choice(entries)
-        draw.winner_selected_at = timezone.now()
-
-    draw.save(update_fields=["winner_booking", "winner_selected_at"])
 
 def assign_next_winner(draw):
     """
@@ -848,7 +838,7 @@ def assign_next_winner(draw):
     If no active entries then clear winner.
     """
     if draw.winner_booking and not draw.winner_booking.cancelled:
-        return  # winner still valid, do nothing
+        return  # winner still valid
 
     entries = list(
         TicketDrawBooking.objects.filter(ticket_draw=draw, cancelled=False)
