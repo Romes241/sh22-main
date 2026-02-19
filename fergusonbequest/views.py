@@ -1579,6 +1579,103 @@ def waiting_listattraction_leave(request, pk):
 
     messages.success(request, f"You left the waiting list for {attraction.name}.")
     return redirect("waiting_listattraction")
+@staff_member_required
+def management_view(request):
+    tab = request.GET.get("tab", "draws")
+    q = (request.GET.get("q") or "").strip()
+
+    sort_draws = request.GET.get("sort_draws", "close_date_desc")
+    sort_attractions = request.GET.get("sort_attractions", "date_desc")
+
+    draws_qs = TicketDraw.objects.all()
+    attractions_qs = Attraction.objects.all()
+
+    if q:
+        draws_qs = draws_qs.filter(name__icontains=q)
+        attractions_qs = attractions_qs.filter(name__icontains=q)
+
+    #  Draw sorting
+    if sort_draws == "open_first":
+        draws_qs = draws_qs.order_by("-booking_open", "-booking_close", "name")
+    elif sort_draws == "close_date":
+        draws_qs = draws_qs.order_by("booking_close", "name")
+    elif sort_draws == "close_date_desc":
+        draws_qs = draws_qs.order_by("-booking_close", "name")
+    else:
+        draws_qs = draws_qs.order_by("name")
+
+    #  Attraction sorting (date and location)
+    if sort_attractions == "date":
+        attractions_qs = attractions_qs.order_by("booking_open", "name")
+    elif sort_attractions == "date_desc":
+        attractions_qs = attractions_qs.order_by("-booking_open", "name")
+    else:
+        attractions_qs = attractions_qs.order_by("name")
+
+    now = timezone.now()
+    for d in draws_qs:
+        d.is_open_now = d.is_open(now)
+        d.is_closed_now = not d.is_open_now
+
+    return render(request, "fergusonbequest/admin_management.html", {
+        "draws": draws_qs,
+        "attractions": attractions_qs,
+        "tab": tab,
+        "q": q,
+        "sort_draws": sort_draws,
+        "sort_attractions": sort_attractions,
+    })
+
+@staff_member_required
+@require_POST
+def run_draw(request, draw_id):
+    draw = get_object_or_404(TicketDraw, pk=draw_id)
+
+    # only run if closed
+    now = timezone.now()
+    if draw.is_open(now):
+        messages.error(request, "This draw is still open. You can only run it after it closes.")
+        return redirect(f"{reverse('management')}?tab=draws")
+
+    # Only allow when closed (now actually enforced)
+    entries = list(
+        TicketDrawBooking.objects.filter(ticket_draw=draw, cancelled=False)
+        .select_related("user")
+    )
+
+    if not entries:
+        draw.winner_booking = None
+        draw.winner_selected_at = None
+        draw.save(update_fields=["winner_booking", "winner_selected_at"])
+        messages.error(request, "No active entries for this draw.")
+        return redirect(f"{reverse('management')}?tab=draws")
+
+    draw.winner_booking = random.choice(entries)
+    draw.winner_selected_at = timezone.now()
+    draw.save(update_fields=["winner_booking", "winner_selected_at"])
+
+    winner_name = draw.winner_booking.full_name or (
+        draw.winner_booking.user.get_username() if draw.winner_booking.user else "Winner"
+    )
+    messages.success(request, f"Winner selected: {winner_name}")
+    return redirect(f"{reverse('management')}?tab=draws")
+
+@staff_member_required
+@require_POST
+def mng_delete_draw(request, draw_id):
+    draw = get_object_or_404(TicketDraw, pk=draw_id)
+    draw.delete()
+    messages.success(request, "Draw deleted.")
+    return redirect("/admin-dashboard/management/?tab=draws")
+
+
+@staff_member_required
+@require_POST
+def mng_delete_attraction(request, attraction_id):
+    attraction = get_object_or_404(Attraction, pk=attraction_id)
+    attraction.delete()
+    messages.success(request, "Attraction deleted.")
+    return redirect("/admin-dashboard/management/?tab=attractions")
 
 @staff_member_required
 def create_attraction(request):
