@@ -1348,6 +1348,11 @@ def management_view(request):
     else:
         attractions_qs = attractions_qs.order_by("name")
 
+    now = timezone.now()
+    for d in draws_qs:
+        d.is_open_now = d.is_open(now)
+        d.is_closed_now = not d.is_open_now
+
     return render(request, "fergusonbequest/admin_management.html", {
         "draws": draws_qs,
         "attractions": attractions_qs,
@@ -1362,7 +1367,13 @@ def management_view(request):
 def run_draw(request, draw_id):
     draw = get_object_or_404(TicketDraw, pk=draw_id)
 
-    # Only allow when closed
+    # only run if closed
+    now = timezone.now()
+    if draw.is_open(now):
+        messages.error(request, "This draw is still open. You can only run it after it closes.")
+        return redirect(f"{reverse('management')}?tab=draws")
+
+    # Only allow when closed (now actually enforced)
     entries = list(
         TicketDrawBooking.objects.filter(ticket_draw=draw, cancelled=False)
         .select_related("user")
@@ -1373,7 +1384,7 @@ def run_draw(request, draw_id):
         draw.winner_selected_at = None
         draw.save(update_fields=["winner_booking", "winner_selected_at"])
         messages.error(request, "No active entries for this draw.")
-        return redirect("management")
+        return redirect(f"{reverse('management')}?tab=draws")
 
     draw.winner_booking = random.choice(entries)
     draw.winner_selected_at = timezone.now()

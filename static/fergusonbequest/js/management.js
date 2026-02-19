@@ -1,14 +1,4 @@
 document.addEventListener("DOMContentLoaded", () => {
-
-  // confirm delete
-  document.querySelectorAll(".js-confirm").forEach(link => {
-    link.addEventListener("click", e => {
-      if (!confirm(link.dataset.confirm || "Are you sure?")) {
-        e.preventDefault();
-      }
-    });
-  });
-
   // auto-submit selects
   document.querySelectorAll(".mng-controls select").forEach(sel => {
     sel.addEventListener("change", () => sel.form.submit());

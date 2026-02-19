@@ -100,13 +100,24 @@
           </button>
         </form>
 
-          <form method="post" action="{% url 'run_draw' draw.id %}">
-            {% csrf_token %}
-            <button class="mng-btn mng-btn--primary"
-                    {% if draw.is_open %}disabled{% endif %}>
+        <form method="post" action="{% url 'run_draw' draw.id %}">
+          {% csrf_token %}
+
+          {% if draw.winner_booking and not draw.winner_booking.cancelled %}
+            <button type="button"
+                    class="mng-btn mng-btn--primary js-open-confirm"
+                    data-title="Rerun draw?"
+                    data-message="This draw already has a winner ({{ draw.winner_booking.full_name }}). Rerunning will replace them. Are you sure?"
+                    {% if not draw.is_closed_now %}disabled{% endif %}>
               Run
             </button>
-          </form>
+          {% else %}
+            <button class="mng-btn mng-btn--primary"
+                    {% if not draw.is_closed_now %}disabled{% endif %}>
+              Run
+            </button>
+          {% endif %}
+        </form>
         </div>
       </div>
     {% empty %}
@@ -170,7 +181,7 @@
 
         <div class="mng-modal__actions">
           <button type="button" class="mng-btn mng-btn--ghost" data-close>Cancel</button>
-          <button type="button" class="mng-btn mng-btn--danger" id="mngConfirmYes">Delete</button>
+          <button type="button" class="mng-btn mng-btn--danger" id="mngConfirmYes">Confirm</button>
         </div>
       </div>
     </div>
