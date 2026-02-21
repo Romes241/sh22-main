@@ -38,6 +38,40 @@ MAX_ATTRACTIONS_PER_YEAR = 3
 
 # Create your views here.
 
+def calculate_remaining_allowance(user, attraction_type='regular'):
+    """
+    Calculate remaining booking allowance based on attraction type.
+    
+    Args:
+        user: The user to check allowance for
+        attraction_type: 'regular' or 'weekly_event'
+    
+    Returns:
+        int: Number of bookings remaining for this type
+    """
+    year = timezone.now().year
+    
+    if attraction_type == 'regular':
+        used = Booking.objects.filter(
+            user=user,
+            cancelled=False,
+            created_at__year=year,
+            attraction__attraction_type='regular'
+        ).count()
+        return max(0, 3 - used)
+    
+    elif attraction_type == 'weekly_event':
+        used = TicketDrawBooking.objects.filter(
+            user=user,
+            cancelled=False,
+            created_at__year=year,
+            ticket_draw__attraction_type='weekly_event'
+        ).count()
+        return max(0, 3 - used)
+    
+    return 0
+
+
 @staff_member_required
 def admin_dashboard(request):
     """
@@ -736,7 +770,12 @@ def ticket_draw_detail(request, slug):
         cancelled=False
     ).count()
 
-    remaining_allowance = max(0, draw.per_year_limit - existing_entries)
+    remaining_allowance = calculate_remaining_allowance(
+        request.user,
+        draw.attraction_type
+    )
+    draw_specific_remaining = max(0, draw.per_year_limit - existing_entries)
+    remaining_allowance = min(remaining_allowance, draw_specific_remaining)
 
     if request.method == 'POST':
         # prevent multiple bookings for same draw
@@ -810,8 +849,11 @@ def cancel_ticket_draw_entry(request, pk):
             messages.success(request, f"Entry for {booking.ticket_draw.name} cancelled.")
 
     return redirect('waiting_list')
+
+@require_POST
 def logout_view(request):
     """Log the user out and redirect to home.
+    Requires POST request for security (prevents accidental/malicious logouts).
     """
     logout(request)
     messages.info(request, "You have been logged out.")
@@ -830,14 +872,11 @@ def attraction(request, pk):
         date__gte=timezone.now().date()
     ).order_by("date", "time")
 
-    year = timezone.now().year
-    used = Booking.objects.filter(
-        user=request.user,
-        cancelled=False,
-        created_at__year=year
-    ).count()
-
-    remaining_allowance = max(0, 3 - used)
+    # Calculate remaining allowance based on attraction type
+    remaining_allowance = calculate_remaining_allowance(
+        request.user, 
+        attraction.attraction_type
+    )
 
     return render(request, 'fergusonbequest/attraction.html', {
         'attraction': attraction,
@@ -1077,75 +1116,100 @@ def booking_view(request, attraction_pk):
 
 @login_required
 def booking_history(request):
-    """Show list of bookings for the logged in user."""
+    """Show list of bookings for the logged in user, including both attractions and ticket draws."""
     user = request.user
 
-    current_year = timezone.now().year
+    remaining_allowance = calculate_remaining_allowance(user, 'regular')
 
-    active_yearly_count = Booking.objects.filter(
-        user=request.user,
-        cancelled=False,
-        created_at__year=current_year
-    ).count()
-
-    remaining_allowance = max(0, MAX_ATTRACTIONS_PER_YEAR - active_yearly_count)
-
-    # Base queryset
+    # Base querysets for both types
     bookings = Booking.objects.filter(user=user).select_related('slot', 'attraction')
+    draw_bookings = TicketDrawBooking.objects.filter(user=user).select_related('slot', 'ticket_draw')
 
     # Parse GET params for filters
-    when = request.GET.get('when')  # all|future|past
+    when = request.GET.get('when')  # all|future|past|cancelled
     status = request.GET.get('status')  # all|active|cancelled
     venue = request.GET.get('venue')
     q = request.GET.get('q')
     start = request.GET.get('start')
     end = request.GET.get('end')
-    sort = request.GET.get('sort')
+    sort = request.GET.get('sort', 'created_at')
 
     today = timezone.now().date()
 
+    # Apply status filters
     if status == 'cancelled':
         bookings = bookings.filter(cancelled=True)
+        draw_bookings = draw_bookings.filter(cancelled=True)
     elif status == 'active':
         bookings = bookings.filter(cancelled=False)
+        draw_bookings = draw_bookings.filter(cancelled=False)
 
+    # Apply when filters
+    if when == 'future':
+        bookings = bookings.filter(slot__date__gte=today)
+        draw_bookings = draw_bookings.filter(slot__date__gte=today)
+    elif when == 'past':
+        bookings = bookings.filter(slot__date__lt=today)
+        draw_bookings = draw_bookings.filter(slot__date__lt=today)
+    elif when == 'cancelled':
+        bookings = bookings.filter(cancelled=True)
+        draw_bookings = draw_bookings.filter(cancelled=True)
+
+    # Venue filter
     if venue:
         if venue.isdigit():
-            bookings = bookings.filter(attraction__pk=int(venue))
+            bookings = bookings.filter(attraction__id=venue)
+            draw_bookings = draw_bookings.filter(ticket_draw__id=venue)
         else:
             bookings = bookings.filter(attraction__slug__icontains=venue)
+            draw_bookings = draw_bookings.filter(ticket_draw__slug__icontains=venue)
 
     if q:
         bookings = bookings.filter(
-            Q(attraction__name__icontains=q) | Q(id__icontains=q) | Q(email__icontains=q)
+            Q(attraction__name__icontains=q) | Q(id__icontains=q) | Q(email__icontains=q) | Q(ticket_code__icontains=q)
+        )
+        draw_bookings = draw_bookings.filter(
+            Q(ticket_draw__name__icontains=q) | Q(id__icontains=q) | Q(email__icontains=q) | Q(ticket_code__icontains=q)
         )
 
-    try:
-        if start:
-            sd = datetime.date.fromisoformat(start)
-            bookings = bookings.filter(slot__date__gte=sd)
-        if end:
-            ed = datetime.date.fromisoformat(end)
-            bookings = bookings.filter(slot__date__lte=ed)
-    except ValueError:
-        # ignore invalid dates
-        pass
+    sd = parse_date(start) if start else None
+    ed = parse_date(end) if end else None
+    if sd:
+        bookings = bookings.filter(slot__date__gte=sd)
+        draw_bookings = draw_bookings.filter(slot__date__gte=sd)
+    if ed:
+        bookings = bookings.filter(slot__date__lte=ed)
+        draw_bookings = draw_bookings.filter(slot__date__lte=ed)
 
-    # sorting is applied before splitting into past/future
+    # Split into past/future and combine
+    future_bookings = list(bookings.filter(slot__date__gte=today))
+    future_draws = list(draw_bookings.filter(slot__date__gte=today))
+    
+    past_bookings = list(bookings.filter(slot__date__lt=today))
+    past_draws = list(draw_bookings.filter(slot__date__lt=today))
+    
+    # Add a type indicator for template rendering
+    for b in future_bookings + past_bookings:
+        b.booking_type = 'attraction'
+    for d in future_draws + past_draws:
+        d.booking_type = 'draw'
+    
+    # Combine and sort
     if sort == 'slot_date':
-        bookings = bookings.order_by('slot__date', '-created_at')
-    elif sort == 'created_at':
-        bookings = bookings.order_by('-created_at')
+        def sort_key(item):
+            return (item.slot.date, item.created_at)
+        reverse = False
     else:
-        bookings = bookings.order_by('-created_at')
+        def sort_key(item):
+            return item.created_at
+        reverse = True
 
-    # split into two querysets for template rendering
-    future_bookings = bookings.filter(slot__date__gte=today)
-    past_bookings = bookings.filter(slot__date__lt=today)
+    future_all = sorted(future_bookings + future_draws, key=sort_key, reverse=reverse)
+    past_all = sorted(past_bookings + past_draws, key=sort_key, reverse=reverse)
 
     return render(request, 'fergusonbequest/booking_history.html', {
-        'future_bookings': future_bookings,
-        'past_bookings': past_bookings,
+        'future_bookings': future_all,
+        'past_bookings': past_all,
         'when': when,
         'now': timezone.now(),
         "remaining_allowance": remaining_allowance,

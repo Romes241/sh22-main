@@ -4,7 +4,7 @@ from django.utils import timezone
 from django.contrib.auth import get_user_model
 import datetime
 
-from fergusonbequest.models import Attraction, VisitSlot, Booking
+from fergusonbequest.models import Attraction, VisitSlot, Booking, TicketDraw, TicketDrawVisitSlot, TicketDrawBooking
 
 User = get_user_model()
 
@@ -287,3 +287,59 @@ class BookingSearchAndFiltersTests(TestCase):
         resp = self.client.get(url)
         content = resp.content.decode('utf-8')
         self.assertTrue(content.find('new@example.com') < content.find('old@example.com'))
+
+class BookingHistoryTypeAndAllowanceTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='typeuser', email='typeuser@example.com', password='testpass')
+
+        today = timezone.now().date()
+        self.attraction = Attraction.objects.create(name='Type Museum', slug='type-museum', attraction_type='regular')
+        self.slot1 = VisitSlot.objects.create(attraction=self.attraction, date=today + timezone.timedelta(days=5), capacity=10, remaining=10)
+        self.slot2 = VisitSlot.objects.create(attraction=self.attraction, date=today + timezone.timedelta(days=6), capacity=10, remaining=10)
+        self.slot3 = VisitSlot.objects.create(attraction=self.attraction, date=today + timezone.timedelta(days=7), capacity=10, remaining=10)
+
+        self.draw = TicketDraw.objects.create(
+            name='Weekly Event Draw',
+            slug='weekly-event-draw',
+            draw_date=timezone.now() + timezone.timedelta(days=10),
+            attraction_type='weekly_event'
+        )
+        self.draw_slot = TicketDrawVisitSlot.objects.create(
+            ticket_draw=self.draw,
+            date=today + timezone.timedelta(days=8),
+            capacity=10,
+            remaining=10
+        )
+
+    def login(self):
+        self.client.login(username='typeuser', password='testpass')
+
+    def test_remaining_allowance_ignores_cancelled_regular(self):
+        """Remaining allowance counts only active regular bookings for the year."""
+        Booking.objects.create(attraction=self.attraction, slot=self.slot1, full_name='User', email='u@example.com', user=self.user)
+        Booking.objects.create(attraction=self.attraction, slot=self.slot2, full_name='User2', email='u2@example.com', user=self.user, cancelled=True)
+        Booking.objects.create(attraction=self.attraction, slot=self.slot3, full_name='User3', email='u3@example.com', user=self.user)
+
+        self.login()
+        resp = self.client.get(reverse('booking_history'))
+        self.assertEqual(resp.context['remaining_allowance'], 1)
+
+    def test_booking_history_shows_draw_and_attraction_types(self):
+        """Booking history should include both attraction and draw entries with type badges."""
+        Booking.objects.create(attraction=self.attraction, slot=self.slot1, full_name='User', email='u@example.com', user=self.user)
+        TicketDrawBooking.objects.create(
+            ticket_draw=self.draw,
+            slot=self.draw_slot,
+            full_name='User',
+            email='u@example.com',
+            user=self.user,
+            num_tickets=1,
+            agreed_terms=True
+        )
+
+        self.login()
+        resp = self.client.get(reverse('booking_history'))
+        self.assertContains(resp, 'bh-badge--attraction')
+        self.assertContains(resp, 'bh-badge--draw')
+        self.assertContains(resp, 'Type Museum')
+        self.assertContains(resp, 'Weekly Event Draw')
