@@ -19,6 +19,8 @@ urlpatterns = [
     path("logout/", views.logout_view, name="logout"),
 
     # User pages
+    path("login/", auth_views.LoginView.as_view(template_name="fergusonbequest/login.html", authentication_form=EmailAuthenticationForm,),name="login",),
+    path("logout/", views.logout_view, name="logout"),    
     path("dashboard/", views.dashboard_view, name="dashboard"),
     path("dashboard/<int:year>/<int:month>/", views.dashboard_view, name="dashboard"),
     path("how-to-book/", views.terms, name="how_to_book"),
