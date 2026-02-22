@@ -70,6 +70,7 @@
             <th>Booking date</th>
             <th>Return Date</th>
             <th>Venue Name</th>
+            <th>Type</th>
             <th>Collection Location</th>
             <th>Number of Tickets</th>
             <th>Ticket Number</th>
@@ -81,7 +82,20 @@
             <tr>
               <td>{{ b.slot.date|date:"d/m/Y" }}</td>
               <td>{{ b.created_at|date:"d/m/Y" }}</td>
-              <td class="bh-venue">{{ b.attraction.name }}</td>
+              <td class="bh-venue">
+                {% if b.booking_type == 'attraction' %}
+                  {{ b.attraction.name }}
+                {% else %}
+                  {{ b.ticket_draw.name }}
+                {% endif %}
+              </td>
+              <td>
+                {% if b.booking_type == 'attraction' %}
+                  <span class="bh-badge bh-badge--attraction">Attraction</span>
+                {% else %}
+                  <span class="bh-badge bh-badge--draw">Draw</span>
+                {% endif %}
+              </td>
               <td>{{ b.email|default:"E-ticket" }}</td>
               <td>{{ b.num_tickets }}</td>
               <td class="bh-ticket">{{ b.ticket_code|default:b.id }}</td>
@@ -99,7 +113,7 @@
               </td>
             </tr>
           {% empty %}
-            <tr><td colspan="6" class="bh-empty">No future bookings.</td></tr>
+            <tr><td colspan="7" class="bh-empty">No future bookings.</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -120,6 +134,7 @@
             <th>Booking date</th>
             <th>Return Date</th>
             <th>Venue Name</th>
+            <th>Type</th>
             <th>Collection Location</th>
             <th>Number of Tickets</th>
             <th>Ticket Number</th>
@@ -131,7 +146,20 @@
             <tr>
               <td>{{ b.slot.date|date:"d/m/Y" }}</td>
               <td>{{ b.created_at|date:"d/m/Y" }}</td>
-              <td class="bh-venue">{{ b.attraction.name }}</td>
+              <td class="bh-venue">
+                {% if b.booking_type == 'attraction' %}
+                  {{ b.attraction.name }}
+                {% else %}
+                  {{ b.ticket_draw.name }}
+                {% endif %}
+              </td>
+              <td>
+                {% if b.booking_type == 'attraction' %}
+                  <span class="bh-badge bh-badge--attraction">Attraction</span>
+                {% else %}
+                  <span class="bh-badge bh-badge--draw">Draw</span>
+                {% endif %}
+              </td>
               <td>{{ b.email|default:"E-ticket" }}</td>
               <td>{{ b.num_tickets }}</td>
               <td class="bh-ticket">{{ b.ticket_code|default:b.id }}</td>
@@ -144,7 +172,7 @@
               </td>
             </tr>
           {% empty %}
-            <tr><td colspan="6" class="bh-empty">No past bookings.</td></tr>
+            <tr><td colspan="7" class="bh-empty">No past bookings.</td></tr>
           {% endfor %}
         </tbody>
       </table>

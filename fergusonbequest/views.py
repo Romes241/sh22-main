@@ -6,7 +6,7 @@ from django import forms
 from .models import Attraction, VisitSlot, Booking, Profile, TicketDraw, TicketDrawBooking, TicketDrawVisitSlot
 from .forms import BookingForm, AttractionCreateForm, TicketDrawCreateForm
 from django.utils import timezone
-import datetime, random
+import datetime
 from django.db import transaction, IntegrityError
 from django.db.models import Q, F, Sum, Count
 from django.db.models.functions import Coalesce, Least
@@ -14,6 +14,7 @@ from django.utils.dateparse import parse_date
 from django.contrib.admin.views.decorators import staff_member_required
 from operator import itemgetter
 import csv
+import calendar
 
 from django.db import transaction
 from django.urls import reverse
@@ -795,111 +796,22 @@ def ticket_draw_detail(request, slug):
 
 @login_required
 def cancel_ticket_draw_entry(request, pk):
-        booking = get_object_or_404(
-            TicketDrawBooking,
-            pk=pk,
-            user=request.user
-        )
-
-        if request.method == "POST":
-            with transaction.atomic():
-                if not booking.cancelled:
-
-                    # Mark as cancelled
-                    booking.cancelled = True
-                    booking.save(update_fields=["cancelled"])
-
-                    # Restore slot capacity
-                    slot = booking.slot
-                    slot.remaining = F("remaining") + booking.num_tickets
-                    slot.save(update_fields=["remaining"])
-
-                    # If this booking was the winner → pick a new one
-                    draw = booking.ticket_draw
-                    if getattr(draw, "winner_booking_id", None) == booking.id:
-                        assign_next_winner(draw)
-
-                    messages.success(
-                        request,
-                        f"Entry for {draw.name} cancelled."
-                    )
-                else:
-                    messages.info(
-                        request,
-                        "This entry was already cancelled."
-                    )
-
-        return redirect("waiting_list")
-
-
-def assign_next_winner(draw):
-    """
-    If current winner entry is cancelled/missing then pick a new winner from active entries.
-    If no active entries then clear winner.
-    """
-    if draw.winner_booking and not draw.winner_booking.cancelled:
-        return  # winner still valid
-
-    entries = list(
-        TicketDrawBooking.objects.filter(ticket_draw=draw, cancelled=False)
-        .select_related("user")
-    )
-
-    if not entries:
-        draw.winner_booking = None
-        draw.winner_selected_at = None
-    else:
-        draw.winner_booking = random.choice(entries)
-        draw.winner_selected_at = timezone.now()
-
-    draw.save(update_fields=["winner_booking", "winner_selected_at"])
-
-@login_required
-@require_POST
-def accept_draw_win(request, pk):
-    """
-    Winner confirms they want the tickets.
-    Sets 'is_accepted' to True on the TicketDrawBooking model.
-    """
+    """Allows a user to cancel their own ticket draw entry and restores slot capacity."""
+    # Ensure the user owns this booking before allowing cancellation
     booking = get_object_or_404(TicketDrawBooking, pk=pk, user=request.user)
-    draw = booking.ticket_draw
 
-    # Verify the user is the currently selected winner
-    if draw.winner_booking == booking:
-        booking.is_accepted = True
-        booking.save(update_fields=['is_accepted'])
-        messages.success(request, f"You have officially accepted your tickets for {draw.name}!")
-    else:
-        messages.error(request, "You are not the current winner of this draw.")
-
-    return redirect('waiting_list')
-
-
-@login_required
-@require_POST
-def decline_draw_win(request, pk):
-    """
-    Winner declines the tickets.
-    Cancels their booking and automatically triggers a re-draw for the next person.
-    """
-    booking = get_object_or_404(TicketDrawBooking, pk=pk, user=request.user)
-    draw = booking.ticket_draw
-
-    if draw.winner_booking == booking:
+    if request.method == 'POST':
         with transaction.atomic():
-            # Cancel the current winner's entry
-            booking.cancelled = True
-            booking.save(update_fields=['cancelled'])
-            # Clear the winner field so assign_next_winner picks someone new
-            draw.winner_booking = None
-            draw.save(update_fields=['winner_booking'])
-            # Trigger your existing fallback logic to pick the next winner
-            assign_next_winner(draw)
-        messages.info(request, "You have declined the tickets. A new winner has been selected.")
-    else:
-        messages.error(request, "Invalid request.")
-    return redirect('waiting_list')
+            if not booking.cancelled:
+                booking.cancelled = True
+                booking.save()
+                # Add tickets back to the TicketDrawVisitSlot
+                slot = booking.slot
+                slot.remaining = F('remaining') + booking.num_tickets
+                slot.save()
+            messages.success(request, f"Entry for {booking.ticket_draw.name} cancelled.")
 
+    return redirect('waiting_list')
 def logout_view(request):
     """Log the user out and redirect to home.
     """
@@ -1314,105 +1226,6 @@ def waiting_list(request):
         "ticket_draws": ticket_draws,
     })
 
-
-@staff_member_required
-def management_view(request):
-    tab = request.GET.get("tab", "draws")
-    q = (request.GET.get("q") or "").strip()
-
-    sort_draws = request.GET.get("sort_draws", "close_date_desc")
-    sort_attractions = request.GET.get("sort_attractions", "date_desc")
-
-    draws_qs = TicketDraw.objects.all()
-    attractions_qs = Attraction.objects.all()
-
-    if q:
-        draws_qs = draws_qs.filter(name__icontains=q)
-        attractions_qs = attractions_qs.filter(name__icontains=q)
-
-    #  Draw sorting
-    if sort_draws == "open_first":
-        draws_qs = draws_qs.order_by("-booking_open", "-booking_close", "name")
-    elif sort_draws == "close_date":
-        draws_qs = draws_qs.order_by("booking_close", "name")
-    elif sort_draws == "close_date_desc":
-        draws_qs = draws_qs.order_by("-booking_close", "name")
-    else:
-        draws_qs = draws_qs.order_by("name")
-
-    #  Attraction sorting (date and location)
-    if sort_attractions == "date":
-        attractions_qs = attractions_qs.order_by("booking_open", "name")
-    elif sort_attractions == "date_desc":
-        attractions_qs = attractions_qs.order_by("-booking_open", "name")
-    else:
-        attractions_qs = attractions_qs.order_by("name")
-
-    now = timezone.now()
-    for d in draws_qs:
-        d.is_open_now = d.is_open(now)
-        d.is_closed_now = not d.is_open_now
-
-    return render(request, "fergusonbequest/admin_management.html", {
-        "draws": draws_qs,
-        "attractions": attractions_qs,
-        "tab": tab,
-        "q": q,
-        "sort_draws": sort_draws,
-        "sort_attractions": sort_attractions,
-    })
-
-@staff_member_required
-@require_POST
-def run_draw(request, draw_id):
-    draw = get_object_or_404(TicketDraw, pk=draw_id)
-
-    # only run if closed
-    now = timezone.now()
-    if draw.is_open(now):
-        messages.error(request, "This draw is still open. You can only run it after it closes.")
-        return redirect(f"{reverse('management')}?tab=draws")
-
-    # Only allow when closed (now actually enforced)
-    entries = list(
-        TicketDrawBooking.objects.filter(ticket_draw=draw, cancelled=False)
-        .select_related("user")
-    )
-
-    if not entries:
-        draw.winner_booking = None
-        draw.winner_selected_at = None
-        draw.save(update_fields=["winner_booking", "winner_selected_at"])
-        messages.error(request, "No active entries for this draw.")
-        return redirect(f"{reverse('management')}?tab=draws")
-
-    draw.winner_booking = random.choice(entries)
-    draw.winner_selected_at = timezone.now()
-    draw.save(update_fields=["winner_booking", "winner_selected_at"])
-
-    winner_name = draw.winner_booking.full_name or (
-        draw.winner_booking.user.get_username() if draw.winner_booking.user else "Winner"
-    )
-    messages.success(request, f"Winner selected: {winner_name}")
-    return redirect(f"{reverse('management')}?tab=draws")
-
-@staff_member_required
-@require_POST
-def mng_delete_draw(request, draw_id):
-    draw = get_object_or_404(TicketDraw, pk=draw_id)
-    draw.delete()
-    messages.success(request, "Draw deleted.")
-    return redirect("/admin-dashboard/management/?tab=draws")
-
-
-@staff_member_required
-@require_POST
-def mng_delete_attraction(request, attraction_id):
-    attraction = get_object_or_404(Attraction, pk=attraction_id)
-    attraction.delete()
-    messages.success(request, "Attraction deleted.")
-    return redirect("/admin-dashboard/management/?tab=attractions")
-
 @staff_member_required
 def create_attraction(request):
     """
@@ -1497,3 +1310,4 @@ def edit_ticket_draw(request, pk):
         'title': 'Edit Ticket Draw',
         'ticket_draw': ticket_draw
     })
+

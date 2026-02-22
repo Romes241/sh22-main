@@ -1,0 +1,161 @@
+:root {
+    --calendar-day-bg: #8f96e65a;
+    --calendar-day-today-bg: #8f96e6;
+}
+
+.calendar-header{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.day-of-week-header {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    background: var(--calendar-day-bg);
+    border-radius: var(--radius);
+    padding: 5px 10px;
+    margin-bottom: 12px;
+    font-weight: 600;
+    font-size: 20px;
+    color: var(--text);
+    text-align: center;
+}
+
+.cal { 
+    width: 100%; 
+    border-collapse: collapse; 
+    table-layout: fixed;
+}
+
+.cal td { 
+    border: 1px solid #ddd; 
+    vertical-align: top; 
+    padding: 8px; 
+    height: 120px; 
+}
+
+
+.muted { 
+    background: #fafafa; 
+    color: #999; 
+}
+
+.today { 
+    outline: 1px solid #333; 
+
+}
+
+.daynum { 
+    width: 25px;
+    height: 25px;
+    border-radius: 999px;
+    background: var(--calendar-day-bg);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 10px;
+    color: var(--text);
+}
+
+.today .daynum { 
+    background: var(--calendar-day-today-bg);
+    color: #fff;
+}
+
+.event { 
+    padding: 2px; 
+    border: 1px solid #eee; 
+    border-radius: var(--radius); 
+    background-color: #fff;
+    display: block;
+    text-align: left;
+}
+
+
+
+.event.booking-open { 
+    border: 2px solid #22c55e;
+}
+
+.event.booking-close { 
+    border: 2px solid #ef4444;
+}  
+
+.event.ticket_draw {
+    background-color: #bed7fe;
+    color: #1e3a8a;
+}
+
+.event.attraction {
+    background-color: #deb7fe;
+    color: #6b21a8;
+}
+.event.booking-open:hover, .event.booking-close:hover {
+    filter:brightness(0.85);
+}
+
+.calendar-header .nav a {
+    text-decoration: none;
+    color: var(--text);
+    font-weight: 600;
+    margin: 0 10px;
+}
+
+.calendar-header .nav a:hover {
+    color: var(--uog-blue);
+    text-decoration: underline;
+}
+
+.calendar-legend {
+    display: flex;
+    gap: 25px;
+    margin-bottom: 15px;
+    font-size: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+    color: var(--text);
+}
+
+.legend-group {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.legend-title {
+    font-weight: 600;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.legend-box {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+/* type colours */
+.legend-box.ticket-draw {
+    background: #bed7fe;
+}
+
+.legend-box.attraction {
+    background: #deb7fe;
+}
+
+/* status borders */
+.legend-box.booking-open {
+    border: 2px solid #22c55e;
+}
+
+.legend-box.booking-close {
+    border: 2px solid #ef4444;
+}
