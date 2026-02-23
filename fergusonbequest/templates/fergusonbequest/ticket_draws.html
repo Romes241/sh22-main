@@ -14,7 +14,7 @@
         {% if user.is_staff %}
         <a href="{% url 'create_ticket_draw' %}" class="fb-btn fb-btn--primary">Create Draw</a>
         {% endif %}
-        <a class="td-waitlist-btn" href="{% url 'waiting_list' %}">
+        <a class="td-waitlist-btn" href="{% url 'draw_waiting_list' %}">
           Waitlist Status
         </a>
       </div>

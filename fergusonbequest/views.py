@@ -3,7 +3,7 @@ from django.contrib.auth import login, logout, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django import forms
-from .models import Attraction, VisitSlot, Booking, Profile, TicketDraw, TicketDrawBooking, TicketDrawVisitSlot
+from .models import Attraction, VisitSlot, Booking, Profile, TicketDraw, TicketDrawBooking, TicketDrawVisitSlot, AttractionSuggestion
 from .forms import BookingForm, AttractionCreateForm, TicketDrawCreateForm
 from django.utils import timezone
 import datetime
@@ -15,6 +15,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from operator import itemgetter
 import csv
 import calendar
+import random
 
 from django.db import transaction
 from django.urls import reverse
@@ -31,7 +32,6 @@ from openpyxl import Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.utils import get_column_letter
 
-from .models import AttractionSuggestion, Booking, TicketDrawBooking
 from .forms_suggestions import AttractionSuggestionForm
 
 
@@ -39,6 +39,40 @@ User = get_user_model()
 MAX_ATTRACTIONS_PER_YEAR = 3
 
 # Create your views here.
+
+def calculate_remaining_allowance(user, attraction_type='regular'):
+    """
+    Calculate remaining booking allowance based on attraction type.
+
+    Args:
+        user: The user to check allowance for
+        attraction_type: 'regular' or 'weekly_event'
+
+    Returns:
+        int: Number of bookings remaining for this type
+    """
+    year = timezone.now().year
+
+    if attraction_type == 'regular':
+        used = Booking.objects.filter(
+            user=user,
+            cancelled=False,
+            created_at__year=year,
+            attraction__attraction_type='regular'
+        ).count()
+        return max(0, 3 - used)
+
+    elif attraction_type == 'weekly_event':
+        used = TicketDrawBooking.objects.filter(
+            user=user,
+            cancelled=False,
+            created_at__year=year,
+            ticket_draw__attraction_type='weekly_event'
+        ).count()
+        return max(0, 3 - used)
+
+    return 0
+
 
 @staff_member_required
 def admin_dashboard(request):
@@ -679,6 +713,7 @@ def dashboard_view(request):
 
     return render(request, "fergusonbequest/dashboard.html", {"featured_attractions": featured_attractions})
 
+ # Ticket draw section
 @login_required
 def ticket_draws_view(request):
     draws = TicketDraw.objects.all().order_by("name")
@@ -745,7 +780,7 @@ def ticket_draw_detail(request, slug):
         # Check if user already has any active booking for this draw
         if existing_entries > 0:
             messages.error(request, f"You already have an active entry for {draw.name}. You must cancel your existing entry before booking a different date or adding tickets.")
-            return redirect('waiting_list')
+            return redirect('draw_waiting_list')
         num_tickets = int(request.POST.get('num_tickets', 1))
 
         # Error if they exceed their draw limit
@@ -777,7 +812,7 @@ def ticket_draw_detail(request, slug):
                 slot.remaining = F('remaining') - num_tickets
                 slot.save()
             messages.success(request, "Successfully entered draw!")
-            return redirect('waiting_list')
+            return redirect('draw_waiting_list')
         elif not draw.is_open():
             messages.error(request, "This draw is currently closed.")
         else:
@@ -797,10 +832,92 @@ def ticket_draw_detail(request, slug):
 @login_required
 def cancel_ticket_draw_entry(request, pk):
     """Allows a user to cancel their own ticket draw entry and restores slot capacity."""
-    # Ensure the user owns this booking before allowing cancellation
     booking = get_object_or_404(TicketDrawBooking, pk=pk, user=request.user)
 
-    if request.method == 'POST':
+    if booking.is_accepted:
+        messages.error(request, "You can't cancel an accepted draw win. Please contact support.")
+        return redirect("draw_waiting_list")
+
+    if request.method != "POST":
+        return redirect("draw_waiting_list")
+
+    with transaction.atomic():
+        if not booking.cancelled:
+            booking.cancelled = True
+            booking.save(update_fields=["cancelled"])
+
+            # Restore slot capacity
+            slot = booking.slot
+            TicketDrawVisitSlot.objects.filter(pk=slot.pk).update(
+                remaining=F("remaining") + booking.num_tickets
+            )
+
+            draw = booking.ticket_draw
+            if getattr(draw, "winner_booking_id", None) == booking.id:
+                draw.winner_booking = None
+                draw.winner_selected_at = None
+                draw.save(update_fields=["winner_booking", "winner_selected_at"])
+                assign_next_winner(draw)
+
+            messages.success(request, f"Entry for {draw.name} cancelled.")
+        else:
+            messages.info(request, "This entry was already cancelled.")
+
+    return redirect("draw_waiting_list")
+
+def assign_next_winner(draw):
+    """
+    If current winner entry is cancelled/missing then pick a new winner from active entries.
+    If no active entries then clear winner.
+    """
+    if draw.winner_booking and not draw.winner_booking.cancelled:
+        return  # winner still valid
+
+    entries = list(
+        TicketDrawBooking.objects.filter(ticket_draw=draw, cancelled=False)
+        .select_related("user")
+    )
+
+    if not entries:
+        draw.winner_booking = None
+        draw.winner_selected_at = None
+    else:
+        draw.winner_booking = random.choice(entries)
+        draw.winner_selected_at = timezone.now()
+
+    draw.save(update_fields=["winner_booking", "winner_selected_at"])
+
+@login_required
+@require_POST
+def accept_draw_win(request, pk):
+    """
+    Winner confirms they want the tickets.
+    Sets 'is_accepted' to True on the TicketDrawBooking model.
+    """
+    booking = get_object_or_404(TicketDrawBooking, pk=pk, user=request.user)
+    draw = booking.ticket_draw  # define draw
+
+    # Verify the user is the currently selected winner
+    if draw.winner_booking_id == booking.id:
+        booking.is_accepted = True
+        booking.save(update_fields=["is_accepted"])
+        messages.success(request, f"You have officially accepted your tickets for {draw.name}!")
+    else:
+        messages.error(request, "You are not the current winner of this draw.")
+
+    return redirect("booking_history")
+
+@login_required
+@require_POST
+def decline_draw_win(request, pk):
+    """
+    Winner declines the tickets.
+    Cancels their booking and automatically triggers a re-draw for the next person.
+    """
+    booking = get_object_or_404(TicketDrawBooking, pk=pk, user=request.user)
+    draw = booking.ticket_draw
+
+    if draw.winner_booking == booking:
         with transaction.atomic():
             if not booking.cancelled:
                 booking.cancelled = True
@@ -808,10 +925,13 @@ def cancel_ticket_draw_entry(request, pk):
                 # Add tickets back to the TicketDrawVisitSlot
                 slot = booking.slot
                 slot.remaining = F('remaining') + booking.num_tickets
-                slot.save()
+                TicketDrawVisitSlot.objects.filter(pk=slot.pk).update(
+                    remaining=F("remaining") + booking.num_tickets
+                )
             messages.success(request, f"Entry for {booking.ticket_draw.name} cancelled.")
 
-    return redirect('waiting_list')
+    return redirect('draw_waiting_list')
+
 def logout_view(request):
     """Log the user out and redirect to home.
     """
@@ -912,6 +1032,7 @@ def attractions_view(request):
 @login_required
 def booking_view(request, attraction_pk):
     attraction = get_object_or_404(Attraction, pk=attraction_pk)
+    user = request.user
 
     # Only future slots should be selectable
     available_slots = VisitSlot.objects.filter(
@@ -931,9 +1052,8 @@ def booking_view(request, attraction_pk):
         created_at__year=current_year
     ).count()
 
-    remaining_allowance = max(0, MAX_ATTRACTIONS_PER_YEAR - active_yearly_count)
-
-    # Helper: redirect with consistent message
+    remaining_allowance = calculate_remaining_allowance(user, 'regular')
+    
     def redirect_to_history_with(msg):
         messages.error(request, msg)
         return redirect("booking_history")
@@ -950,7 +1070,7 @@ def booking_view(request, attraction_pk):
         # Duplicate booking check (specific slot)
         slot_id = request.GET.get("slot")
 
-        # ADDED: validate slot belongs to this attraction
+        # validate slot belongs to this attraction
         if slot_id and not available_slots.filter(pk=slot_id).exists():
             return redirect_to_history_with(
                 "Invalid slot selected for this attraction."
@@ -1011,7 +1131,7 @@ def booking_view(request, attraction_pk):
         booking.full_name = f"{request.user.first_name} {request.user.last_name}".strip()
         booking.email = request.user.email
 
-        # ADDED: validate slot belongs to this attraction
+        # validate slot belongs to this attraction
         if booking.slot.attraction_id != attraction.id:
             return redirect_to_history_with(
                 "Invalid slot selected for this attraction."
@@ -1079,76 +1199,116 @@ def booking_view(request, attraction_pk):
 
 @login_required
 def booking_history(request):
-    """Show list of bookings for the logged in user."""
+    """Show list of bookings for the logged in user, including both attractions and ticket draws."""
     user = request.user
 
-    current_year = timezone.now().year
+    remaining_allowance = calculate_remaining_allowance(user, 'regular')
 
-    active_yearly_count = Booking.objects.filter(
-        user=request.user,
-        cancelled=False,
-        created_at__year=current_year
-    ).count()
-
-    remaining_allowance = max(0, MAX_ATTRACTIONS_PER_YEAR - active_yearly_count)
-
-    # Base queryset
+    # Base querysets for both types
     bookings = Booking.objects.filter(user=user).select_related('slot', 'attraction')
+    draw_bookings = TicketDrawBooking.objects.filter(user=user).select_related('slot', 'ticket_draw')
 
     # Parse GET params for filters
-    when = request.GET.get('when')  # all|future|past
+    when = request.GET.get('when')  # all|future|past|cancelled
     status = request.GET.get('status')  # all|active|cancelled
     venue = request.GET.get('venue')
     q = request.GET.get('q')
     start = request.GET.get('start')
     end = request.GET.get('end')
-    sort = request.GET.get('sort')
+    sort = request.GET.get('sort', 'created_at')
 
     today = timezone.now().date()
 
+    # Apply status filters
     if status == 'cancelled':
         bookings = bookings.filter(cancelled=True)
+        draw_bookings = draw_bookings.filter(cancelled=True)
     elif status == 'active':
         bookings = bookings.filter(cancelled=False)
+        draw_bookings = draw_bookings.filter(cancelled=False)
 
+    # Apply when filters
+    if when == 'future':
+        bookings = bookings.filter(slot__date__gte=today)
+        draw_bookings = draw_bookings.filter(slot__date__gte=today)
+    elif when == 'past':
+        bookings = bookings.filter(slot__date__lt=today)
+        draw_bookings = draw_bookings.filter(slot__date__lt=today)
+    elif when == 'cancelled':
+        bookings = bookings.filter(cancelled=True)
+        draw_bookings = draw_bookings.filter(cancelled=True)
+
+    # Venue filter
     if venue:
         if venue.isdigit():
-            bookings = bookings.filter(attraction__pk=int(venue))
+            bookings = bookings.filter(attraction__id=venue)
+            draw_bookings = draw_bookings.filter(ticket_draw__id=venue)
         else:
             bookings = bookings.filter(attraction__slug__icontains=venue)
+            draw_bookings = draw_bookings.filter(ticket_draw__slug__icontains=venue)
 
     if q:
         bookings = bookings.filter(
-            Q(attraction__name__icontains=q) | Q(id__icontains=q) | Q(email__icontains=q)
+            Q(attraction__name__icontains=q) |
+            Q(id__icontains=q) |
+            Q(email__icontains=q) |
+            Q(ticket_code__icontains=q)
+        )
+        draw_bookings = draw_bookings.filter(
+            Q(ticket_draw__name__icontains=q) |
+            Q(id__icontains=q) |
+            Q(email__icontains=q) |
+            Q(ticket_code__icontains=q)
         )
 
-    try:
-        if start:
-            sd = datetime.date.fromisoformat(start)
-            bookings = bookings.filter(slot__date__gte=sd)
-        if end:
-            ed = datetime.date.fromisoformat(end)
-            bookings = bookings.filter(slot__date__lte=ed)
-    except ValueError:
-        # ignore invalid dates
-        pass
+    sd = parse_date(start) if start else None
+    ed = parse_date(end) if end else None
+    if sd:
+        bookings = bookings.filter(slot__date__gte=sd)
+        draw_bookings = draw_bookings.filter(slot__date__gte=sd)
+    if ed:
+        bookings = bookings.filter(slot__date__lte=ed)
+        draw_bookings = draw_bookings.filter(slot__date__lte=ed)
 
-    # sorting is applied before splitting into past/future
+    # Split into past/future and combine
+    future_bookings = list(bookings.filter(slot__date__gte=today))
+    future_draws = list(draw_bookings.filter(slot__date__gte=today))
+
+    past_bookings = list(bookings.filter(slot__date__lt=today))
+    past_draws = list(draw_bookings.filter(slot__date__lt=today))
+
+    #  flags
+    for b in future_bookings + past_bookings:
+        b.booking_type = 'attraction'
+        b.is_draw = False
+
+    for d in future_draws + past_draws:
+        d.booking_type = 'draw'
+        d.is_draw = True
+
+    # Combine and sort
     if sort == 'slot_date':
-        bookings = bookings.order_by('slot__date', '-created_at')
-    elif sort == 'created_at':
-        bookings = bookings.order_by('-created_at')
+        def sort_key(item):
+            return (item.slot.date, item.created_at)
+        reverse = False
     else:
-        bookings = bookings.order_by('-created_at')
+        def sort_key(item):
+            return item.created_at
+        reverse = True
 
-    # split into two querysets for template rendering
-    future_bookings = bookings.filter(slot__date__gte=today)
-    past_bookings = bookings.filter(slot__date__lt=today)
+    future_all = sorted(future_bookings + future_draws, key=sort_key, reverse=reverse)
+    past_all = sorted(past_bookings + past_draws, key=sort_key, reverse=reverse)
 
     return render(request, 'fergusonbequest/booking_history.html', {
-        'future_bookings': future_bookings,
-        'past_bookings': past_bookings,
+        'future_bookings': future_all,
+        'past_bookings': past_all,
         'when': when,
+        'status': status,
+        'venue': venue,
+        'q': q,
+        'start': start,
+        'end': end,
+        'sort': sort,
         'now': timezone.now(),
         "remaining_allowance": remaining_allowance,
         "max_allowance": MAX_ATTRACTIONS_PER_YEAR,
@@ -1199,31 +1359,41 @@ def cancel_booking(request, pk):
 
 
 @login_required
-def waiting_list(request):
+def draw_waiting_list(request):
+    """
+    Waiting List meaning pending in the sense of 'entered'
+    Before accepting or decling
+    """
     user = request.user
-    # Get all draws
-    ticket_draws = TicketDraw.objects.all().order_by("name")
+    now = timezone.now()
 
-    # Get user's active bookings
-    user_bookings = TicketDrawBooking.objects.filter(
-        user=user,
-        cancelled=False
-    ).select_related('slot', 'ticket_draw')
+    entries = (
+        TicketDrawBooking.objects
+        .filter(user=user, cancelled=False, is_accepted=False)
+        .select_related("ticket_draw", "slot")
+        .order_by("-created_at")
+    )
 
-    # Create a map: Draw ID -> Booking Object
-    bookings_map = {b.ticket_draw_id: b for b in user_bookings}
-
-    for d in ticket_draws:
-        # Check if this draw exists in the user's bookings
-        if d.id in bookings_map:
-            d.user_booking = bookings_map[d.id]  # Attach the booking object
-            d.joined = True
+    # Add a computed status for display
+    for e in entries:
+        is_winner = getattr(e.ticket_draw, "winner_booking_id", None) == e.id
+        if is_winner and e.is_accepted:
+            e.ui_status = "Accepted"
+        elif is_winner and not e.is_accepted:
+            e.ui_status = "Winner (Action required)"
         else:
-            d.user_booking = None
-            d.joined = False
+            e.ui_status = "Waiting for draw"
 
-    return render(request, "fergusonbequest/waiting_list.html", {
-        "ticket_draws": ticket_draws,
+        # Allow cancel until booking_close (if exists)
+        close = getattr(e.ticket_draw, "booking_close", None)
+        is_winner = getattr(e.ticket_draw, "winner_booking_id", None) == e.id
+
+        close = getattr(e.ticket_draw, "booking_close", None)
+        e.can_cancel = (not e.is_accepted) and (not is_winner) and bool(close and now <= close)
+
+    return render(request, "fergusonbequest/draw_waiting_list.html", {
+        "entries": entries,
+        "now": now,
     })
 
 @staff_member_required
@@ -1245,6 +1415,104 @@ def create_attraction(request):
         'title': 'Create New Attraction'
     })
 
+
+@staff_member_required
+def admin_management(request):
+    tab = request.GET.get("tab", "draws")
+    q = (request.GET.get("q") or "").strip()
+
+    sort_draws = request.GET.get("sort_draws", "close_date_desc")
+    sort_attractions = request.GET.get("sort_attractions", "date_desc")
+
+    draws_qs = TicketDraw.objects.all()
+    attractions_qs = Attraction.objects.all()
+
+    if q:
+        draws_qs = draws_qs.filter(name__icontains=q)
+        attractions_qs = attractions_qs.filter(name__icontains=q)
+
+    #  Draw sorting
+    if sort_draws == "open_first":
+        draws_qs = draws_qs.order_by("-booking_open", "-booking_close", "name")
+    elif sort_draws == "close_date":
+        draws_qs = draws_qs.order_by("booking_close", "name")
+    elif sort_draws == "close_date_desc":
+        draws_qs = draws_qs.order_by("-booking_close", "name")
+    else:
+        draws_qs = draws_qs.order_by("name")
+
+    #  Attraction sorting (date and location)
+    if sort_attractions == "date":
+        attractions_qs = attractions_qs.order_by("booking_open", "name")
+    elif sort_attractions == "date_desc":
+        attractions_qs = attractions_qs.order_by("-booking_open", "name")
+    else:
+        attractions_qs = attractions_qs.order_by("name")
+
+    now = timezone.now()
+    for d in draws_qs:
+        d.is_open_now = d.is_open(now)
+        d.is_closed_now = not d.is_open_now
+
+    return render(request, "fergusonbequest/admin_management.html", {
+        "draws": draws_qs,
+        "attractions": attractions_qs,
+        "tab": tab,
+        "q": q,
+        "sort_draws": sort_draws,
+        "sort_attractions": sort_attractions,
+    })
+
+@staff_member_required
+@require_POST
+def run_draw(request, draw_id):
+    draw = get_object_or_404(TicketDraw, pk=draw_id)
+
+    # only run if closed
+    now = timezone.now()
+    if draw.is_open(now):
+        messages.error(request, "This draw is still open. You can only run it after it closes.")
+        return redirect(f"{reverse('management')}?tab=draws")
+
+    # Only allow when closed (now actually enforced)
+    entries = list(
+        TicketDrawBooking.objects.filter(ticket_draw=draw, cancelled=False)
+        .select_related("user")
+    )
+
+    if not entries:
+        draw.winner_booking = None
+        draw.winner_selected_at = None
+        draw.save(update_fields=["winner_booking", "winner_selected_at"])
+        messages.error(request, "No active entries for this draw.")
+        return redirect(f"{reverse('management')}?tab=draws")
+
+    draw.winner_booking = random.choice(entries)
+    draw.winner_selected_at = timezone.now()
+    draw.save(update_fields=["winner_booking", "winner_selected_at"])
+
+    winner_name = draw.winner_booking.full_name or (
+        draw.winner_booking.user.get_username() if draw.winner_booking.user else "Winner"
+    )
+    messages.success(request, f"Winner selected: {winner_name}")
+    return redirect(f"{reverse('management')}?tab=draws")
+
+@staff_member_required
+@require_POST
+def mng_delete_ticket_draw(request, draw_id):
+    draw = get_object_or_404(TicketDraw, pk=draw_id)
+    draw.delete()
+    messages.success(request, "Draw deleted.")
+    return redirect("/admin-dashboard/management/?tab=draws")
+
+
+@staff_member_required
+@require_POST
+def mng_delete_attraction(request, attraction_id):
+    attraction = get_object_or_404(Attraction, pk=attraction_id)
+    attraction.delete()
+    messages.success(request, "Attraction deleted.")
+    return redirect("/admin-dashboard/management/?tab=attractions")
 
 @staff_member_required
 def create_ticket_draw(request):
@@ -1311,3 +1579,65 @@ def edit_ticket_draw(request, pk):
         'ticket_draw': ticket_draw
     })
 
+
+def add_events(objects, events_by_day, start, end, event_type):
+    for obj in objects:
+        for field, class_name in [('booking_open', 'booking-open'), ('booking_close', 'booking-close')]:
+            date_value = getattr(obj, field, None)
+            if date_value:
+                event_date = date_value.date()
+                if start <= event_date <= end:
+                    day = event_date.day
+                    events_by_day.setdefault(day, []).append({
+                        'class_name': class_name,
+                        'object': obj,
+                        'event_type': event_type,
+                    })
+
+
+def calendar_view(request, year=None, month=None):
+    today = timezone.localdate()
+    year = int(year or today.year)
+    month = int(month or today.month)
+
+    # previous month/year
+    if month == 1:
+        prev_month, prev_year = 12, year - 1
+    else:
+        prev_month, prev_year = month - 1, year
+
+    # next month/year
+    if month == 12:
+        next_month, next_year = 1, year + 1
+    else:
+        next_month, next_year = month + 1, year
+
+    cal = calendar.Calendar(firstweekday=0)
+    month_days = list(cal.itermonthdates(year, month))
+    start, end = month_days[0], month_days[-1]
+
+    events_by_day = {}
+    add_events(Attraction.objects.all(), events_by_day, start, end, 'attraction')
+    add_events(TicketDraw.objects.all(), events_by_day, start, end, 'ticket_draw')
+
+    weeks = []
+    for i in range(0, len(month_days), 7):
+        week = month_days[i:i+7]
+        week_info = []
+        for day in week:
+            day_events = events_by_day.get(day.day, []) if day.month == month else []
+            week_info.append({'date': day, 'events': day_events})
+        weeks.append(week_info)
+
+    context = {
+        'year': year,
+        'month': month,
+        'month_name': calendar.month_name[month],
+        'weeks': weeks,
+        'today': today,
+        'prev_year': prev_year,
+        'prev_month': prev_month,
+        'next_year': next_year,
+        'next_month': next_month,
+    }
+    return render(request, 'fergusonbequest/calendar.html', context)
