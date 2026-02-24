@@ -35,8 +35,7 @@ urlpatterns = [
     path("admin-dashboard/management/run-draw/<int:draw_id>/", views.run_draw, name="run_draw"),
     path("admin-dashboard/management/draws/<int:draw_id>/delete/", views.mng_delete_ticket_draw, name="mng_delete_draw"),
     path("admin-dashboard/management/attractions/<int:attraction_id>/delete/", views.mng_delete_attraction, name="mng_delete_attraction"),
-    path("calendar/", views.calendar_view, name="calendar"),
-    path("calendar/<int:year>/<int:month>/", views.calendar_view, name="calendar"),
+    path('dashboard/<int:year>/<int:month>/', views.dashboard_view, name='dashboard'),
 ]
 
 

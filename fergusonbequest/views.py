@@ -677,7 +677,7 @@ def register_view(request):
     return render(request, "fergusonbequest/register.html", {"form": form})
 
 @login_required
-def dashboard_view(request):
+def dashboard_view(request, year=None, month=None):
     attractions_qs = Attraction.objects.all().order_by('name')[:4]
     
     featured_attractions = []
@@ -722,7 +722,9 @@ def dashboard_view(request):
             },
         ]
 
-    return render(request, "fergusonbequest/dashboard.html", {"featured_attractions": featured_attractions})
+    calendar_data = get_calendar(year, month)
+
+    return render(request, "fergusonbequest/dashboard.html", {"featured_attractions": featured_attractions, **calendar_data})
 
  # Ticket draw section
 @login_required
@@ -1606,7 +1608,7 @@ def add_events(objects, events_by_day, start, end, event_type):
                     })
 
 
-def calendar_view(request, year=None, month=None):
+def get_calendar(year=None, month=None):
     today = timezone.localdate()
     year = int(year or today.year)
     month = int(month or today.month)
@@ -1651,4 +1653,4 @@ def calendar_view(request, year=None, month=None):
         'next_year': next_year,
         'next_month': next_month,
     }
-    return render(request, 'fergusonbequest/calendar.html', context)
+    return context

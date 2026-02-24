@@ -5,20 +5,21 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'fergusonbequest/css/dashboard.css' %}?v=3">
+<link rel="stylesheet" href="{% static 'fergusonbequest/css/calendar.css' %}?v=3">
 {% endblock %}
 
 {% block content %}
 
-<section class="ud-wrap">
+<div class="fb-container">
+  
 
-  <h1 class="ud-title">Dashboard</h1>
+  <h1 class="fb-h1">Dashboard</h1>
 
   <div class="ud-grid">
 
-    <!-- left: placeholder for Calendar -->
     <div class="ud-main">
       <div class="ud-placeholder">
-        <div class="ud-placeholder__title">Calendar (coming soon)</div>
+        {% include 'fergusonbequest/calendar.html' %}
       </div>
     </div>
 
@@ -37,7 +38,9 @@
       </div>
     </aside>
 
+
   </div>
-</section>
+
+</div>
 
 {% endblock %}
