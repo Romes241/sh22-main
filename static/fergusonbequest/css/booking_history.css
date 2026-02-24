@@ -293,22 +293,24 @@
 }
 
 .bh-badge {
-  display: inline-block;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
   padding: 4px 12px;
-  border-radius: 12px;
+  border-radius: 999px;
   font-size: 0.85rem;
   font-weight: 700;
-  text-align: center;
+  border: 1px solid rgba(0,0,0,0.08);
 }
 
 .bh-badge--attraction {
-  background: #e3f2fd;
-  color: #0b2f6b;
+  background-color: #deb7fe;
+  color: #6b21a8;
 }
 
 .bh-badge--draw {
-  background: #fff3e0;
-  color: #e65100;
+  background-color: #bed7fe;
+  color: #1e3a8a;
 }
 
 .bh-form-row--actions {
@@ -356,4 +358,31 @@
     flex-direction: column;
     align-items: stretch;
   }
+}
+
+.bh-cancel-link{
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  color: #b00020;
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
+.bh-cancel-link:hover{
+  opacity: 0.85;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

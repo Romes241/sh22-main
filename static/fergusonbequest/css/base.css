@@ -210,3 +210,29 @@ body{
   font-weight: 800;
 }
 .fb-fab:hover{ filter: brightness(1.05); }
+
+.fb-messages {
+  margin-bottom: 1rem;
+}
+
+.fb-message {
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.fb-message--success {
+  background: #e6f4ea;
+  color: #1e7e34;
+}
+
+.fb-message--error {
+  background: #fdecea;
+  color: #c82333;
+}
+
+.fb-message--info {
+  background: #e7f3fe;
+  color: #084298;
+}
