@@ -1247,6 +1247,51 @@ def waiting_list(request):
         "ticket_draws": ticket_draws,
     })
 
+
+@login_required
+def waiting_listattraction(request):
+    attractions = Attraction.objects.all().order_by("name")
+    joined_ids = set(request.session.get("waiting_list_attraction_ids", []))
+
+    for a in attractions:
+        a.joined = a.id in joined_ids
+
+    return render(request, "fergusonbequest/waiting_listattraction.html", {
+        "attractions": attractions,
+    })
+
+
+@require_POST
+@login_required
+def waiting_listattraction_join(request, pk):
+    attraction = get_object_or_404(Attraction, pk=pk)
+    joined_ids = set(request.session.get("waiting_list_attraction_ids", []))
+
+    if attraction.id in joined_ids:
+        messages.info(request, f"You are already on the waiting list for {attraction.name}.")
+    else:
+        joined_ids.add(attraction.id)
+        request.session["waiting_list_attraction_ids"] = list(joined_ids)
+        messages.success(request, f"You joined the waiting list for {attraction.name}.")
+
+    return redirect("waiting_listattraction")
+
+
+@require_POST
+@login_required
+def waiting_listattraction_leave(request, pk):
+    attraction = get_object_or_404(Attraction, pk=pk)
+    joined_ids = set(request.session.get("waiting_list_attraction_ids", []))
+
+    if attraction.id in joined_ids:
+        joined_ids.remove(attraction.id)
+        request.session["waiting_list_attraction_ids"] = list(joined_ids)
+        messages.success(request, f"You left the waiting list for {attraction.name}.")
+    else:
+        messages.info(request, f"You are not on the waiting list for {attraction.name}.")
+
+    return redirect("waiting_listattraction")
+
 @staff_member_required
 def create_attraction(request):
     """
