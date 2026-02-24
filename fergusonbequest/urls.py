@@ -31,6 +31,9 @@ urlpatterns = [
     path("admin-reports/", views.admin_reports, name = "admin_reports"),
     path("calendar/", views.calendar_view, name="calendar"),
     path("calendar/<int:year>/<int:month>/", views.calendar_view, name="calendar"),
+    path("waiting-list-attraction/", views.waiting_listattraction, name="waiting_listattraction"),
+    path("waiting-list-attraction/join/<int:pk>/", views.waiting_listattraction_join, name="waiting_listattraction_join"),
+    path("waiting-list-attraction/leave/<int:pk>/", views.waiting_listattraction_leave, name="waiting_listattraction_leave"),
 
 ]
 
