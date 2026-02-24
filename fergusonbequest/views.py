@@ -752,7 +752,7 @@ def dashboard_view(request, year=None, month=None):
             },
         ]
 
-    calendar_data = get_calendar()
+    calendar_data = get_calendar(year, month)
 
     return render(request, "fergusonbequest/dashboard.html", {"featured_attractions": featured_attractions, **calendar_data})
 
@@ -1767,3 +1767,4 @@ def waiting_listattraction_leave(request, pk):
 
     messages.success(request, f"You left the waiting list for {attraction.name}.")
     return redirect("waiting_listattraction")
+    return context
