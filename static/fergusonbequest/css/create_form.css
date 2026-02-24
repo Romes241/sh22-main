@@ -1,0 +1,96 @@
+.fb-create-form {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.fb-form-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.fb-form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.fb-form-group label {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--uog-blue);
+}
+
+.fb-form-group input:focus,
+.fb-form-group textarea:focus,
+.fb-form-group select:focus {
+  outline: none;
+  border-color: var(--uog-blue);
+}
+
+.fb-form-group textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.fb-form-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.fb-form-checkbox input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+}
+
+.fb-form-help {
+  font-size: 0.875rem;
+  color: #666;
+  margin-top: 0.25rem;
+}
+
+.fb-form-errors {
+  color: #d32f2f;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+.fb-form-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.fb-btn-submit {
+  padding: 0.75rem 2rem;
+}
+
+.fb-btn-cancel {
+  padding: 0.75rem 2rem;
+  background: #f5f5f5;
+  color: #333;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition: background 0.2s;
+}
+
+.fb-btn-cancel:hover {
+  background: #e0e0e0;
+}
+
+.fb-form-row-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .fb-form-row-2col {
+    grid-template-columns: 1fr;
+  }
+}

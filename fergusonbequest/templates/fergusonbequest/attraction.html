@@ -15,6 +15,10 @@
     <span class="back-text">Back to attractions</span> ←
   </a>
 
+  {% if user.is_staff %}
+    <a href="{% url 'edit_attraction' attraction.pk %}" style="margin-left: auto; margin-top: -40px;">Edit</a>
+  {% endif %}
+
   <div class="layout">
 
     <!-- LEFT PANEL -->

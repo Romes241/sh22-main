@@ -1,0 +1,80 @@
+{% extends "fergusonbequest/base.html" %}
+{% load static %}
+
+{% block title %}Draw Waiting List – Ferguson Bequest{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'fergusonbequest/css/draw_waiting_list.css' %}">
+{% endblock %}
+
+{% block content %}
+<h1 class="fb-h1">Pending Ticket Draws</h1>
+
+<div class="wl-card">
+  <div class="wl-table-wrap">
+    <table class="wl-table">
+      <thead>
+        <tr>
+          <th>Ticket Draw</th>
+          <th>Chosen Date</th>
+          <th>Number of Tickets</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for e in entries %}
+        <tr>
+          <td>{{ e.ticket_draw.name }}</td>
+          <td>{{ e.slot.date|date:"d/m/Y" }} {{ e.slot.time|time:"H:i" }}</td>
+          <td>{{ e.num_tickets }}</td>
+
+          <td>
+            {% if e.ui_status == "Winner (Action required)" %}
+              <span class="wl-status wl-status--win">Winner (Action required)</span>
+            {% elif e.ui_status == "Accepted" %}
+              <span class="wl-status wl-status--accepted">Accepted</span>
+            {% else %}
+              <span class="wl-status wl-status--waiting">Waiting for draw</span>
+            {% endif %}
+          </td>
+
+            <td class="wl-actions">
+              {% if e.ui_status == "Winner (Action required)" %}
+                <div class="wl-win-actions">
+                  <form method="POST" action="{% url 'accept_draw_win' e.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="wl-action-btn">Accept</button>
+                  </form>
+
+                  <form method="POST" action="{% url 'decline_draw_win' e.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="wl-action-btn wl-action-btn--danger">Decline</button>
+                  </form>
+                </div>
+
+              {% elif e.can_cancel %}
+                <form method="POST" action="{% url 'cancel_ticket_draw_entry' e.pk %}">
+                  {% csrf_token %}
+                  <button type="submit" class="wl-cancel-link">Cancel entry</button>
+                </form>
+
+              {% elif e.ui_status == "Accepted" %}
+                <span class="wl-muted">—</span>
+
+              {% else %}
+                <span class="wl-muted">—</span>
+              {% endif %}
+            </td>
+        </tr>
+        {% empty %}
+          <tr>
+            <td colspan="5" class="wl-empty">You have no active draw entries.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

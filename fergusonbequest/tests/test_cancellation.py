@@ -19,7 +19,7 @@ class CancelBookingTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='bob', email='bob@example.com', password='testpass')
         self.other = User.objects.create_user(username='other', email='other@example.com', password='testpass')
-        self.attraction = Attraction.objects.create(name='Gallery', slug='gallery')
+        self.attraction = Attraction.objects.create(name='Gallery', slug='gallery', attraction_type='regular')
         today = timezone.now().date()
         self.slot_future = VisitSlot.objects.create(attraction=self.attraction, date=today + timezone.timedelta(days=5), capacity=2, remaining=1)
         self.slot_past = VisitSlot.objects.create(attraction=self.attraction, date=today - timezone.timedelta(days=5), capacity=2, remaining=1)
@@ -96,7 +96,7 @@ class CancelConcurrencyTests(TransactionTestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(username='concurrent', email='concurrent@example.com', password='pw')
-        self.attraction = Attraction.objects.create(name='Concurrent Park', slug='concurrent-park')
+        self.attraction = Attraction.objects.create(name='Concurrent Park', slug='concurrent-park', attraction_type='regular')
         self.slot = VisitSlot.objects.create(attraction=self.attraction, date=timezone.now().date() + timezone.timedelta(days=5), capacity=5, remaining=0)
 
         self.bookings = []

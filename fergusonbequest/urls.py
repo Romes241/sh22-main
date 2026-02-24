@@ -25,9 +25,23 @@ urlpatterns = [
     path("ticket-upload/view-all/", views.ticket_upload_view_all, name="ticket_upload_view_all"),
     path("ticket-upload/send/", views.ticket_upload_send, name="ticket_upload_send"),
     path("ticket-upload/random/", views.ticket_upload_random, name="ticket_upload_random"),
-
-
-
+    path("create-attraction/", views.create_attraction, name="create_attraction"),
+    path("edit-attraction/<int:pk>/", views.edit_attraction, name="edit_attraction"),
+    path("create-ticket-draw/", views.create_ticket_draw, name="create_ticket_draw"),
+    path("edit-ticket-draw/<int:pk>/", views.edit_ticket_draw, name="edit_ticket_draw"),
+    path("draw/accept/<int:pk>/", views.accept_draw_win, name="accept_draw_win", ),
+    path("draw/decline/<int:pk>/", views.decline_draw_win, name="decline_draw_win", ),
+    path("suggestions/", views.create_attraction_suggestion, name="create_attraction_suggestion"),
+    path("admin-export/suggestions.xlsx", views.export_suggestions_excel, name="export_suggestions_excel"),
+    path("admin-reports/", views.admin_reports, name="admin_reports"),
+    path("admin-dashboard/management/", views.admin_management, name="admin_management"),
+    path("admin-dashboard/management/run-draw/<int:draw_id>/", views.run_draw, name="run_draw"),
+    path("admin-dashboard/management/draws/<int:draw_id>/delete/", views.mng_delete_ticket_draw,
+         name="mng_delete_draw"),
+    path("admin-dashboard/management/attractions/<int:attraction_id>/delete/", views.mng_delete_attraction,
+         name="mng_delete_attraction"),
+    path("calendar/", views.calendar_view, name="calendar"),
+    path("calendar/<int:year>/<int:month>/", views.calendar_view, name="calendar"),
 ]
 
 

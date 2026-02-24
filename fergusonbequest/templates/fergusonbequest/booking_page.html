@@ -34,6 +34,23 @@
       {% csrf_token %}
 
       {% if form %}
+        <div class="fb-form-row fb-form-row--inline">
+          <label class="fb-label">Name</label>
+          <div class="fb-field">
+            <div class="fb-readonly">
+              {{ request.user.get_full_name|default:request.user.username }}
+            </div>
+          </div>
+        </div>
+
+        <div class="fb-form-row fb-form-row--inline">
+          <label class="fb-label">Email</label>
+          <div class="fb-field">
+            <div class="fb-readonly">
+              {{ request.user.email }}
+            </div>
+          </div>
+        </div>
 
         {# Render all fields except agreed terms #}
         {% for field in form.visible_fields %}
@@ -60,54 +77,32 @@
             </div>
           {% endif %}
         {% endfor %}
-
-        <div class="fb-form-row fb-form-row--inline">
-          <label class="fb-label" for="id_num_tickets">Number of tickets <span class="fb-required">*</span></label>
-          <div class="fb-field">
-            <select id="id_num_tickets" name="num_tickets" required>
-              <option value="1" selected>1</option>
-              <option value="2">2</option>
-            </select>
-            <div class="fb-help">Max 2 tickets per booking.</div>
-          </div>
-        </div>
-
         {# Hidden agreed terms controlled #}
         <input type="hidden" id="id_agreed_terms" name="agreed_terms" value="false">
-
       {% else %}
-
-        {# Fallback manual form #}
-        <div class="fb-form-row fb-form-row--inline">
-          <label class="fb-label" for="id_full_name">Full name <span class="fb-required">*</span></label>
+          <div class="fb-form-row fb-form-row--inline">
+            <label class="fb-label">Name</label>
           <div class="fb-field">
-            <input type="text" id="id_full_name" name="full_name" required>
+              <div class="fb-readonly">
+                {{ request.user.get_full_name|default:request.user.username }}
+              </div>
           </div>
-        </div>
-
-        <div class="fb-form-row fb-form-row--inline">
-          <label class="fb-label" for="id_email">Email <span class="fb-required">*</span></label>
-          <div class="fb-field">
-            <input type="email" id="id_email" name="email" required>
           </div>
-        </div>
-
-        <div class="fb-form-row fb-form-row--inline">
-          <label class="fb-label" for="id_slot">Slot <span class="fb-required">*</span></label>
-          <div class="fb-field">
-            <select id="id_slot" name="slot" required>
-              <option value="">Choose a time</option>
-              {% for slot in available_slots %}
-                <option value="{{ slot.id }}">
-                  {{ slot.attraction.name }} – {{ slot.date }} {{ slot.time }}
-                </option>
-              {% empty %}
-                <option disabled>No slots available</option>
-              {% endfor %}
-            </select>
-          </div>
-        </div>
-
+            <div class="fb-form-row fb-form-row--inline">
+              <label class="fb-label" for="id_slot">Slot <span class="fb-required">*</span></label>
+              <div class="fb-field">
+                <select id="id_slot" name="slot" required>
+                  <option value="">Choose a time</option>
+                  {% for slot in available_slots %}
+                    <option value="{{ slot.id }}">
+                      {{ slot.attraction.name }} – {{ slot.date }} {{ slot.time }}
+                    </option>
+                  {% empty %}
+                    <option disabled>No slots available</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
         <div class="fb-form-row fb-form-row--inline">
           <label class="fb-label" for="id_num_tickets">Number of tickets <span class="fb-required">*</span></label>
           <div class="fb-field">
@@ -159,13 +154,12 @@
 
     <h4>Price</h4>
     <p>{{ booking_summary.price|default:"Free" }}</p>
-
     <p class="mt-3"><a href="{% url 'how_to_book' %}">How bookings work</a></p>
   </aside>
 
 </div>
 
-{# Terms (pulls from attraction.terms) #}
+{# Terms #}
 <div class="fb-modal" id="termsModal" aria-hidden="true">
   <div class="fb-modal__backdrop" data-close-modal="1"></div>
 

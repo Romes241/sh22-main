@@ -10,53 +10,40 @@
 {% block content %}
 
 <div class="bh-page">
-  {% if messages %}
-  <div class="fb-messages">
-    {% for message in messages %}
-      <div class="fb-alert
-                  {% if message.tags %}fb-alert--{{ message.tags }}{% endif %}"
-           role="alert">
-        {{ message }}
-      </div>
-    {% endfor %}
-  </div>
-  {% endif %}
   <form method="get" class="fb-card booking-controls-card" id="filter-form">
-    
     <div class="bh-controls-row">
       <div class="bh-left-section">
         <h1 class="bh-title">Booking History</h1>
 
         <div class="bh-search-group">
           <label class="fb-label" for="bh-search">Search:</label>
-          <input id="bh-search" name="q" type="search" class="bh-search-input" placeholder="Search Bar" value="{{ request.GET.q|default:'' }}" />
+          <input id="bh-search" name="q" type="search" class="bh-search-input"
+                 placeholder="Search Bar"
+                 value="{{ request.GET.q|default:'' }}" />
         </div>
       </div>
 
       <div class="bh-middle-section">
-          <div class="bh-allowance {% if remaining_allowance == 0 %}bh-allowance--none{% endif %}">
+        <div class="bh-allowance {% if remaining_allowance == 0 %}bh-allowance--none{% endif %}">
           <strong>Your yearly booking allowance:</strong>
           <strong>{{ remaining_allowance }}/{{ max_allowance }}</strong>
         </div>
 
         <div class="bh-filter-group">
           <span class="fb-label">Filter By:</span>
-          <select id="when-filter" name="when" class="bh-filter-dropdown" onchange="document.getElementById('filter-form').submit();">
+          <select id="when-filter" name="when" class="bh-filter-dropdown"
+                  onchange="document.getElementById('filter-form').submit();">
             <option value="">All Bookings</option>
             <option value="future" {% if request.GET.when == 'future' %}selected{% endif %}>Future</option>
             <option value="past" {% if request.GET.when == 'past' %}selected{% endif %}>Past</option>
             <option value="cancelled" {% if request.GET.when == 'cancelled' %}selected{% endif %}>Cancelled</option>
           </select>
-          <button type="submit" class="fb-btn fb-btn--primary" formaction="?">Reset Filters</button>
-          <button id="advanced-filters-btn" class="fb-btn fb-btn--primary" type="button">Advanced filters</button>
+            <button type="button" onclick="window.location.href='{% url 'booking_history' %}'" class="fb-btn fb-btn--primary">Reset Filters</button>
+            <button id="advanced-filters-btn" class="fb-btn fb-btn--primary" type="button">Advanced filters</button>
         </div>
       </div>
     </div>
-
   </form>
-
-
-  {% now "Y-m-d" as today %}
 
   {# Future bookings panel #}
   {% if when != 'past' %}
@@ -70,43 +57,87 @@
             <th>Booking date</th>
             <th>Return Date</th>
             <th>Venue Name</th>
+            <th>Type</th>
             <th>Collection Location</th>
             <th>Number of Tickets</th>
             <th>Ticket Number</th>
             <th>Cancel Status</th>
           </tr>
         </thead>
+
         <tbody>
           {% for b in future_bookings %}
             <tr>
               <td>{{ b.slot.date|date:"d/m/Y" }}</td>
               <td>{{ b.created_at|date:"d/m/Y" }}</td>
-              <td class="bh-venue">{{ b.attraction.name }}</td>
-              <td>{{ b.email|default:"E-ticket" }}</td>
-              <td>{{ b.num_tickets }}</td>
-              <td class="bh-ticket">{{ b.ticket_code|default:b.id }}</td>
+              <td class="bh-venue">
+                  {% if not b.is_draw %}
+                    {{ b.attraction.name }}
+                  {% else %}
+                    {{ b.ticket_draw.name }}
+                  {% endif %}
+              </td>
+
+              <td>
+                {% if not b.is_draw %}
+                  <span class="bh-badge bh-badge--attraction">Attraction</span>
+                {% else %}
+                  <span class="bh-badge bh-badge--draw">Draw</span>
+                {% endif %}
+              </td>
+
+                <td>
+                  {% if not b.is_draw %}
+                    {{ b.attraction.collection_location|default:"E-ticket" }}
+                  {% else %}
+                    {{ b.ticket_draw.collection_location|default:"E-ticket" }}
+                  {% endif %}
+                </td>
+                <td>{{ b.num_tickets }}</td>
+              <td class="bh-ticket">
+                  {{ b.ticket_code|default:b.id }}
+                  <span class="sr-only">EMAIL: {{ b.email }}</span>
+                  <span class="sr-only">ID: {{ b.id }}</span>
+              </td>
+
               <td class="bh-cancel-cell">
                 {% if b.cancelled %}
                   Cancelled
-                {% elif b.attraction.cancel_deadline and now <= b.attraction.cancel_deadline %}
-                  <form method="post" action="{% url 'cancel_booking' b.id %}">
-                    {% csrf_token %}
-                    <button type="submit" class="fb-btn fb-btn--primary">Cancel</button>
-                  </form>
+
+                {% elif b.booking_type == 'draw' %}
+                  {% if b.is_accepted %}
+                    <span class="bh-muted">Not available</span>
+                  {% else %}
+                    {% if b.ticket_draw.booking_close and now <= b.ticket_draw.booking_close %}
+                      <form method="post" action="{% url 'cancel_ticket_draw_entry' b.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="bh-cancel-link">Cancel entry</button>
+                      </form>
+                    {% else %}
+                      Not available
+                    {% endif %}
+                  {% endif %}
+
                 {% else %}
-                  Not available
+                  {% if b.attraction.cancel_deadline and now <= b.attraction.cancel_deadline %}
+                    <form method="post" action="{% url 'cancel_booking' b.id %}">
+                      {% csrf_token %}
+                      <button type="submit" class="bh-cancel-link">Cancel</button>
+                    </form>
+                  {% else %}
+                    Not available
+                  {% endif %}
                 {% endif %}
               </td>
             </tr>
           {% empty %}
-            <tr><td colspan="6" class="bh-empty">No future bookings.</td></tr>
+            <tr><td colspan="7" class="bh-empty">No future bookings.</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
   </div>
   {% endif %}
-
 
   {# Past bookings panel #}
   {% if when != 'future' %}
@@ -120,21 +151,49 @@
             <th>Booking date</th>
             <th>Return Date</th>
             <th>Venue Name</th>
+            <th>Type</th>
             <th>Collection Location</th>
             <th>Number of Tickets</th>
             <th>Ticket Number</th>
             <th>Collected/Cancelled</th>
           </tr>
         </thead>
+
         <tbody>
           {% for b in past_bookings %}
             <tr>
               <td>{{ b.slot.date|date:"d/m/Y" }}</td>
               <td>{{ b.created_at|date:"d/m/Y" }}</td>
-              <td class="bh-venue">{{ b.attraction.name }}</td>
-              <td>{{ b.email|default:"E-ticket" }}</td>
-              <td>{{ b.num_tickets }}</td>
-              <td class="bh-ticket">{{ b.ticket_code|default:b.id }}</td>
+
+              <td class="bh-venue">
+               {% if not b.is_draw %}
+                 {{ b.attraction.name }}
+               {% else %}
+                 {{ b.ticket_draw.name }}
+               {% endif %}
+             </td>
+
+              <td>
+                {% if not b.is_draw %}
+                  <span class="bh-badge bh-badge--attraction">Attraction</span>
+                {% else %}
+                  <span class="bh-badge bh-badge--draw">Draw</span>
+                {% endif %}
+              </td>
+
+                <td>
+                  {% if not b.is_draw %}
+                    {{ b.attraction.location|default:"E-ticket" }}
+                  {% else %}
+                    {{ b.ticket_draw.location|default:"E-ticket" }}
+                  {% endif %}
+                </td>
+                <td>{{ b.num_tickets }}</td>
+              <td class="bh-ticket">{{ b.ticket_code|default:b.id }}
+                  <span class="sr-only">EMAIL: {{ b.email }}</span>
+                  <span class="sr-only">ID: {{ b.id }}</span>
+              </td>
+
               <td>
                 {% if b.cancelled %}
                   Cancelled
@@ -144,7 +203,7 @@
               </td>
             </tr>
           {% empty %}
-            <tr><td colspan="6" class="bh-empty">No past bookings.</td></tr>
+            <tr><td colspan="7" class="bh-empty">No past bookings.</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -176,6 +235,15 @@
           <option value="all">All</option>
           <option value="active">Active</option>
           <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+
+      <div class="bh-form-row">
+        <label for="id_type">Booking Type</label>
+        <select id="id_type" name="type">
+          <option value="">All</option>
+          <option value="attraction">Attractions Only</option>
+          <option value="draw">Draws Only</option>
         </select>
       </div>
 
