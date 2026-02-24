@@ -110,6 +110,14 @@ class TicketDraw(models.Model):
     # date of the draw
     draw_date = models.DateTimeField()
     per_year_limit = models.PositiveIntegerField(default=YEAR_LIMIT_DEFAULT)
+    winner_booking = models.ForeignKey(
+        "TicketDrawBooking",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="won_for_draw"
+    )
+    winner_selected_at = models.DateTimeField(null=True, blank=True)
     # type of attraction: regular or weekly event
     attraction_type = models.CharField(
         max_length=20,
@@ -243,6 +251,7 @@ class TicketDrawBooking(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled = models.BooleanField(default=False)
     ticket_code = models.CharField(max_length=16, unique=True, null=True, blank=True)
+    is_accepted = models.BooleanField(default=False)
 
     class Meta:
         ordering = ('-created_at',)
