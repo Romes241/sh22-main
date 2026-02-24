@@ -752,7 +752,7 @@ def dashboard_view(request, year=None, month=None):
             },
         ]
 
-    calendar_data = get_calendar(year, month)
+    calendar_data = get_calendar()
 
     return render(request, "fergusonbequest/dashboard.html", {"featured_attractions": featured_attractions, **calendar_data})
 
@@ -1715,18 +1715,19 @@ def get_calendar(year=None, month=None):
             week_info.append({'date': day, 'events': day_events})
         weeks.append(week_info)
 
-    context = {
-        'year': year,
-        'month': month,
-        'month_name': calendar.month_name[month],
-        'weeks': weeks,
-        'today': today,
-        'prev_year': prev_year,
-        'prev_month': prev_month,
-        'next_year': next_year,
-        'next_month': next_month,
-    }
-    return render(request, 'fergusonbequest/calendar.html', context)
+    # context = { 
+    #     'year': year,
+    #     'month': month,
+    #     'month_name': calendar.month_name[month],
+    #     'weeks': weeks,
+    #     'today': today,
+    #     'prev_year': prev_year,
+    #     'prev_month': prev_month,
+    #     'next_year': next_year,
+    #     'next_month': next_month,
+    # }
+
+
 
 @login_required
 def waiting_listattraction(request):
