@@ -1,23 +1,17 @@
-{% extends "fergusonbequest/base.html" %}
+
 {% load static %}
 
 {% block extra_css %}
   <link rel="stylesheet" type="text/css" href="{% static 'fergusonbequest/css/calendar.css' %}">
 {% endblock %}
 
-{% block title %}Calendar – Ferguson Bequest{% endblock %}
+
 
 {% block content %}
 
-<h1 class="fb-h1">Attraction Calendar</h1>
 
 <div class="calendar-header">
  <h2 class="fb-h2">{{ month_name }} {{ year }}</h2>
- <div class="nav">
-  <a href="{% url 'calendar' prev_year prev_month %}">&laquo; Previous</a>
-  <a href="{% url 'calendar' %}">Current Month</a>
-  <a href="{% url 'calendar' next_year next_month %}">Next &raquo;</a>
-  </div>
 </div>
 
 <div class="calendar-legend">

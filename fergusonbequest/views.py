@@ -675,7 +675,9 @@ def dashboard_view(request):
             },
         ]
 
-    return render(request, "fergusonbequest/dashboard.html", {"featured_attractions": featured_attractions})
+    calendar_data = get_calendar()
+
+    return render(request, "fergusonbequest/dashboard.html", {"featured_attractions": featured_attractions, **calendar_data})
 
 @login_required
 def ticket_draws_view(request):
@@ -1324,7 +1326,7 @@ def add_events(objects, events_by_day, start, end, event_type):
                         'event_type': event_type,
                     })
 
-def calendar_view(request, year = None, month = None):
+def get_calendar(year = None, month = None):
 
     today = timezone.localdate()
     year = int(year or today.year)
@@ -1370,15 +1372,20 @@ def calendar_view(request, year = None, month = None):
             })
         weeks.append(week_info)
 
-    context = { 
+    # context = { 
+    #     'year': year,
+    #     'month': month,
+    #     'month_name': calendar.month_name[month],
+    #     'weeks': weeks,
+    #     'today': today,
+    #     'prev_year': prev_year,
+    #     'prev_month': prev_month,
+    #     'next_year': next_year,
+    #     'next_month': next_month,
+    # }
+    return  { 
         'year': year,
         'month': month,
         'month_name': calendar.month_name[month],
         'weeks': weeks,
-        'today': today,
-        'prev_year': prev_year,
-        'prev_month': prev_month,
-        'next_year': next_year,
-        'next_month': next_month,
-    }
-    return render(request, 'fergusonbequest/calendar.html', context)
+        'today': today,}
