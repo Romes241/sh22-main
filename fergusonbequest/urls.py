@@ -28,7 +28,7 @@ urlpatterns = [
     path("suggestions/", views.create_attraction_suggestion, name="create_attraction_suggestion"),
     path("admin-export/suggestions.xlsx", views.export_suggestions_excel, name="export_suggestions_excel"),
     path("admin-reports/", views.admin_reports, name = "admin_reports"),
-    # path("calendar/<int:year>/<int:month>/", views.calendar_view, name="calendar"),
+    path('dashboard/<int:year>/<int:month>/', views.dashboard_view, name='dashboard'),
 
 ]
 
