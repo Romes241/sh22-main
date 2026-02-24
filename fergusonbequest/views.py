@@ -1239,6 +1239,59 @@ def staff_draw_json(request, pk: int):
     }
     return JsonResponse(payload)
 
+
+def get_calendar(year=None, month=None):
+    """
+    Build calendar data for dashboard/calendar template rendering.
+
+    Returns a dict context (NOT a rendered response), so it can be merged into
+    dashboard context via **calendar_data.
+    """
+    today = timezone.localdate()
+    year = int(year or today.year)
+    month = int(month or today.month)
+
+    # previous month/year
+    if month == 1:
+        prev_month, prev_year = 12, year - 1
+    else:
+        prev_month, prev_year = month - 1, year
+
+    # next month/year
+    if month == 12:
+        next_month, next_year = 1, year + 1
+    else:
+        next_month, next_year = month + 1, year
+
+    cal = calendar.Calendar(firstweekday=0)
+    month_days = list(cal.itermonthdates(year, month))
+    start, end = month_days[0], month_days[-1]
+
+    events_by_day = {}
+    add_events(Attraction.objects.all(), events_by_day, start, end, "attraction")
+    add_events(TicketDraw.objects.all(), events_by_day, start, end, "ticket_draw")
+
+    weeks = []
+    for i in range(0, len(month_days), 7):
+        week = month_days[i:i + 7]
+        week_info = []
+        for day in week:
+            day_events = events_by_day.get(day.day, []) if day.month == month else []
+            week_info.append({"date": day, "events": day_events})
+        weeks.append(week_info)
+
+    return {
+        "year": year,
+        "month": month,
+        "month_name": calendar.month_name[month],
+        "weeks": weeks,
+        "today": today,
+        "prev_year": prev_year,
+        "prev_month": prev_month,
+        "next_year": next_year,
+        "next_month": next_month,
+    }
+
 # -----------------------------
 # Suggestions (user + admin export)
 # -----------------------------
