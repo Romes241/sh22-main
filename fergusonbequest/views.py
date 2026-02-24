@@ -1239,7 +1239,6 @@ def staff_draw_json(request, pk: int):
     }
     return JsonResponse(payload)
 
-
 # -----------------------------
 # Suggestions (user + admin export)
 # -----------------------------
