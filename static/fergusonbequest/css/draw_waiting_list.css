@@ -1,0 +1,131 @@
+.wl-card {
+  width: min(1200px, 95%);
+  margin: 18px auto 0;
+  background: #fff;
+  border-radius: 26px;
+  padding: 22px 22px 18px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+}
+
+.wl-table-wrap {
+  border: 2px solid #e5e7eb;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.wl-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  font-size: 0.95rem;
+}
+
+.wl-table thead th {
+  text-align: left;
+  font-weight: 800;
+  padding: 14px 16px;
+  background: #f6f7f9;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.wl-table tbody td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  vertical-align: middle;
+}
+
+/* Vertical Dividers Between Columns */
+.wl-table th + th,
+.wl-table td + td {
+  border-left: 1px solid #e5e7eb;
+}
+
+/* Underlined Name Link */
+.wl-link-name {
+  font-weight: 800;
+  color: #0b2f6b;
+  text-decoration: underline;
+}
+
+.wl-col-status {
+  text-align: left;
+  width: 260px;
+}
+
+.wl-status-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 15px;
+}
+
+/* Cancel Link red and underlined */
+.wl-cancel-btn {
+  background: none;
+  border: none;
+  color: #991b1b;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.messages-container {
+    margin-bottom: 20px;
+}
+
+.alert {
+    padding: 15px;
+    border-radius: 8px;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.wl-cancel-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  color: #b00020;
+  text-decoration: underline;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.wl-cancel-link:hover {
+  color: #8a0018;
+}
+
+/* Winner action buttons container */
+.wl-win-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* Base style for Accept / Decline */
+.wl-action-btn {
+  background: #0b2f6b;
+  color: #ffffff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.wl-action-btn:hover {
+  background: #08224e;
+}
+
+.wl-action-btn--danger {
+  background: #b00020;
+}
+
+.wl-action-btn--danger:hover {
+  background: #8a0018;
+}
