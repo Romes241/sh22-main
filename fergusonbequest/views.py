@@ -31,7 +31,8 @@ from openpyxl.utils import get_column_letter
 
 from .models import AttractionSuggestion, Booking, TicketDrawBooking
 from .forms_suggestions import AttractionSuggestionForm
-
+from django.contrib.auth.views import LoginView
+from django.urls import reverse_lazy
 
 User = get_user_model()
 MAX_ATTRACTIONS_PER_YEAR = 3
@@ -71,6 +72,9 @@ def calculate_remaining_allowance(user, attraction_type='regular'):
     
     return 0
 
+class CustomLoginView(LoginView):
+    def get_success_url(self):
+        return reverse_lazy("home")
 
 @staff_member_required
 def admin_dashboard(request):
@@ -590,6 +594,13 @@ def home(request):
             },
         ]
 
+    if request.user.is_authenticated:
+        return render(
+            request,
+            "fergusonbequest/home_logged_in.html",
+            {"featured_attractions": featured_attractions},
+        )
+
     return render(
         request,
         "fergusonbequest/home.html",
@@ -658,7 +669,7 @@ def register_view(request):
             user = form.save()
             login(request, user)
             messages.success(request, "Registration successful.")
-            return redirect("dashboard")
+            return redirect("home")
     else:
         form = RegistrationForm()
     return render(request, "fergusonbequest/register.html", {"form": form})

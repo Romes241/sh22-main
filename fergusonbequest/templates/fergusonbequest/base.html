@@ -24,13 +24,13 @@
     <span class="fb-header__divider" aria-hidden="true"></span>
 
     {% if user.is_authenticated %}
-      {% if user.is_staff %}
-        <a href="{% url 'admin_dashboard' %}" class="fb-header__brand">Ferguson Bequest</a>
-      {% else %}
-        <a href="{% url 'dashboard' %}" class="fb-header__brand">Ferguson Bequest</a>
-      {% endif %}
+        {% if not user.is_staff %}
+            <a href="{% url 'home' %}" class="fb-header__brand">Ferguson Bequest</a>
+        {% else %}
+            <span class="fb-header__brand">Ferguson Bequest</span>
+        {% endif %}
     {% else %}
-      <a href="{% url 'home' %}" class="fb-header__brand">Ferguson Bequest</a>
+        <a href="{% url 'home' %}" class="fb-header__brand">Ferguson Bequest</a>
     {% endif %}
   </div>
 
@@ -64,8 +64,8 @@
 
 <footer class="fb-footer">
   <div class="fb-footer__inner">
-    For queries, contact <a href="mailto:fergusonbequest@glasgow.ac.uk" style="color:#CCCCCC; text-decoration:underline;">fergusonbequest@glasgow.ac.uk</a> 
-    or 
+    For queries, contact <a href="mailto:fergusonbequest@glasgow.ac.uk" style="color:#CCCCCC; text-decoration:underline;">fergusonbequest@glasgow.ac.uk</a>
+    or
     visit <a href="https://www.gla.ac.uk/myglasgow/courtoffice/fergusonbequest/" style="color: #CCCCCC; text-decoration: underline;"> University of Glasgow – Ferguson Bequest</a>
   </div>
 </footer>
