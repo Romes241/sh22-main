@@ -3,8 +3,9 @@ from django.contrib.auth import login, logout, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django import forms
+from django.conf import settings
 from .models import Attraction, VisitSlot, Booking, Profile, TicketDraw, TicketDrawBooking, TicketDrawVisitSlot
-from .forms import BookingForm, AttractionCreateForm, TicketDrawCreateForm
+from .forms import BookingForm, AttractionCreateForm, TicketDrawCreateForm, FeedbackEmailTemplateForm
 from django.utils import timezone
 import datetime
 from django.db import transaction, IntegrityError
@@ -31,6 +32,7 @@ from openpyxl.utils import get_column_letter
 
 from .models import AttractionSuggestion, Booking, TicketDrawBooking
 from .forms_suggestions import AttractionSuggestionForm
+from .models import FeedbackEmailTemplate
 
 
 User = get_user_model()
@@ -65,6 +67,27 @@ def admin_dashboard(request):
             "pending_requests_count": pending_requests_count,
         },
     )
+
+@staff_member_required
+def manage_feedback_email(request):
+    """
+    Allow admins to edit the feedback email template through a simple web form.
+    """
+    template = FeedbackEmailTemplate.get_template()
+    
+    if request.method == 'POST':
+        form = FeedbackEmailTemplateForm(request.POST, instance=template)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Feedback email settings saved successfully!')
+            return redirect('manage_feedback_email')
+    else:
+        form = FeedbackEmailTemplateForm(instance=template)
+    
+    return render(request, 'fergusonbequest/manage_feedback_email.html', {
+        'form': form,
+        'template': template,
+    })
 
 User = get_user_model()
 

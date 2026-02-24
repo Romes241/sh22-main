@@ -3,7 +3,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import get_user_model
 from django.forms import ValidationError
 from django.utils.text import slugify
-from .models import Booking, VisitSlot, Attraction, TicketDraw
+from .models import Booking, VisitSlot, Attraction, TicketDraw, FeedbackEmailTemplate
 
 User = get_user_model()
 
@@ -242,3 +242,44 @@ class TicketDrawCreateForm(forms.ModelForm):
         if commit:
             instance.save()
         return instance
+
+
+class FeedbackEmailTemplateForm(forms.ModelForm):
+    """Form for editing the feedback email template."""
+    
+    def clean_feedback_url(self):
+        url = self.cleaned_data.get('feedback_url')
+        if not url:
+            raise forms.ValidationError('Please provide a Microsoft Forms URL. Create your feedback form first and paste the link here.')
+        return url
+    
+    class Meta:
+        model = FeedbackEmailTemplate
+        fields = ['enabled', 'subject', 'body', 'feedback_url']
+        widgets = {
+            'subject': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'How was your visit to {attraction_name}?'
+            }),
+            'body': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 15,
+                'placeholder': 'Dear {user_name},...'
+            }),
+            'feedback_url': forms.URLInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'https://forms.office.com/...'
+            }),
+        }
+        labels = {
+            'enabled': 'Enable Feedback Emails',
+            'subject': 'Email Subject',
+            'body': 'Email Message',
+            'feedback_url': 'Microsoft Forms URL',
+        }
+        help_texts = {
+            'enabled': 'Check this box to automatically send feedback emails to users after their visits.',
+            'subject': 'Use {attraction_name}, {user_name}, {visit_date}, {feedback_url} as placeholders',
+            'body': 'Available placeholders: {user_name}, {attraction_name}, {visit_date}, {feedback_url}',
+            'feedback_url': 'The link to your Microsoft Forms feedback survey. Users will click this link in the email.',
+        }

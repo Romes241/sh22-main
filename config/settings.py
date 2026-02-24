@@ -137,3 +137,13 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/dashboard/"
 LOGOUT_REDIRECT_URL = "/"
+
+# Email Configuration (Console backend for development)
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'fergusonbequest@glasgow.ac.uk'
+
+# Feedback Form URL
+FEEDBACK_FORM_URL = os.environ.get(
+    "FEEDBACK_FORM_URL",
+    "https://forms.office.com/Pages/ResponsePage.aspx?id=KVxybjp2UE-B8i4lTwEzyKi8RE5OIhlLqu3FN1D5vsBUREFDRUZKQUxCWEdMTlBXT1VRN0NHTTNYSy4u"
+)
