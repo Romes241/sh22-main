@@ -24,13 +24,13 @@
     <span class="fb-header__divider" aria-hidden="true"></span>
 
     {% if user.is_authenticated %}
-      {% if user.is_staff %}
-        <a href="{% url 'admin_dashboard' %}" class="fb-header__brand">Ferguson Bequest</a>
-      {% else %}
-        <a href="{% url 'dashboard' %}" class="fb-header__brand">Ferguson Bequest</a>
-      {% endif %}
+        {% if not user.is_staff %}
+            <a href="{% url 'home' %}" class="fb-header__brand">Ferguson Bequest</a>
+        {% else %}
+            <span class="fb-header__brand">Ferguson Bequest</span>
+        {% endif %}
     {% else %}
-      <a href="{% url 'home' %}" class="fb-header__brand">Ferguson Bequest</a>
+        <a href="{% url 'home' %}" class="fb-header__brand">Ferguson Bequest</a>
     {% endif %}
   </div>
 
@@ -46,7 +46,10 @@
         <a href="{% url 'dashboard' %}">Dashboard</a>
         <a href="{% url 'how_to_book' %}">Terms &amp; Conditions</a>
       {% endif %}
-      <a href="{% url 'logout' %}">Logout</a>
+      <form method="post" action="{% url 'logout' %}" style="display: inline; margin: 0;">
+        {% csrf_token %}
+        <button type="submit" style="background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 0; text-decoration: underline;">Logout</button>
+      </form>
     {% else %}
       <a href="{% url 'login' %}">Login</a>
       <a href="{% url 'register' %}">Register</a>
@@ -56,13 +59,22 @@
 </header>
 
 <main class="fb-container">
-  {% block content %}{% endblock %}
+    {% if messages %}
+      <div class="fb-messages">
+        {% for message in messages %}
+          <div class="fb-message fb-message--{{ message.tags }}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% block content %}{% endblock %}
 </main>
 
 <footer class="fb-footer">
   <div class="fb-footer__inner">
-    For queries, contact <a href="mailto:fergusonbequest@glasgow.ac.uk" style="color:#CCCCCC; text-decoration:underline;">fergusonbequest@glasgow.ac.uk</a> 
-    or 
+    For queries, contact <a href="mailto:fergusonbequest@glasgow.ac.uk" style="color:#CCCCCC; text-decoration:underline;">fergusonbequest@glasgow.ac.uk</a>
+    or
     visit <a href="https://www.gla.ac.uk/myglasgow/courtoffice/fergusonbequest/" style="color: #CCCCCC; text-decoration: underline;"> University of Glasgow – Ferguson Bequest</a>
   </div>
 </footer>
