@@ -11,26 +11,21 @@
 {% block content %}
 
 <div class="fb-container">
-  
-
   <h1 class="fb-h1">Dashboard</h1>
 
   <div class="ud-grid">
-
-    <div class="ud-main">
-      <div class="ud-placeholder">
+    <div class="fb-card">
+      <div class="ud-main">
         {% include 'fergusonbequest/calendar.html' %}
       </div>
-      <h2 class="ud-subtitle">Upcoming Events</h2>
-      {% include 'fergusonbequest/calendar.html' %}
     </div>
 
     <!-- right: quick links -->
     <aside class="ud-side" aria-label="Quick links">
-      <div class="ud-panel">
-        <div class="ud-panel__head">Quick Links</div>
+      <div class="fb-card">
+        <div class="fb-label">Quick Links</div>
 
-        <div class="ud-panel__body">
+        <div class="mt-3">
           <a class="ud-link" href="{% url 'create_attraction_suggestion' %}">
             <span class="ud-link__icon" aria-hidden="true">💡</span>
             <span class="ud-link__text">Suggest an attraction</span>
@@ -39,10 +34,7 @@
         </div>
       </div>
     </aside>
-
-
   </div>
-
 </div>
 
 {% endblock %}
