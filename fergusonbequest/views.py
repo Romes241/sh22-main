@@ -874,7 +874,7 @@ def cancel_ticket_draw_entry(request, pk):
         else:
             messages.info(request, "This entry was already cancelled.")
 
-    return redirect("draw_waiting_list")
+    return redirect(request.META.get("HTTP_REFERER", "draw_waiting_list"))
 
 def assign_next_winner(draw):
     """
