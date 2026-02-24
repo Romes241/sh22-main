@@ -1607,9 +1607,8 @@ def add_events(objects, events_by_day, start, end, event_type):
                         'event_type': event_type,
                     })
 
-def get_calendar(year = None, month = None):
 
-def calendar_view(request, year=None, month=None):
+def get_calendar(request, year=None, month=None):
     today = timezone.localdate()
     year = int(year or today.year)
     month = int(month or today.month)
