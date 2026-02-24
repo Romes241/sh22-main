@@ -36,6 +36,9 @@ from .models import (
 )
 from .forms import BookingForm, AttractionCreateForm, TicketDrawCreateForm
 from .forms_suggestions import AttractionSuggestionForm
+from django.contrib.auth.views import LoginView
+from django.urls import reverse_lazy
+
 User = get_user_model()
 MAX_ATTRACTIONS_PER_YEAR = 3
 
