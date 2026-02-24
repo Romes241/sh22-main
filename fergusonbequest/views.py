@@ -142,7 +142,7 @@ def ticket_upload(request):
             "venue_name": b.attraction.name if b.attraction else "",
             "first_name": b.user.first_name if b.user else "",
             "last_name": b.user.last_name if b.user else "",
-            "guid": f"{b.id}",  # placeholder
+            "guid": b.user.profile.staff_guid if b.user and hasattr(b.user, "profile") else "", # placeholder
             "booking_date": b.slot.date.strftime("%d/%m/%Y") if b.slot and b.slot.date else "",
         })
 

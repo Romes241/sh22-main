@@ -4,7 +4,6 @@ import django
 import random
 from datetime import time, timedelta
 import datetime
-from django.utils import timezone
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
@@ -21,17 +20,43 @@ from fergusonbequest.models import (
     Booking,
     TicketDrawBooking,
 )
-
 User = get_user_model()
+from django.utils import timezone
+from fergusonbequest.models import Profile
 
+
+# Fixed surname mapping
+LAST_NAME_MAP = {
+    "alice": "Smith",
+    "bob": "Brown",
+    "charlie": "Wilson",
+    "david": "Taylor",
+    "emma": "Anderson",
+}
 
 def create_user(username: str):
-    u, _ = User.objects.get_or_create(
+    first = username.capitalize()
+    last = LAST_NAME_MAP.get(username.lower(), "Staff")
+
+    u, created = User.objects.get_or_create(
         username=username,
-        defaults={"email": f"{username}@test.com"},
+        defaults={
+            "email": f"{username}@test.com",
+        },
     )
+
+    u.first_name = first
+    u.last_name = last
     u.set_password("password123")
     u.save()
+
+    # ensure profile exists
+    profile, _ = Profile.objects.get_or_create(user=u)
+
+    # set staff fake guid
+    profile.staff_guid = f"G{random.randint(100000, 999999)}"
+    profile.save()
+
     return u
 
 
