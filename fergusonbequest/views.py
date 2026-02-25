@@ -35,7 +35,8 @@ from .models import (
 )
 from .forms import BookingForm, AttractionCreateForm, TicketDrawCreateForm
 from .forms_suggestions import AttractionSuggestionForm
-
+from django.contrib.auth.views import LoginView
+from .forms import EmailAuthenticationForm
 
 User = get_user_model()
 
@@ -1688,3 +1689,7 @@ def admin_reports(request):
 @staff_member_required
 def management_view(request):
     return admin_management(request)
+
+class CustomLoginView(LoginView):
+    template_name = "fergusonbequest/login.html"
+    authentication_form = EmailAuthenticationForm
