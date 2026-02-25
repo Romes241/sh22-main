@@ -36,6 +36,14 @@ urlpatterns = [
     path("admin-dashboard/management/draws/<int:draw_id>/delete/", views.mng_delete_ticket_draw, name="mng_delete_draw"),
     path("admin-dashboard/management/attractions/<int:attraction_id>/delete/", views.mng_delete_attraction, name="mng_delete_attraction"),
     path('dashboard/<int:year>/<int:month>/', views.dashboard_view, name='dashboard'),
+
+
+    
+    path("waiting-list-attraction/", views.waiting_listattraction, name="waiting_listattraction"),
+    path("waiting-list-attraction/join/<int:pk>/", views.waiting_listattraction_join, name="waiting_listattraction_join"),
+    path("waiting-list-attraction/leave/<int:pk>/", views.waiting_listattraction_leave, name="waiting_listattraction_leave"),
+
+
 ]
 
 
