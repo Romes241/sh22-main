@@ -10,7 +10,7 @@ User = get_user_model()
 
 
 class CarouselFunctionalityTests(TestCase):
-    """Tests for the featured attractions carousel on the dashboard."""
+    """Tests for the featured attractions carousel on the home."""
 
     def setUp(self):
         """Set up test user and sample attractions."""
@@ -30,7 +30,8 @@ class CarouselFunctionalityTests(TestCase):
             location="Stirling",
             description="Safari and adventure park with exotic animals.",
             booking_open=timezone.now() - timedelta(days=1),
-            booking_close=timezone.now() + timedelta(days=30)
+            booking_close=timezone.now() + timedelta(days=30),
+            attraction_type='regular'
         )
         
         self.attraction2 = Attraction.objects.create(
@@ -39,7 +40,8 @@ class CarouselFunctionalityTests(TestCase):
             location="Edinburgh",
             description="Scotland's most famous zoo with pandas and penguins.",
             booking_open=timezone.now() - timedelta(days=1),
-            booking_close=timezone.now() + timedelta(days=30)
+            booking_close=timezone.now() + timedelta(days=30),
+            attraction_type='regular'
         )
         
         self.attraction3 = Attraction.objects.create(
@@ -48,7 +50,8 @@ class CarouselFunctionalityTests(TestCase):
             location="Glasgow",
             description="Interactive science museum with planetarium.",
             booking_open=timezone.now() - timedelta(days=1),
-            booking_close=timezone.now() + timedelta(days=30)
+            booking_close=timezone.now() + timedelta(days=30),
+            attraction_type='regular'
         )
 
     def test_dashboard_requires_login(self):
@@ -67,10 +70,10 @@ class CarouselFunctionalityTests(TestCase):
         self.assertEqual(resp.status_code, 302)
         self.assertIn('login', resp.url)
 
-    def test_dashboard_loads_with_attractions(self):
-        """Dashboard should load successfully with featured attractions.
+    def test_home_loads_with_attractions(self):
+        """home should load successfully with featured attractions.
 
-        When a logged-in user accesses the dashboard, the page should load
+        When a logged-in user accesses the home, the page should load
         with a 200 status and display featured attractions in the carousel.
 
         Expected output:
@@ -81,14 +84,14 @@ class CarouselFunctionalityTests(TestCase):
         Fail: page doesn't load or returns error.
         """
         self.client.login(username=self.username, password=self.password)
-        resp = self.client.get(reverse('dashboard'))
+        resp = self.client.get(reverse('home'))
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'fb-slider')
 
     def test_carousel_contains_attraction_data(self):
         """Carousel should display attraction titles and descriptions.
 
-        The dashboard carousel should render the attraction names and
+        The home carousel should render the attraction names and
         descriptions for all featured attractions.
 
         Parameters:
@@ -102,7 +105,7 @@ class CarouselFunctionalityTests(TestCase):
         Fail: attraction data is missing from carousel.
         """
         self.client.login(username=self.username, password=self.password)
-        resp = self.client.get(reverse('dashboard'))
+        resp = self.client.get(reverse('home'))
         
         # Check that attraction names are in the response
         self.assertContains(resp, self.attraction1.name)
@@ -126,7 +129,7 @@ class CarouselFunctionalityTests(TestCase):
         Fail: data-book-url attributes are missing or incorrect.
         """
         self.client.login(username=self.username, password=self.password)
-        resp = self.client.get(reverse('dashboard'))
+        resp = self.client.get(reverse('home'))
         
         # Check that booking URLs are present for each attraction
         self.assertContains(resp, f'data-book-url="/attraction/{self.attraction1.id}/book/"')
@@ -147,7 +150,7 @@ class CarouselFunctionalityTests(TestCase):
         Fail: button is missing or has wrong attributes.
         """
         self.client.login(username=self.username, password=self.password)
-        resp = self.client.get(reverse('dashboard'))
+        resp = self.client.get(reverse('home'))
         
         self.assertContains(resp, 'id="fb-book-btn"')
         self.assertContains(resp, 'Book now')
@@ -166,7 +169,7 @@ class CarouselFunctionalityTests(TestCase):
         Fail: navigation buttons are missing.
         """
         self.client.login(username=self.username, password=self.password)
-        resp = self.client.get(reverse('dashboard'))
+        resp = self.client.get(reverse('home'))
         
         self.assertContains(resp, 'fb-slider-arrow--prev')
         self.assertContains(resp, 'fb-slider-arrow--next')
@@ -185,7 +188,7 @@ class CarouselFunctionalityTests(TestCase):
         Fail: dots are missing or count is wrong.
         """
         self.client.login(username=self.username, password=self.password)
-        resp = self.client.get(reverse('dashboard'))
+        resp = self.client.get(reverse('home'))
         
         # Should have dots for each featured attraction (up to 4)
         self.assertContains(resp, 'fb-dot')
@@ -193,7 +196,7 @@ class CarouselFunctionalityTests(TestCase):
         self.assertContains(resp, 'fb-dot--active')
 
     def test_carousel_javascript_present(self):
-        """Dashboard should include the carousel JavaScript.
+        """home should include the carousel JavaScript.
 
         The JavaScript code handles slide navigation and URL updates.
         It should be present in the rendered HTML.
@@ -205,13 +208,15 @@ class CarouselFunctionalityTests(TestCase):
         Pass: required JavaScript functions are in the response.
         Fail: JavaScript is missing or incomplete.
         """
-        self.client.login(username=self.username, password=self.password)
-        resp = self.client.get(reverse('dashboard'))
-        
-        
-        self.assertContains(resp, 'function showSlide')
-        self.assertContains(resp, 'function updateBookButtonUrl')
-        self.assertContains(resp, "getAttribute('data-book-url')")
+        resp = self.client.get(reverse("home"))
+        self.assertEqual(resp.status_code, 200)
+
+        # Check that the external JS file is loaded
+        self.assertContains(resp, 'home_carousel.js')
+        # Check that carousel container exists
+        self.assertContains(resp, 'id="fb-slider"')
+        # Check that data-book-url attribute exists in slides
+        self.assertContains(resp, 'data-book-url=')
 
     def test_booking_page_exists_for_attractions(self):
         """Booking URLs should lead to valid booking pages.
@@ -240,30 +245,30 @@ class CarouselFunctionalityTests(TestCase):
         self.assertContains(resp, self.attraction1.name)
 
     def test_fallback_when_no_attractions(self):
-        """Dashboard should handle the case when no attractions exist.
+        """home should handle the case when no attractions exist.
 
-        If the database has no attractions, the dashboard should still
+        If the database has no attractions, the home should still
         load without errors, possibly showing demo data or empty state.
 
         Expected output:
         - HTTP 200 response even with no attractions
         - Page loads without server errors
 
-        Pass: dashboard loads successfully.
+        Pass: home loads successfully.
         Fail: page crashes or returns error.
         """
         # Delete all attractions
         Attraction.objects.all().delete()
         
         self.client.login(username=self.username, password=self.password)
-        resp = self.client.get(reverse('dashboard'))
+        resp = self.client.get(reverse('home'))
         
         # Should still load
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'fb-slider')
 
     def test_view_returns_correct_data_structure(self):
-        """Dashboard view should pass correctly structured attraction data.
+        """home view should pass correctly structured attraction data.
 
         The view should provide featured_attractions as a list of dicts,
         each containing the required keys for the template to render.
@@ -276,7 +281,7 @@ class CarouselFunctionalityTests(TestCase):
         Fail: data is missing required fields.
         """
         self.client.login(username=self.username, password=self.password)
-        resp = self.client.get(reverse('dashboard'))
+        resp = self.client.get(reverse('home'))
         
         featured_attractions = resp.context['featured_attractions']
         
@@ -309,17 +314,19 @@ class CarouselFunctionalityTests(TestCase):
             name="Kelvingrove Museum",
             slug="kelvingrove",
             location="Glasgow",
-            description="Art gallery and museum."
+            description="Art gallery and museum.",
+            attraction_type='regular'
         )
         Attraction.objects.create(
             name="National Museum",
             slug="national-museum",
             location="Edinburgh",
-            description="Scotland's national museum."
+            description="Scotland's national museum.",
+            attraction_type='regular'
         )
         
         self.client.login(username=self.username, password=self.password)
-        resp = self.client.get(reverse('dashboard'))
+        resp = self.client.get(reverse('home'))
         
         featured_attractions = resp.context['featured_attractions']
         self.assertLessEqual(len(featured_attractions), 4)

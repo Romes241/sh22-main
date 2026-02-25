@@ -6,6 +6,12 @@ from django.db.models import Q
 
 # Create your models here.
 YEAR_LIMIT_DEFAULT = 3
+
+ATTRACTION_TYPE_CHOICES = [
+    ('regular', 'Regular Attraction'),
+    ('weekly_event', 'Weekly Ticket Event'),
+]
+
 """
 Representing an attraction 
 Each attraction can have multiple visit slots and bookings.
@@ -33,6 +39,12 @@ class Attraction(models.Model):
     # how many times a user can book this attraction per year
     # default value is the constant defined above
     per_year_limit = models.PositiveIntegerField(default=YEAR_LIMIT_DEFAULT)
+    # type of attraction: regular or weekly event
+    attraction_type = models.CharField(
+        max_length=20,
+        choices=ATTRACTION_TYPE_CHOICES,
+        default='regular'
+    )
     # time that attraction would take
     duration_minutes = models.PositiveIntegerField(null=True, blank=True)
 
@@ -98,6 +110,20 @@ class TicketDraw(models.Model):
     # date of the draw
     draw_date = models.DateTimeField()
     per_year_limit = models.PositiveIntegerField(default=YEAR_LIMIT_DEFAULT)
+    winner_booking = models.ForeignKey(
+        "TicketDrawBooking",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="won_for_draw"
+    )
+    winner_selected_at = models.DateTimeField(null=True, blank=True)
+    # type of attraction: regular or weekly event
+    attraction_type = models.CharField(
+        max_length=20,
+        choices=ATTRACTION_TYPE_CHOICES,
+        default='weekly_event'
+    )
 
     def __str__(self):
         return self.name
@@ -225,6 +251,7 @@ class TicketDrawBooking(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled = models.BooleanField(default=False)
     ticket_code = models.CharField(max_length=16, unique=True, null=True, blank=True)
+    is_accepted = models.BooleanField(default=False)
 
     class Meta:
         ordering = ('-created_at',)
@@ -263,3 +290,35 @@ class Profile(models.Model):
 
     def __str__(self):
         return f"Profile of {self.user.username}"
+    
+class AttractionSuggestion(models.Model):
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    why_recommended = models.TextField(blank=True)
+
+    website_url = models.URLField(blank=True)
+    location = models.CharField(max_length=200, blank=True)
+
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="attraction_suggestions"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    STATUS_PENDING = "pending"
+    STATUS_IN_PROGRESS = "in_progress"
+    STATUS_IMPLEMENTED = "implemented"
+    STATUS_REJECTED = "rejected"
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Pending"),
+        (STATUS_IN_PROGRESS, "In progress"),
+        (STATUS_IMPLEMENTED, "Implemented"),
+        (STATUS_REJECTED, "Rejected"),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+
+    def __str__(self):
+        return f"{self.name} ({self.status})"
+

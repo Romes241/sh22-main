@@ -54,19 +54,19 @@
     <div class="ad-panel">
       <div class="ad-panel__title">Quick Links</div>
       <div class="ad-panel__body">
-        <a class="ad-link" href="/admin/fergusonbequest/ticketdraw/add/">
+        <a class="ad-link" href="{% url 'create_ticket_draw' %}">
           <span class="ad-link__icon" aria-hidden="true">+</span>
           <span class="ad-link__text">Create Draw</span>
           <span class="ad-link__chev" aria-hidden="true">›</span>
         </a>
 
-        <a class="ad-link" href="/admin/fergusonbequest/attraction/add/">
+        <a class="ad-link" href="{% url 'create_attraction' %}">
           <span class="ad-link__icon" aria-hidden="true">🏛</span>
           <span class="ad-link__text">Add Attraction</span>
           <span class="ad-link__chev" aria-hidden="true">›</span>
         </a>
 
-        <a class="ad-link" href="/admin/">
+        <a class="ad-link" href="{% url 'admin_management' %}">
           <span class="ad-link__icon" aria-hidden="true">🛠</span>
           <span class="ad-link__text">Manage Content</span>
           <span class="ad-link__chev" aria-hidden="true">›</span>
@@ -75,6 +75,12 @@
        <a class="ad-link" href="{% url 'admin_reports' %}">
         <span class="ad-link__icon" aria-hidden="true">📊</span>
         <span class="ad-link__text">View Reports</span>
+        <span class="ad-link__chev" aria-hidden="true">›</span>
+       </a>
+
+      <a class="ad-link" href="{% url 'export_suggestions_excel' %}">
+        <span class="ad-link__icon" aria-hidden="true">📥</span>
+        <span class="ad-link__text">Export Suggestions (Excel)</span>
         <span class="ad-link__chev" aria-hidden="true">›</span>
       </a>
       </div>

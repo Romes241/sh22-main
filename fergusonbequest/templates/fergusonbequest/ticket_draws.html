@@ -10,16 +10,21 @@
     <div class="td-header">
       <h1 class="td-title">Ticket Draws</h1>
 
-      <a class="td-waitlist-btn" href="{% url 'waiting_list' %}">
-        Waitlist Status
-      </a>
+      <div style="display: flex; gap: 12px;">
+        {% if user.is_staff %}
+        <a href="{% url 'create_ticket_draw' %}" class="fb-btn fb-btn--primary">Create Draw</a>
+        {% endif %}
+        <a class="td-waitlist-btn" href="{% url 'draw_waiting_list' %}">
+          Waitlist Status
+        </a>
+      </div>
     </div>
 
   <div class="td-scroll">
     <div class="td-grid">
 
       {% for d in draws %}
-        <div class="td-card">
+        <div class="td-card {% if not d.is_open %}is-closed{% endif %}">
 
           <div class="td-card-image">
             {% if d.image %}
@@ -40,9 +45,13 @@
             </div>
 
           <div class="td-card-actions">
-            <a class="td-btn td-btn-primary" href="{% url 'ticket_draw_detail' d.slug %}">
-              More information
-            </a>
+            {% if d.is_open %}
+              <a class="td-btn td-btn-primary" href="{% url 'ticket_draw_detail' d.slug %}">
+                More information
+              </a>
+            {% else %}
+              <span class="td-btn td-btn-primary">Draw Closed</span>
+            {% endif %}
           </div>
 
         </div>

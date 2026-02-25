@@ -195,3 +195,44 @@ body{
 }
 .fb-btn--primary:hover{ background:#002a4c; }
 .fb-btn.fb-btn--primary:focus{ outline:2px solid rgba(0,56,101,0.25); }
+
+.fb-fab{
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 999;
+  background: #002663;
+  color: #fff;
+  text-decoration: none;
+  padding: 10px 14px;
+  border-radius: 999px;
+  box-shadow: 0 14px 28px rgba(0,0,0,0.18);
+  font-weight: 800;
+}
+.fb-fab:hover{ filter: brightness(1.05); }
+
+.fb-messages {
+  margin-bottom: 1rem;
+}
+
+.fb-message {
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.fb-message--success {
+  background: #e6f4ea;
+  color: #1e7e34;
+}
+
+.fb-message--error {
+  background: #fdecea;
+  color: #c82333;
+}
+
+.fb-message--info {
+  background: #e7f3fe;
+  color: #084298;
+}

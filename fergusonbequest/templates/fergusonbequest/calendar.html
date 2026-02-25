@@ -1,0 +1,94 @@
+
+{% load static %}
+
+{% block extra_css %}
+  <link rel="stylesheet" type="text/css" href="{% static 'fergusonbequest/css/calendar.css' %}">
+{% endblock %}
+
+
+
+{% block content %}
+
+
+<div class="calendar-header">
+ <h2 class="fb-h2">{{ month_name }} {{ year }}</h2>
+ <div class="nav">
+  <a href="{% url 'dashboard' prev_year prev_month %}">&laquo; Previous</a>
+  <a href="{% url 'dashboard' %}">Current Month</a>
+  <a href="{% url 'dashboard' next_year next_month %}">Next &raquo;</a>
+  </div>
+
+</div>
+
+<div class="calendar-legend">
+
+  <div class="legend-group">
+    <span class="legend-title">Event type:</span>
+
+    <span class="legend-item">
+      <span class="legend-box ticket-draw"></span>
+      Ticket draw
+    </span>
+
+    <span class="legend-item">
+      <span class="legend-box attraction"></span>
+      Attraction
+    </span>
+  </div>
+
+  <div class="legend-group">
+    <span class="legend-title">Booking status:</span>
+
+    <span class="legend-item">
+      <span class="legend-box booking-open"></span>
+      Opens
+    </span>
+
+    <span class="legend-item">
+      <span class="legend-box booking-close"></span>
+      Closes
+    </span>
+  </div>
+
+</div>
+
+
+<div class="day-of-week-header">
+  <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+</div>
+
+<table class="cal">
+  <tbody>
+    {% for week in weeks %}
+      <tr>
+        {% for day in week %}
+          <td class="
+              {% if day.month != month %}muted{% endif %} 
+              {% if day.date == today %}today{% endif %}"
+              >
+            <div class="daynum">{{ day.date.day }}</div>
+
+            {% if day.events %}
+              {% for event in day.events %}
+              <a href="{% if event.event_type == 'attraction' %}{% url 'attraction' event.object.pk %}{% elif event.event_type == 'ticket_draw' %}{% url 'ticket_draw_detail' event.object.slug %}{% endif %}"
+              class = "event {{ event.event_type }} {{ event.class_name }}">
+                
+                  <strong>{{ event.object.name }}</strong>      
+                    {% if event.class_name == 'booking-open' %}
+                    opens<br>
+                    {% elif event.class_name == 'booking-close' %}
+                    closes<br>
+                    {% endif %}
+                         
+              </a>
+              {% endfor %}
+            {% endif %}
+          </td>
+          
+        {% endfor %}
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}
