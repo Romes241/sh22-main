@@ -1159,6 +1159,12 @@ def mng_delete_ticket_draw(request, draw_id):
     messages.success(request, "Draw deleted.")
     return redirect("/admin-dashboard/management/?tab=draws")
 
+@staff_member_required
+@require_POST
+def mng_delete_draw(request, draw_id):
+    # Backwards-compatible alias for older URL patterns/tests
+    return mng_delete_ticket_draw(request, draw_id)
+
 
 @staff_member_required
 @require_POST
