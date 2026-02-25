@@ -38,18 +38,18 @@
     </div>
 
     <div class="tu-bar-right">
-      <button class="tu-btn tu-btn--chip" type="button">Filters</button>
-
-      <div class="tu-sort">
-        <button class="tu-btn tu-btn--chip" type="button">Sort by</button>
-        <select name="sort" aria-label="Sort">
-          <option value="date_desc" {% if sort == "date_desc" %}selected{% endif %}>Date (newest)</option>
-          <option value="date_asc" {% if sort == "date_asc" %}selected{% endif %}>Date (oldest)</option>
-          <option value="surname" {% if sort == "surname" %}selected{% endif %}>Surname</option>
-          <option value="venue" {% if sort == "venue" %}selected{% endif %}>Venue</option>
-        </select>
-      </div>
+    <div class="tu-sort">
+      <span class="tu-sort-label">Sort by:</span>
+      <select name="sort">
+        <option value="date_desc">Date (newest)</option>
+        <option value="date_asc">Date (oldest)</option>
+        <option value="surname">Surname</option>
+        <option value="venue">Venue Name</option>
+      </select>
     </div>
+    </div>
+    <a class="tu-btn tu-btn--chip tu-btn--clear" href="{% url 'ticket_upload' %}">Clear</a>
+
   </form>
 
   <div class="tu-main">
@@ -93,17 +93,15 @@
           {% endfor %}
 
           {% for _ in empty_rows %}
-  <div class="tu-row tu-row--blank">
-    <div class="tu-cell">&nbsp;</div>
-    <div class="tu-cell"></div>
-    <div class="tu-cell"></div>
-    <div class="tu-cell"></div>
-    <div class="tu-cell"></div>
-    <div class="tu-cell"></div>
-  </div>
-{% endfor %}
-
-
+          <div class="tu-row tu-row--blank">
+            <div class="tu-cell">&nbsp;</div>
+            <div class="tu-cell"></div>
+            <div class="tu-cell"></div>
+            <div class="tu-cell"></div>
+            <div class="tu-cell"></div>
+            <div class="tu-cell"></div>
+          </div>
+        {% endfor %}
         {% else %}
           <div class="tu-empty">No tickets found.</div>
         {% endif %}
