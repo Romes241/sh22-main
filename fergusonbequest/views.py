@@ -1677,3 +1677,8 @@ def admin_reports(request):
             "time_list": time_list,
         },
     )
+
+# Compatibility alias: urls.py expects management_view
+@staff_member_required
+def management_view(request):
+    return admin_management(request)
