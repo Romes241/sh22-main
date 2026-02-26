@@ -76,4 +76,5 @@ urlpatterns = [
 
     # Discount codes staff page
     path("staff/discounts/", views.discount_codes_page, name="discount_codes"),
+    path("staff/discounts/", views.discount_codes_page, name="discount_codes_page")
 ]

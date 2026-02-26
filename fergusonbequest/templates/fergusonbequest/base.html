@@ -40,6 +40,7 @@
       {% if user.is_staff %}
         <a href="{% url 'admin_dashboard' %}">Admin Dashboard</a>
         <a href="{% url 'staff_draws_entry' %}">Staff Draw Entry</a>
+        <a href="{% url 'discount_codes_page' %}">Discount Codes</a>
       {% else %}
         <a href="{% url 'attractions' %}">Attractions</a>
         <a href="{% url 'ticket_draws' %}">Ticket Draws</a>

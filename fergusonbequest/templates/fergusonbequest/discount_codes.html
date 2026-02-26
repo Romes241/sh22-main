@@ -1,0 +1,34 @@
+{% extends "fergusonbequest/base.html" %}
+
+{% block content %}
+<div class="container">
+  <h1>Discount Codes</h1>
+
+  {% if discounts %}
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Description</th>
+          <th>Percent off</th>
+          <th>Valid from</th>
+          <th>Valid until</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in discounts %}
+        <tr>
+          <td><strong>{{ d.code }}</strong></td>
+          <td>{{ d.description }}</td>
+          <td>{{ d.percent_off }}%</td>
+          <td>{{ d.valid_from }}</td>
+          <td>{{ d.valid_until }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>No active discount codes right now.</p>
+  {% endif %}
+</div>
+{% endblock %}
