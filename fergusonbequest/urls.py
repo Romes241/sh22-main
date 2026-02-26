@@ -1,5 +1,4 @@
 from django.urls import path
-from django.contrib.auth import views as auth_views
 from . import views
 from .forms import EmailAuthenticationForm
 
@@ -19,8 +18,6 @@ urlpatterns = [
     path("logout/", views.logout_view, name="logout"),
 
     # User pages
-    path("login/", auth_views.LoginView.as_view(template_name="fergusonbequest/login.html", authentication_form=EmailAuthenticationForm,),name="login",),
-    path("logout/", views.logout_view, name="logout"),    
     path("dashboard/", views.dashboard_view, name="dashboard"),
     path("dashboard/<int:year>/<int:month>/", views.dashboard_view, name="dashboard"),
     path("how-to-book/", views.terms, name="how_to_book"),
@@ -30,22 +27,21 @@ urlpatterns = [
     path("ticket-draws/<slug:slug>/", views.ticket_draw_detail, name="ticket_draw_detail"),
     path("ticket-draw-entry/<int:pk>/cancel/", views.cancel_ticket_draw_entry, name="cancel_ticket_draw_entry"),
 
+    # Waiting list (draw)
+    path("draw-waiting-list/", views.draw_waiting_list, name="draw_waiting_list"),
+    path("draw-waiting-list/cancel/<int:pk>/", views.cancel_ticket_draw_entry, name="cancel_draw_entry"),
+    path("draw-waiting-list/accept/<int:pk>/", views.accept_draw_win, name="accept_draw_win"),
+    path("draw-waiting-list/decline/<int:pk>/", views.decline_draw_win, name="decline_draw_win"),
+
+    # Compatibility alias (optional): keep if templates still link to /waiting-list/
+    path("waiting-list/", views.waiting_list, name="waiting_list"),
+
     # Attractions + bookings
     path("attraction/<int:pk>/", views.attraction, name="attraction"),
     path("attraction/<int:attraction_pk>/book/", views.booking_view, name="attraction_book"),
     path("attractions/", views.attractions_view, name="attractions"),
     path("booking-history/", views.booking_history, name="booking_history"),
     path("booking/<int:pk>/cancel/", views.cancel_booking, name="cancel_booking"),
-
-    # Waiting list (general draw waiting list)
-    path("waiting-list/", views.waiting_list, name="waiting_list"),
-    path("waiting-list/cancel/<int:pk>/", views.cancel_ticket_draw_entry, name="cancel_draw_entry"),
-    path("waiting-list/accept/<int:pk>/", views.accept_draw_win, name="accept_draw_win"),
-    path("waiting-list/decline/<int:pk>/", views.decline_draw_win, name="decline_draw_win"),
-
-    # (If you still use draw-waiting-list URLs elsewhere, keep ONE copy)
-    path("draw-waiting-list/", views.draw_waiting_list, name="draw_waiting_list"),
-    path("draw-waiting-list/cancel/<int:pk>/", views.cancel_ticket_draw_entry, name="cancel_draw_entry"),
 
     # Waiting list (attraction-specific)
     path("waiting-list-attraction/", views.waiting_listattraction, name="waiting_listattraction"),
@@ -70,10 +66,6 @@ urlpatterns = [
     path("create-ticket-draw/", views.create_ticket_draw, name="create_ticket_draw"),
     path("edit-ticket-draw/<int:pk>/", views.edit_ticket_draw, name="edit_ticket_draw"),
 
-    # Draw accept/decline routes (if still used)
-    path("draw/accept/<int:pk>/", views.accept_draw_win, name="accept_draw_win"),
-    path("draw/decline/<int:pk>/", views.decline_draw_win, name="decline_draw_win"),
-
     # Suggestions export
     path("suggestions/", views.create_attraction_suggestion, name="create_attraction_suggestion"),
     path("admin-export/suggestions.xlsx", views.export_suggestions_excel, name="export_suggestions_excel"),
@@ -82,7 +74,6 @@ urlpatterns = [
     path("staff/draws/", views.staff_draws_entry, name="staff_draws_entry"),
     path("staff/draws/<int:pk>/json/", views.staff_draw_json, name="staff_draw_json"),
 
-    # ✅ NEW: Discount codes staff page
+    # Discount codes staff page
     path("staff/discounts/", views.discount_codes_page, name="discount_codes"),
 ]
-
