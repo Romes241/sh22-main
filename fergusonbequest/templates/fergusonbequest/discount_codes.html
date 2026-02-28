@@ -1,34 +1,96 @@
 {% extends "fergusonbequest/base.html" %}
 
+{% block title %}Discount Codes{% endblock %}
+
 {% block content %}
-<div class="container">
   <h1>Discount Codes</h1>
 
-  {% if discounts %}
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Code</th>
-          <th>Description</th>
-          <th>Percent off</th>
-          <th>Valid from</th>
-          <th>Valid until</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for d in discounts %}
-        <tr>
-          <td><strong>{{ d.code }}</strong></td>
-          <td>{{ d.description }}</td>
-          <td>{{ d.percent_off }}%</td>
-          <td>{{ d.valid_from }}</td>
-          <td>{{ d.valid_until }}</td>
-        </tr>
+  <section style="margin:16px 0; padding:16px; border:1px solid #ddd; border-radius:8px;">
+    <h2 style="margin-top:0;">Create a new discount code</h2>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="fb-message fb-message--error">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <label for="{{ form.title.id_for_label }}"><strong>Title</strong></label>
+          {{ form.title }}
+          {% for err in form.title.errors %}<small style="color:#b00020;">{{ err }}</small>{% endfor %}
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <label for="{{ form.code.id_for_label }}"><strong>Code</strong></label>
+          {{ form.code }}
+          {% for err in form.code.errors %}<small style="color:#b00020;">{{ err }}</small>{% endfor %}
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:6px; grid-column: 1 / -1;">
+          <label for="{{ form.description.id_for_label }}"><strong>Description</strong></label>
+          {{ form.description }}
+          {% for err in form.description.errors %}<small style="color:#b00020;">{{ err }}</small>{% endfor %}
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <label for="{{ form.valid_from.id_for_label }}"><strong>Valid from</strong></label>
+          {{ form.valid_from }}
+          {% for err in form.valid_from.errors %}<small style="color:#b00020;">{{ err }}</small>{% endfor %}
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <label for="{{ form.valid_until.id_for_label }}"><strong>Valid until</strong></label>
+          {{ form.valid_until }}
+          {% for err in form.valid_until.errors %}<small style="color:#b00020;">{{ err }}</small>{% endfor %}
+        </div>
+
+        <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+          {{ form.is_active }} <label for="{{ form.is_active.id_for_label }}"><strong>Active</strong></label>
+          {% for err in form.is_active.errors %}<small style="color:#b00020;">{{ err }}</small>{% endfor %}
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <button type="submit">Create</button>
+      </div>
+    </form>
+  </section>
+
+  <section style="margin:16px 0;">
+    <h2>Active now</h2>
+    {% if active_discounts %}
+      <ul>
+        {% for d in active_discounts %}
+          <li>
+            <strong>{{ d.code }}</strong> — {{ d.title }}
+            {% if d.description %} ({{ d.description }}){% endif %}
+            <br>
+            <small>{{ d.valid_from }} → {{ d.valid_until }}</small>
+          </li>
         {% endfor %}
-      </tbody>
-    </table>
-  {% else %}
-    <p>No active discount codes right now.</p>
-  {% endif %}
-</div>
+      </ul>
+    {% else %}
+      <p>No active discount codes right now.</p>
+    {% endif %}
+  </section>
+
+  <section style="margin:16px 0;">
+    <h2>All discount codes</h2>
+    {% if all_discounts %}
+      <ul>
+        {% for d in all_discounts %}
+          <li>
+            <strong>{{ d.code }}</strong> — {{ d.title }}
+            {% if d.is_active %}<span>(active flag)</span>{% else %}<span>(inactive)</span>{% endif %}
+            <br>
+            <small>{{ d.valid_from }} → {{ d.valid_until }} | created {{ d.created_at }}</small>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>No discount codes found.</p>
+    {% endif %}
+  </section>
 {% endblock %}
