@@ -1299,41 +1299,6 @@ def edit_ticket_draw(request, pk):
         {"form": form, "title": "Edit Ticket Draw", "ticket_draw": draw},
     )
 
-
-# -----------------------------
-# Staff tools (draw entry JSON etc.)
-# -----------------------------
-@staff_member_required
-def staff_draws_entry(request):
-    draws = TicketDraw.objects.all().order_by("-id")
-    selected = draws.first()
-
-    return render(
-        request,
-        "fergusonbequest/staff_draws_entry.html",
-        {
-            "draws": draws,
-            "selected_draw": selected,
-        },
-    )
-
-
-@staff_member_required
-def staff_draw_json(request, pk: int):
-    draw = get_object_or_404(TicketDraw, pk=pk)
-    now = timezone.now()
-
-    payload = {
-        "id": draw.pk,
-        "title": getattr(draw, "title", None) or getattr(draw, "name", None) or str(draw),
-        "slug": getattr(draw, "slug", "") or "",
-        "description": getattr(draw, "description", "") or "",
-        "is_open": _call_is_open(draw, now),
-    }
-
-    return JsonResponse(payload)
-
-
 # -----------------------------
 # Reports (admin)
 # -----------------------------
