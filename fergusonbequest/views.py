@@ -1437,6 +1437,8 @@ def admin_reports(request):
                     "email": b.user.email if b.user else (b.email or ""),
                     "date": b.slot.date,
                     "time": b.slot.time,
+                    "ticket_code": b.ticket_code,
+                    "num_tickets": b.num_tickets,
                     "status_text": status_text,
                 }
             )
@@ -1461,6 +1463,8 @@ def admin_reports(request):
                     "email": b.user.email if b.user else (b.email or ""),
                     "date": b.slot.date,
                     "time": b.slot.time,
+                    "ticket_code": b.ticket_code,
+                    "num_tickets": b.num_tickets,
                     "status_text": status_text,
                 }
             )
@@ -1488,7 +1492,7 @@ def admin_reports(request):
 
     export_type = request.GET.get("export")
     if export_type:
-        headers = ["Type", "Attraction/Draw", "Forename", "Surname", "GUID", "Email", "Date", "Time", "Status"]
+        headers = ["Type", "Attraction/Draw", "Forename", "Surname", "GUID", "Email", "Date", "Time", "Ticket Code", "Tickets", "Status"]
 
         if export_type == "csv":
             response = HttpResponse(content_type="text/csv")
@@ -1506,6 +1510,8 @@ def admin_reports(request):
                         b["email"],
                         b["date"].strftime("%d/%m/%Y"),
                         b["time"].strftime("%H:%M") if b["time"] else "",
+                        b["ticket_code"],
+                        b["num_tickets"],
                         b["status_text"],
                     ]
                 )
@@ -1528,6 +1534,8 @@ def admin_reports(request):
                         b["email"],
                         b["date"].strftime("%d/%m/%Y"),
                         b["time"].strftime("%H:%M") if b["time"] else "",
+                        b["ticket_code"],
+                        b["num_tickets"],
                         b["status_text"],
                     ]
                 )
@@ -1548,6 +1556,8 @@ def admin_reports(request):
         completed_count = sum(1 for b in bookings_list if b["status_text"] == "Completed")
         cancelled_count = sum(1 for b in bookings_list if b["status_text"] == "Cancelled")
 
+        total_tickets = sum(b.get("num_tickets", 0) for b in bookings_list)
+
         date_range = None
         if bookings_list:
             dates = [b["date"] for b in bookings_list]
@@ -1567,6 +1577,7 @@ def admin_reports(request):
 
         return {
             "total_bookings": total,
+            "total_tickets": total_tickets,
             "attraction_count": attraction_count,
             "draw_count": draw_count,
             "active_count": active_count,

@@ -59,6 +59,8 @@
           <th>GUID</th>
           <th>Email</th>
           <th>Booking Date</th>
+          <th>Ticket Code</th>
+          <th>Tickets</th> 
           <th>Status</th>
         </tr>
       </thead>
@@ -73,6 +75,8 @@
             <td>{{ b.guid }}</td>
             <td>{{ b.email }}</td>
             <td>{{ b.date|date:"d/m/Y" }}, {{ b.time|time:"H:i" }}</td>
+            <td>{{ b.ticket_code|default:"—" }}</td>
+            <td>{{ b.num_tickets }}</td>   
             <td class="ar-col-status">
               <div class="ar-status-container">
                 {% if b.status_text == "Cancelled" %}
@@ -87,7 +91,7 @@
           </tr>
         {% empty %}
           <tr>
-            <td colspan="9" class="ar-empty">No bookings found.</td>
+            <td colspan="10" class="ar-empty">No bookings found.</td>
           </tr>
         {% endfor %}
       </tbody>
@@ -330,6 +334,11 @@
         <div class="ar-stat-card">
           <div class="ar-stat-number">{{ statistics.total_bookings }}</div>
           <div class="ar-stat-label">Total Bookings</div>
+        </div>
+        
+        <div class="ar-stat-card">
+          <div class="ar-stat-number">{{ statistics.total_tickets }}</div>
+          <div class="ar-stat-label">Total Tickets</div>
         </div>
         
         <!-- By Type -->
