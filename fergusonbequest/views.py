@@ -18,7 +18,8 @@ from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST
-
+from .forms_discount_codes import DiscountCodeForm
+from django.views.decorators.http import require_http_methods
 from openpyxl import Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.utils import get_column_letter
@@ -1071,20 +1072,38 @@ def export_suggestions_excel(request):
 # Discount Codes (staff page)
 # -----------------------------
 @staff_member_required
+@require_http_methods(["GET", "POST"])
 def discount_codes_page(request):
     now = timezone.now()
-    discounts = DiscountCode.objects.filter(
+
+    if request.method == "POST":
+        form = DiscountCodeForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Discount code created.")
+            return redirect("discount_codes")
+        messages.error(request, "Please fix the errors below.")
+    else:
+        form = DiscountCodeForm()
+
+    all_discounts = DiscountCode.objects.all().order_by("-created_at")
+
+    active_discounts = all_discounts.filter(
         is_active=True,
         valid_from__lte=now,
         valid_until__gte=now,
-    ).order_by("-created_at")
+    )
 
     return render(
         request,
         "fergusonbequest/discount_codes.html",
-        {"discounts": discounts},
+        {
+            "form": form,
+            "active_discounts": active_discounts,
+            "all_discounts": all_discounts,
+            "now": now,
+        },
     )
-
 
 # -----------------------------
 # Staff / Admin dashboard + management
