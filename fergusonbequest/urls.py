@@ -70,10 +70,6 @@ urlpatterns = [
     path("suggestions/", views.create_attraction_suggestion, name="create_attraction_suggestion"),
     path("admin-export/suggestions.xlsx", views.export_suggestions_excel, name="export_suggestions_excel"),
 
-    # Staff tools
-    path("staff/draws/", views.staff_draws_entry, name="staff_draws_entry"),
-    path("staff/draws/<int:pk>/json/", views.staff_draw_json, name="staff_draw_json"),
-
     # Discount codes staff page
     path("staff/discounts/", views.discount_codes_page, name="discount_codes"),
     path("staff/discounts/", views.discount_codes_page, name="discount_codes_page")
