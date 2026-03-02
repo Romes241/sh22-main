@@ -1,36 +1,33 @@
 import calendar
 import csv
 import random
+import datetime
 from operator import itemgetter
 
 from django import forms
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
+from django.core.mail import send_mail, EmailMultiAlternatives
 from django.db import IntegrityError, transaction
 from django.db.models import Q, F, Sum, Count
 from django.db.models.functions import Coalesce, Least
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
+from django.template import Template, Context
+from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.dateparse import parse_date
-from django.views.decorators.http import require_POST
-from .forms_discount_codes import DiscountCodeForm
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_POST, require_http_methods
+
 from openpyxl import Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.utils import get_column_letter
 
-from .forms import (
-    BookingForm,
-    AttractionCreateForm,
-    TicketDrawCreateForm,
-    EmailAuthenticationForm,
-)
-from .forms_suggestions import AttractionSuggestionForm
 from .models import (
     Attraction,
     VisitSlot,
@@ -41,7 +38,18 @@ from .models import (
     TicketDrawVisitSlot,
     AttractionSuggestion,
     DiscountCode,
+    EmailTemplate,
 )
+
+from .forms import (
+    BookingForm,
+    AttractionCreateForm,
+    TicketDrawCreateForm,
+    EmailAuthenticationForm,
+)
+
+from .forms_discount_codes import DiscountCodeForm
+from .forms_suggestions import AttractionSuggestionForm
 
 User = get_user_model()
 
@@ -1602,3 +1610,262 @@ def admin_reports(request):
             "time_list": time_list,
         },
     )
+
+# -----------------------------
+# Emails (admin)
+# -----------------------------
+@staff_member_required
+def admin_email(request):
+
+    email_types = EmailTemplate.TYPE_CHOICES
+
+    selected_type = request.GET.get("email_type")
+    template_id = request.GET.get("template_id")
+
+    templates = EmailTemplate.objects.filter(type=selected_type) if selected_type else []
+
+    selected_template = None
+    if template_id:
+        selected_template = get_object_or_404(EmailTemplate, id=template_id)
+
+    # POST actions
+    if request.method == "POST" and selected_template:
+
+        subject = request.POST.get("subject")
+        body = request.POST.get("body")
+
+        # SAVE
+        if "save" in request.POST:
+            selected_template.subject = subject
+            selected_template.body = body
+            selected_template.save()
+            messages.success(request, "Template saved")
+
+        # SEND TEST
+        elif "send" in request.POST:
+            context = get_email_context(user=request.user)
+            send_template_email(
+                selected_template.type,
+                request.user.email,  # send to yourself
+                context,
+            )
+            messages.success(request, "Test email sent")
+        
+        elif "set_default" in request.POST:
+            # Remove default from all other templates of this type
+            EmailTemplate.objects.filter(type=selected_template.type).update(is_default=False)
+            # Set this one as default
+            selected_template.is_default = True
+            selected_template.save()
+            messages.success(request, f"'{selected_template.name}' is now the default template for {selected_template.get_type_display()}")
+
+        # DELETE
+        elif "delete" in request.POST:
+            # Check if this is the default template
+            was_default = selected_template.is_default
+            template_name = selected_template.name
+            template_type = selected_template.type
+            
+            selected_template.delete()
+            
+            # If we deleted the default, set another template as default if available
+            if was_default:
+                next_template = EmailTemplate.objects.filter(type=template_type).first()
+                if next_template:
+                    next_template.is_default = True
+                    next_template.save()
+                    messages.success(request, f"Template deleted. '{next_template.name}' is now the default.")
+                else:
+                    messages.success(request, "Template deleted. No templates remain for this type.")
+            else:
+                messages.success(request, "Template deleted")
+                
+            return redirect(request.path + f"?email_type={selected_type}")
+            
+
+    # CREATE NEW
+    if request.method == "POST" and "create" in request.POST:
+        # Check if this is the first template of this type
+        is_first = not EmailTemplate.objects.filter(type=selected_type).exists()
+        
+        new_template = EmailTemplate.objects.create(
+            name="New Template",
+            type=selected_type,
+            subject="Subject here",
+            body="",
+            is_default=is_first  # First template becomes default automatically
+        )
+        
+        messages.success(request, "Template created" + (" and set as default" if is_first else ""))
+        return redirect(request.path + f"?email_type={selected_type}&template_id={new_template.id}")
+
+    context = {
+        "email_types": email_types,
+        "templates": templates,
+        "selected_template": selected_template,
+        "selected_type": selected_type,
+    }
+
+    return render(request, "fergusonbequest/admin_email.html", context)
+
+def send_template_email(template_type, recipient, context_dict):
+
+    template = EmailTemplate.objects.filter(type=template_type).first()
+
+    if not template:
+        return
+
+    # render subject + body from DB template
+    subject = Template(template.subject).render(Context(context_dict))
+    body_content = Template(template.body).render(Context(context_dict))
+
+    # inject into your HTML layout
+    html_body = render_to_string(
+        "fergusonbequest/base_email.html",
+        {
+            "body": body_content
+        }
+    )
+
+    email = EmailMultiAlternatives(
+        subject,
+        body_content,  # plain text fallback
+        settings.DEFAULT_FROM_EMAIL,
+        [recipient]
+    )
+
+    email.attach_alternative(html_body, "text/html")
+
+    email.send(fail_silently=False)
+
+
+#Confirmation
+def send_attraction_booking_email_confirmation(booking):
+    context = get_email_context(booking=booking)
+    send_template_email(
+        "attraction_confirmation",
+        booking.user.email,
+        context,
+    )
+
+def send_draw_booking_email_confirmation(draw_booking):
+    context = get_email_context(draw_booking=draw_booking)
+    send_template_email(
+        "draw_confirmation",
+        draw_booking.user.email,
+        context,
+    )
+
+#Cancellation
+def send_attraction_booking_email_cancellation(booking):
+    context = get_email_context(booking=booking)
+    send_template_email(
+        "draw_confirmation",
+        draw_booking.user.email,
+        context,
+    )
+
+def send_draw_booking_email_cancellation(draw_booking):
+    context = get_email_context(draw_booking=draw_booking)
+    send_template_email(
+        "draw_confirmation",
+        draw_booking.user.email,
+        context,
+    )
+
+
+
+def get_email_context(booking=None, draw_booking=None, user=None, **kwargs): # only pass one
+    context = {
+        "current_date": timezone.now().strftime("%d/%m/%Y"),
+        "current_time": timezone.now().strftime("%H:%M"),
+        
+        "site_name": "Ferguson Bequest",
+        "site_url": "https://www.gla.ac.uk/myglasgow/courtoffice/fergusonbequest/",
+        "homepage_url": "/",
+        "contact_email": "fergusonbequest@glasgow.ac.uk",
+    }
+    
+    if user:
+        context.update({
+            "user_id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "full_name": f"{user.first_name} {user.last_name}".strip(),
+        })
+    elif booking and booking.user:
+        context.update({
+            "user_id": booking.user.id,
+            "username": booking.user.username,
+            "email": booking.user.email,
+            "first_name": booking.user.first_name,
+            "last_name": booking.user.last_name,
+            "full_name": booking.full_name or f"{booking.user.first_name} {booking.user.last_name}".strip(),
+        })
+    elif draw_booking and draw_booking.user:
+        context.update({
+            "user_id": draw_booking.user.id,
+            "username": draw_booking.user.username,
+            "email": draw_booking.user.email,
+            "first_name": draw_booking.user.first_name,
+            "last_name": draw_booking.user.last_name,
+            "full_name": draw_booking.full_name or f"{draw_booking.user.first_name} {draw_booking.user.last_name}".strip(),
+        })
+    
+    if booking:
+        context.update({
+            # Booking info
+            "booking_type": "attraction",
+            "booking_id": booking.id,
+            "booking_created_date": booking.created_at.strftime("%d/%m/%Y %H:%M"),
+            "booking_status": "Cancelled" if booking.cancelled else "Confirmed",
+            "booking_num_tickets": booking.num_tickets,
+            
+            # Attraction info
+            "attraction_id": booking.attraction.id,
+            "attraction_name": booking.attraction.name,
+            "attraction_location": booking.attraction.location,
+            "attraction_description": booking.attraction.description,
+            
+            # Slot info
+            "visit_date": booking.slot.date.strftime("%d/%m/%Y"),
+            "visit_day": booking.slot.date.strftime("%A"),  # Monday, Tuesday, etc.
+            "visit_time": booking.slot.time.strftime("%H:%M"),
+            "visit_datetime": f"{booking.slot.date.strftime('%d/%m/%Y')} at {booking.slot.time.strftime('%H:%M')}",
+            
+            # Links
+            "cancel_link": f"/booking/{booking.id}/cancel/",
+            "view_booking_link": f"/booking/history/#booking-{booking.id}",
+        })
+    
+    if draw_booking:
+        context.update({
+            # Draw booking info
+            "booking_type": "draw",
+            "booking_id": draw_booking.id,
+            "booking_created_date": draw_booking.created_at.strftime("%d/%m/%Y %H:%M"),
+            "booking_status": "Cancelled" if draw_booking.cancelled else "Entered",
+            "booking_num_tickets": draw_booking.num_tickets,
+            
+            # Draw info
+            "draw_id": draw_booking.ticket_draw.id,
+            "draw_name": draw_booking.ticket_draw.name,
+            "draw_location": draw_booking.ticket_draw.location,
+            "draw_description": draw_booking.ticket_draw.description,
+            
+            # Draw slot info
+            "visit_date": draw_booking.slot.date.strftime("%d/%m/%Y"),
+            "visit_day": draw_booking.slot.date.strftime("%A"),
+            "visit_time": draw_booking.slot.time.strftime("%H:%M"),
+            "visit_datetime": f"{draw_booking.slot.date.strftime('%d/%m/%Y')} at {draw_booking.slot.time.strftime('%H:%M')}",
+            
+            # Links
+            "cancel_link": f"/ticket-draw/{draw_booking.id}/cancel/",
+            "view_booking_link": f"/booking/history/#booking-{draw_booking.id}",
+        })
+    
+    context.update(kwargs)
+    
+    return context

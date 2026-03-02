@@ -347,4 +347,60 @@ class AttractionSuggestion(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.status})"
+    
+class EmailTemplate(models.Model):
+    TYPE_CHOICES = [
+        # Confirmation
+        ("attraction_confirmation", "Attraction Confirmation"),
+        ("draw_confirmation", "Ticket Draw Confirmation"),
+
+        # Cancellation
+        ("attraction_cancellation", "Attraction Cancellation"),
+        ("draw_cancellation", "Ticket Draw Cancellation"),
+
+        # Ticket Distribution - Send ticket 3 days before if not cancelled, cannot be cancelled after ticket has been sent
+        ("attraction_distribution", "Attraction Cancellation"),
+        ("draw_distribution", "Ticket Draw Cancellation"),
+
+        # Draw Winner, accept or reject (cant reject after accepting, reject after 72h)
+        ("draw_cancellation", "Ticket Draw Cancellation"),
+
+        # Attraction Waiting List Winner (Attraciton Waiting List)
+        ("attraction_cancellation", "Attraction Cancellation"),
+
+        # Draw Waiting List Winner - Redraw Winner, Accept or Reject (Waiting List redraw if winner cancelled)
+        ("draw_cancellation", "Ticket Draw Cancellation"),
+
+        # Reminder 1 day before of attraction or draw
+        ("attraction_cancellation", "Attraction Cancellation"),
+
+        # Forms - Feedback
+        ("attraction_cancellation", "Attraction Cancellation"),
+        ("draw_cancellation", "Ticket Draw Cancellation"),
+
+        # Announcements
+
+        # Custom
+
+
+    ]
+
+    type = models.CharField(max_length=100, choices=TYPE_CHOICES, default="confirmation")
+    name = models.CharField(max_length=100)
+    subject = models.CharField(max_length=250)
+    body = models.TextField()
+    is_default = models.BooleanField(default=False, help_text="Use this as the default template for this email type")
+
+    class Meta:
+        # Ensure only one default per type
+        constraints = [
+            models.UniqueConstraint(
+                fields=['type'],
+                condition=Q(is_default=True),
+                name='unique_default_per_type'
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.get_type_display()} – {self.name}"
 

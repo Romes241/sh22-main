@@ -1,0 +1,182 @@
+{% extends "fergusonbequest/base.html" %}
+{% load static %}
+
+{% block title %}Emails – Ferguson Bequest{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'fergusonbequest/css/admin_emails.css' %}">
+{% endblock %}
+
+{% block content %}
+<h1 class="fb-h1">Emails</h1>
+
+<div class="ae-toolbar">
+
+  <!-- Email Type Filter -->
+  <form method="GET" class="ae-filter-form">
+    <div class="ae-form-row">
+      <label>Email Type</label>
+      <select name="email_type" onchange="this.form.submit()">
+        <option value="">Select type</option>
+        {% for value,label in email_types %}
+          <option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    {% if selected_type %}
+    <div class="ae-form-row">
+      <label>Template</label>
+      <select name="template_id" onchange="this.form.submit()">
+        <option value="">Select template</option>
+        {% for temp in templates %}
+          <option value="{{ temp.id }}" {% if selected_template and selected_template.id == temp.id %}selected{% endif %}>
+            {{ temp.name }}{% if temp.is_default %}(Default){% endif %}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+  </form>
+
+  {% if selected_type %}
+  <form method="POST">
+    {% csrf_token %}
+    <button type="submit" name="create" class="fb-btn fb-btn--primary">+ New Template</button>
+  </form>
+  {% endif %}
+
+</div>
+
+{% if messages %}
+<div class="messages-container">
+  {% for message in messages %}
+    <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="ae-card">
+
+  {% if selected_template %}
+  <form method="POST">
+    {% csrf_token %}
+
+    <div class="ae-form-row">
+      <label>Template Name</label>
+      <input type="text" name="name" value="{{ selected_template.name }}">
+    </div>
+
+    <div class="ae-form-row">
+      <label>Subject</label>
+      <input type="text" name="subject" value="{{ selected_template.subject }}">
+    </div>
+
+<button type="button" class="fb-btn fb-btn--primary" onclick="toggleVariablesPanel()">
+  Show All Available Variables
+</button>
+
+<div id="variables-panel" >
+
+  <code onclick="copyToClipboard('{{ current_date }}')">{% templatetag openvariable %} current_date {% templatetag closevariable %}</code> (e.g., 25/03/2024)<br>
+  <code onclick="copyToClipboard('{{ current_time }}')">{% templatetag openvariable %} current_time {% templatetag closevariable %}</code> (e.g., 14:30)<br>
+  <code onclick="copyToClipboard('{{ site_name }}')">{% templatetag openvariable %} site_name {% templatetag closevariable %}</code> Ferguson Bequest<br>
+  <code onclick="copyToClipboard('{{ site_url }}')">{% templatetag openvariable %} site_url {% templatetag closevariable %}</code> Website link<br>
+  <code onclick="copyToClipboard('{{ homepage_url }}')">{% templatetag openvariable %} homepage_url {% templatetag closevariable %}</code> Homepage link<br>
+  <code onclick="copyToClipboard('{{ contact_email }}')">{% templatetag openvariable %} contact_email {% templatetag closevariable %}</code> fergusonbequest@glasgow.ac.uk<br>
+
+  <h4>User</h4>
+  <code onclick="copyToClipboard('{{ user_id }}')">{% templatetag openvariable %} user_id {% templatetag closevariable %}</code><br>
+  <code onclick="copyToClipboard('{{ username }}')">{% templatetag openvariable %} username {% templatetag closevariable %}</code><br>
+  <code onclick="copyToClipboard('{{ email }}')">{% templatetag openvariable %} email {% templatetag closevariable %}</code><br>
+  <code onclick="copyToClipboard('{{ first_name }}')">{% templatetag openvariable %} first_name {% templatetag closevariable %}</code><br>
+  <code onclick="copyToClipboard('{{ last_name }}')">{% templatetag openvariable %} last_name {% templatetag closevariable %}</code><br>
+  <code onclick="copyToClipboard('{{ full_name }}')">{% templatetag openvariable %} full_name {% templatetag closevariable %}</code><br>
+
+  <h4>Booking (For both attraction and ticket draw)</h4>
+  <code onclick="copyToClipboard('{{ booking_type }}')">{% templatetag openvariable %} booking_type {% templatetag closevariable %}</code><br>
+  <code onclick="copyToClipboard('{{ booking_id }}')">{% templatetag openvariable %} booking_id {% templatetag closevariable %}</code><br>
+  <code onclick="copyToClipboard('{{ booking_created_date }}')">{% templatetag openvariable %} booking_created_date {% templatetag closevariable %}</code><br>
+  <code onclick="copyToClipboard('{{ booking_status }}')">{% templatetag openvariable %} booking_status {% templatetag closevariable %}</code><br>
+  <code onclick="copyToClipboard('{{ booking_num_tickets }}')">{% templatetag openvariable %} booking_num_tickets {% templatetag closevariable %}</code><br>
+  <code onclick="copyToClipboard('{{ visit_date }}')">{% templatetag openvariable %} visit_date {% templatetag closevariable %}</code><br>
+  <code onclick="copyToClipboard('{{ visit_day }}')">{% templatetag openvariable %} visit_day {% templatetag closevariable %}</code><br>
+  <code onclick="copyToClipboard('{{ visit_time }}')">{% templatetag openvariable %} visit_time {% templatetag closevariable %}</code><br>
+  <code onclick="copyToClipboard('{{ visit_datetime }}')">{% templatetag openvariable %} visit_datetime {% templatetag closevariable %}</code><br>
+  <code onclick="copyToClipboard('{{ cancel_link }}')">{% templatetag openvariable %} cancel_link {% templatetag closevariable %}</code><br>
+  <code onclick="copyToClipboard('{{ view_booking_link }}')">{% templatetag openvariable %} view_booking_link {% templatetag closevariable %}</code><br>
+
+  <h4>Attraction</h4>
+  <code onclick="copyToClipboard('{{ attraction_id }}')">{% templatetag openvariable %} attraction_id {% templatetag closevariable %}</code><br>
+  <code onclick="copyToClipboard('{{ attraction_name }}')">{% templatetag openvariable %} attraction_name {% templatetag closevariable %}</code><br>
+  <code onclick="copyToClipboard('{{ attraction_location }}')">{% templatetag openvariable %} attraction_location {% templatetag closevariable %}</code><br>
+  <code onclick="copyToClipboard('{{ attraction_description }}')">{% templatetag openvariable %} attraction_description {% templatetag closevariable %}</code><br>
+
+  <h4>Ticket Draw</h4>
+  <code onclick="copyToClipboard('{{ draw_id }}')">{% templatetag openvariable %} draw_id {% templatetag closevariable %}</code><br>
+  <code onclick="copyToClipboard('{{ draw_name }}')">{% templatetag openvariable %} draw_name {% templatetag closevariable %}</code><br>
+  <code onclick="copyToClipboard('{{ draw_location }}')">{% templatetag openvariable %} draw_location {% templatetag closevariable %}</code><br>
+  <code onclick="copyToClipboard('{{ draw_description }}')">{% templatetag openvariable %} draw_description {% templatetag closevariable %}</code><br>
+</div>
+
+    <div class="ae-form-row">
+      <label>Email Body (HTML allowed)</label>
+      <textarea name="body" rows="18">{{ selected_template.body }}</textarea>
+    </div>
+
+    <div class="ae-form-row ae-form-row--actions">
+      <button type="submit" name="save" class="fb-btn fb-btn--primary">Save</button>
+      <button type="submit" name="send" class="fb-btn fb-btn--primary">Send Test</button>
+      <button type="submit" name="set_default" class="fb-btn fb-btn--primary">Set as Default</button>
+      <button type="submit" name="delete" class="fb-btn fb-btn--primary">Delete</button>
+    </div>
+
+  </form>
+  {% else %}
+    <div class="ae-empty">Select an email type and template to begin editing.</div>
+  {% endif %}
+
+</div>
+
+<script>
+function toggleVariablesPanel() {
+  const panel = document.getElementById('variables-panel');
+  if (panel.style.display === 'none' || panel.style.display === '') {
+    panel.style.display = 'block';
+  } else {
+    panel.style.display = 'none';
+  }
+}
+
+function copyToClipboard(text) {
+  // Remove the curly braces if they're included
+  text = text.replace(/[{}]/g, '');
+  
+  navigator.clipboard.writeText(text).then(() => {
+    // Show temporary success message
+    const toast = document.createElement('div');
+    toast.className = 'copy-toast';
+    toast.textContent = `Copied: ${text}`;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+      toast.remove();
+    }, 2000);
+  }).catch(err => {
+    console.error('Failed to copy: ', err);
+  });
+}
+
+// Close panel when clicking outside
+document.addEventListener('click', function(event) {
+  const panel = document.getElementById('variables-panel');
+  const button = document.querySelector('[onclick="toggleVariablesPanel()"]');
+  
+  if (panel.style.display === 'block' && 
+      !panel.contains(event.target) && 
+      !button.contains(event.target)) {
+    panel.style.display = 'none';
+  }
+});
+</script>
+{% endblock %}
