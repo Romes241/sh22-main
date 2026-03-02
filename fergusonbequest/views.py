@@ -558,6 +558,7 @@ def booking_view(request, attraction_pk):
             VisitSlot.objects.filter(pk=slot.pk).update(remaining=F("remaining") - booking.num_tickets)
 
         messages.success(request, "Booking confirmed!")
+        send_attraction_booking_email_confirmation(booking)
         return redirect("booking_history")
 
     except IntegrityError:
@@ -699,6 +700,8 @@ def cancel_booking(request, pk):
                 remaining=Least(F("remaining") + b.num_tickets, F("capacity"))
             )
 
+            send_attraction_booking_email_cancellation(booking)
+
             current_year = timezone.now().year
             active_yearly_count = Booking.objects.filter(
                 user=b.user, cancelled=False, created_at__year=current_year
@@ -812,7 +815,7 @@ def ticket_draw_detail(request, slug):
             return redirect("ticket_draw_detail", slug=slug)
 
         with transaction.atomic():
-            TicketDrawBooking.objects.create(
+            booking = TicketDrawBooking.objects.create(
                 user=request.user,
                 ticket_draw=draw,
                 slot=slot,
@@ -824,6 +827,7 @@ def ticket_draw_detail(request, slug):
             TicketDrawVisitSlot.objects.filter(pk=slot.pk).update(remaining=F("remaining") - num_tickets)
 
         messages.success(request, "Successfully entered draw!")
+        send_draw_booking_email_confirmation(booking)
         return redirect("draw_waiting_list")
 
     slots = TicketDrawVisitSlot.objects.filter(
@@ -895,6 +899,8 @@ def cancel_ticket_draw_entry(request, pk):
                 draw.winner_selected_at = None
                 draw.save(update_fields=["winner_booking", "winner_selected_at"])
                 assign_next_winner(draw)
+
+            send_draw_booking_email_cancellation(booking)
 
             messages.success(request, f"Entry for {draw.name} cancelled.")
         else:
@@ -1739,7 +1745,7 @@ def send_template_email(template_type, recipient, context_dict):
     email.send(fail_silently=False)
 
 
-#Confirmation
+# Confirmation
 def send_attraction_booking_email_confirmation(booking):
     context = get_email_context(booking=booking)
     send_template_email(
@@ -1756,19 +1762,36 @@ def send_draw_booking_email_confirmation(draw_booking):
         context,
     )
 
-#Cancellation
+# Cancellation
 def send_attraction_booking_email_cancellation(booking):
     context = get_email_context(booking=booking)
     send_template_email(
-        "draw_confirmation",
-        draw_booking.user.email,
+        "attraction_cancellation",
+        booking.user.email,
         context,
     )
 
 def send_draw_booking_email_cancellation(draw_booking):
     context = get_email_context(draw_booking=draw_booking)
     send_template_email(
-        "draw_confirmation",
+        "draw_cancellation",
+        draw_booking.user.email,
+        context,
+    )
+
+# Ticket Distribution
+def send_attraction_booking_email_ticket_distribution(booking):
+    context = get_email_context(booking=booking)
+    send_template_email(
+        "attraction_distribution",
+        booking.user.email,
+        context,
+    )
+
+def send_draw_booking_email_ticket_distribution(draw_booking):
+    context = get_email_context(draw_booking=draw_booking)
+    send_template_email(
+        "draw_distribution",
         draw_booking.user.email,
         context,
     )

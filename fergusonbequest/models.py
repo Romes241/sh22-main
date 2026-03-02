@@ -359,28 +359,30 @@ class EmailTemplate(models.Model):
         ("draw_cancellation", "Ticket Draw Cancellation"),
 
         # Ticket Distribution - Send ticket 3 days before if not cancelled, cannot be cancelled after ticket has been sent
-        ("attraction_distribution", "Attraction Cancellation"),
-        ("draw_distribution", "Ticket Draw Cancellation"),
+        ("attraction_distribution", "Attraction Ticket Distribution"),
+        ("draw_distribution", "Ticket Draw Ticket Distribution"),
 
         # Draw Winner, accept or reject (cant reject after accepting, reject after 72h)
-        ("draw_cancellation", "Ticket Draw Cancellation"),
+        ("draw_winner", "Ticket Draw Winner"),
 
-        # Attraction Waiting List Winner (Attraciton Waiting List)
-        ("attraction_cancellation", "Attraction Cancellation"),
+        # Attraction Waiting List reallocation (Attraciton Waiting List)
+        ("attraction_reallocation", "Attraction Reallocation (Next in waiting list)"),
 
         # Draw Waiting List Winner - Redraw Winner, Accept or Reject (Waiting List redraw if winner cancelled)
-        ("draw_cancellation", "Ticket Draw Cancellation"),
+        ("draw_reallocation", "Ticket Draw Reallocation (Redraw Winner)"),
 
         # Reminder 1 day before of attraction or draw
-        ("attraction_cancellation", "Attraction Cancellation"),
+        ("attraction_reminder", "Attraction Reminder"),
+        ("draw_reminder", "Ticket Draw Reminder"),
 
         # Forms - Feedback
-        ("attraction_cancellation", "Attraction Cancellation"),
-        ("draw_cancellation", "Ticket Draw Cancellation"),
+        ("feedback", "Feedback"),
 
         # Announcements
+        ("accouncement", "Announcements"),
 
         # Custom
+        ("custom", "Custom"),
 
 
     ]
