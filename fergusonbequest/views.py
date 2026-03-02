@@ -1338,6 +1338,9 @@ def admin_reports(request):
     specific_time = request.GET.get("specific_time")
     date_select = request.GET.get("date_select")
     time_select = request.GET.get("time_select")
+    ticket_code = request.GET.get("ticket_code")
+    min_tickets = request.GET.get("min_tickets")
+    max_tickets = request.GET.get("max_tickets")
 
     sort = request.GET.get("sort", "newest")
 
@@ -1361,6 +1364,14 @@ def admin_reports(request):
             qs_out = qs_out.filter(slot__date__gte=start)
         if end:
             qs_out = qs_out.filter(slot__date__lte=end)
+
+        if ticket_code:
+            qs_out = qs_out.filter(ticket_code__icontains=ticket_code)
+        
+        if min_tickets and min_tickets.isdigit():
+            qs_out = qs_out.filter(num_tickets__gte=int(min_tickets))
+        if max_tickets and max_tickets.isdigit():
+            qs_out = qs_out.filter(num_tickets__lte=int(max_tickets))
 
         venue_value = venue if venue else venue_select
         if venue_value:
@@ -1392,6 +1403,8 @@ def admin_reports(request):
                 | Q(user__email__icontains=q)
                 | Q(slot__date__icontains=q)
                 | Q(slot__time__icontains=q)
+                | Q(ticket_code__icontains=q)
+                | Q(num_tickets__icontains=q)
             )
             if is_draw:
                 qs_out = qs_out.filter(common_filters | Q(ticket_draw__name__icontains=q))
