@@ -23,6 +23,9 @@ from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST, require_http_methods
+from django.core.management.base import BaseCommand
+import logging
+logger = logging.getLogger(__name__)
 
 from openpyxl import Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
@@ -169,14 +172,39 @@ def get_calendar(year=None, month=None):
 
 def assign_next_winner(draw: TicketDraw):
     """
-    If current winner entry is cancelled/missing then pick a new winner from active entries.
+    If current winner entry is cancelled/missing or deadline passed, pick a new winner from active entries.
     If no active entries then clear winner.
     """
-    if getattr(draw, "winner_booking", None) and not draw.winner_booking.cancelled:
-        return
+    if getattr(draw, "winner_booking", None):
+        winner = draw.winner_booking
+        
+        if winner.is_accepted:
+            return
+            
+        if winner.cancelled:
+            draw.winner_booking = None
+            draw.winner_selected_at = None
+            
+        # Check if winner has exceeded 72 hour deadline
+        elif draw.winner_selected_at:
+            deadline = draw.winner_selected_at + datetime.timedelta(hours=72)
+            if timezone.now() > deadline:
+                winner.cancelled = True
+                winner.save(update_fields=["cancelled"])
+                
+                # Restore slot capacity
+                TicketDrawVisitSlot.objects.filter(pk=winner.slot_id).update(
+                    remaining=F("remaining") + winner.num_tickets
+                )
+                
+                draw.winner_booking = None
+                draw.winner_selected_at = None
+            else:
+                return
 
+    # Get all active entries (not cancelled, not accepted)
     entries = list(
-        TicketDrawBooking.objects.filter(ticket_draw=draw, cancelled=False).select_related("user")
+        TicketDrawBooking.objects.filter(ticket_draw=draw, cancelled=False, is_accepted=False ).select_related("user", "ticket_draw", "slot" )
     )
 
     if not entries:
@@ -185,6 +213,8 @@ def assign_next_winner(draw: TicketDraw):
     else:
         draw.winner_booking = random.choice(entries)
         draw.winner_selected_at = timezone.now()
+        
+        send_draw_booking_email_redraw_winner(draw.winner_booking)
 
     draw.save(update_fields=["winner_booking", "winner_selected_at"])
 
@@ -909,23 +939,40 @@ def cancel_ticket_draw_entry(request, pk):
     return redirect(request.META.get("HTTP_REFERER", "draw_waiting_list"))
 
 
-@require_POST
+
 @login_required
 def accept_draw_win(request, pk):
     booking = get_object_or_404(TicketDrawBooking, pk=pk, user=request.user)
     draw = booking.ticket_draw
 
-    if getattr(draw, "winner_booking_id", None) == booking.id:
-        booking.is_accepted = True
-        booking.save(update_fields=["is_accepted"])
-        messages.success(request, f"You have officially accepted your tickets for {draw.name}!")
-    else:
+    # Verify the winner
+    if getattr(draw, "winner_booking_id", None) != booking.id:
         messages.error(request, "You are not the current winner of this draw.")
-
+        return redirect("booking_history")
+    
+    # Check if already accepted
+    if booking.is_accepted:
+        messages.info(request, "You have already accepted these tickets.")
+        return redirect("booking_history")
+    
+    # Check if within deadline (72 hours from when winner was selected)
+    if draw.winner_selected_at:
+        deadline = draw.winner_selected_at + datetime.timedelta(hours=72)
+        if timezone.now() > deadline:
+            messages.error(request, "Sorry, the acceptance deadline has passed. These tickets will be offered to someone else.")
+            return redirect("booking_history")
+    
+    booking.is_accepted = True
+    booking.save(update_fields=["is_accepted"])
+    
+    # send ticket email
+    send_draw_booking_email_ticket_distribution(booking)
+    
+    messages.success(request, f"Congratulations! You have accepted the tickets for {draw.name}.")
     return redirect("booking_history")
 
 
-@require_POST
+
 @login_required
 def decline_draw_win(request, pk):
     booking = get_object_or_404(TicketDrawBooking, pk=pk, user=request.user)
@@ -934,22 +981,28 @@ def decline_draw_win(request, pk):
     if getattr(draw, "winner_booking_id", None) != booking.id:
         messages.error(request, "Invalid request.")
         return redirect("draw_waiting_list")
+    
+    if booking.is_accepted:
+        messages.error(request, "You have already accepted these tickets and cannot decline them now.")
+        return redirect("booking_history")
 
     with transaction.atomic():
         if not booking.cancelled:
             booking.cancelled = True
             booking.save(update_fields=["cancelled"])
-            TicketDrawVisitSlot.objects.filter(pk=booking.slot_id).update(
-                remaining=F("remaining") + booking.num_tickets
-            )
-
+            
+            TicketDrawVisitSlot.objects.filter(pk=booking.slot_id).update(remaining=F("remaining") + booking.num_tickets)
+        
         draw.winner_booking = None
         draw.winner_selected_at = None
         draw.save(update_fields=["winner_booking", "winner_selected_at"])
-
+        
         assign_next_winner(draw)
-
-    messages.info(request, "You have declined the tickets. A new winner has been selected.")
+    
+    # Send decline email
+    send_draw_booking_email_cancellation(booking)
+    
+    messages.info(request, f"You have declined the tickets for {draw.name}. They will be offered to someone else.")
     return redirect("draw_waiting_list")
 
 
@@ -1229,6 +1282,9 @@ def run_draw(request, draw_id):
     winner_name = winner.full_name or (winner.user.get_username() if winner.user else "Winner")
 
     messages.success(request, f"Winner selected: {winner_name}")
+
+    send_draw_booking_email_winner(winner)
+
     return redirect(f"{reverse('admin_management')}?tab=draws")
 
 
@@ -1796,16 +1852,56 @@ def send_draw_booking_email_ticket_distribution(draw_booking):
         context,
     )
 
+# Ticket Draw Winner (Accept or Decline, 3 day deadline)
+def send_draw_booking_email_winner(draw_booking):
+    deadline = timezone.now() + datetime.timedelta(hours=72)
+
+    context = get_email_context(draw_booking=draw_booking, winner_deadline = deadline)
+    send_template_email(
+        "draw_winner",
+        draw_booking.user.email,
+        context,
+    )
+
+# Attraction List Reallocation
+def send_attraction_booking_email_ticket_reallocaton(booking):
+    context = get_email_context(booking=booking)
+    send_template_email(
+        "attraction_reallocation",
+        booking.user.email,
+        context,
+    )
+
+# Ticket Draw Redraw Winner
+def send_draw_booking_email_redraw_winner(draw_booking):
+    deadline = timezone.now() + datetime.timedelta(hours=72)
+
+    context = get_email_context(draw_booking=draw_booking, winner_deadline = deadline)
+    send_template_email(
+        "draw_reallocation",
+        draw_booking.user.email,
+        context,
+    )
 
 
 def get_email_context(booking=None, draw_booking=None, user=None, **kwargs): # only pass one
+    
+    try:
+        from django.contrib.sites.models import Site
+        current_site = Site.objects.get_current()
+        if '127.0.0.1' in current_site.domain or 'localhost' in current_site.domain:
+            domain = f"http://{current_site.domain}"
+        else:
+            domain = f"https://{current_site.domain}"
+    except:
+        domain = "http://127.0.0.1:8000"
+
     context = {
         "current_date": timezone.now().strftime("%d/%m/%Y"),
         "current_time": timezone.now().strftime("%H:%M"),
         
-        "site_name": "Ferguson Bequest",
         "site_url": "https://www.gla.ac.uk/myglasgow/courtoffice/fergusonbequest/",
-        "homepage_url": "/",
+        "homepage_url": domain,
         "contact_email": "fergusonbequest@glasgow.ac.uk",
     }
     
@@ -1859,8 +1955,8 @@ def get_email_context(booking=None, draw_booking=None, user=None, **kwargs): # o
             "visit_datetime": f"{booking.slot.date.strftime('%d/%m/%Y')} at {booking.slot.time.strftime('%H:%M')}",
             
             # Links
-            "cancel_link": f"/booking/{booking.id}/cancel/",
-            "view_booking_link": f"/booking/history/#booking-{booking.id}",
+            "cancel_link": f"{domain}/booking/{booking.id}/cancel/",
+            "view_booking_link": f"{domain}/booking/history/#booking-{booking.id}",
         })
     
     if draw_booking:
@@ -1885,10 +1981,19 @@ def get_email_context(booking=None, draw_booking=None, user=None, **kwargs): # o
             "visit_datetime": f"{draw_booking.slot.date.strftime('%d/%m/%Y')} at {draw_booking.slot.time.strftime('%H:%M')}",
             
             # Links
-            "cancel_link": f"/ticket-draw/{draw_booking.id}/cancel/",
-            "view_booking_link": f"/booking/history/#booking-{draw_booking.id}",
+
+
+            "cancel_link": f"{domain}/ticket-draw/{draw_booking.id}/cancel/",
+            "view_booking_link": f"{domain}/booking/history/#booking-{draw_booking.id}",
+            "accept_link": f"{domain}/ticket-draw/winner/{draw_booking.id}/accept/",
+            "reject_link": f"{domain}/ticket-draw/winner/{draw_booking.id}/reject/",
         })
-    
+
     context.update(kwargs)
+    
+    if context.get("winner_deadline"):
+        if isinstance(context["winner_deadline"], datetime.datetime):
+            context["winner_deadline"] = context["winner_deadline"].strftime("%d/%m/%Y %H:%M")
+            context["winner_deadline_days"] = 3
     
     return context

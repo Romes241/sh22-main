@@ -54,6 +54,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    'django_apscheduler',
+    'django.contrib.sites',
     "fergusonbequest.apps.FergusonbequestConfig",
 ]
 
@@ -141,7 +143,9 @@ LOGOUT_REDIRECT_URL = "/"
 #Email settings
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = '587'
-EMAIL_HOST_USER = '' 
-EMAIL_HOST_PASSWORD = '' 
+EMAIL_HOST_USER = 'tommytran22005@gmail.com' 
+EMAIL_HOST_PASSWORD = 'qrdhopirdcmidmvw' 
 EMAIL_USE_TLS = True
 # EMAIL_USE_SSL = False
+
+SITE_ID = 1

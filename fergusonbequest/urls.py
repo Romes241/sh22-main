@@ -74,5 +74,9 @@ urlpatterns = [
 
     # Discount codes staff page
     path("staff/discounts/", views.discount_codes_page, name="discount_codes"),
-    path("staff/discounts/", views.discount_codes_page, name="discount_codes_page")
+    path("staff/discounts/", views.discount_codes_page, name="discount_codes_page"),
+
+    # Email
+    path('ticket-draw/winner/<int:pk>/accept/', views.accept_draw_win, name='accept_draw_win'),
+    path('ticket-draw/winner/<int:pk>/reject/', views.decline_draw_win, name='decline_draw_win'),
 ]
