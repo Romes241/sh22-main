@@ -1937,57 +1937,90 @@ def get_email_context(booking=None, draw_booking=None, user=None, **kwargs):
         })
 
     if booking:
-        slot = booking.slot
-
+        
+        slot = booking.slot if hasattr(booking, 'slot') else None
+        
+        
+        visit_time = ""
+        visit_date = ""
+        visit_day = ""
+        visit_datetime = ""
+        
+        if slot:
+            if hasattr(slot, 'time') and slot.time:
+                visit_time = slot.time.strftime("%H:%M")
+            if hasattr(slot, 'date') and slot.date:
+                visit_date = slot.date.strftime("%d/%m/%Y")
+                visit_day = slot.date.strftime("%A")
+            if visit_date and visit_time:
+                visit_datetime = f"{visit_date} at {visit_time}"
+        
         context.update({
+            
             "booking_type": "attraction",
             "booking_id": booking.id,
-            "booking_created_date": booking.created_at.strftime("%d/%m/%Y %H:%M"),
+            "booking_created_date": booking.created_at.strftime("%d/%m/%Y %H:%M") if booking.created_at else "",
             "booking_status": "Cancelled" if booking.cancelled else "Confirmed",
             "booking_num_tickets": booking.num_tickets,
-
-            "attraction_id": booking.attraction.id,
-            "attraction_name": booking.attraction.name,
-            "attraction_location": booking.attraction.location,
-            "attraction_description": booking.attraction.description,
-
-            "visit_date": slot.date.strftime("%d/%m/%Y") if slot else "",
-            "visit_day": slot.date.strftime("%A") if slot else "",
-            "visit_time": slot.time.strftime("%H:%M") if slot else "",
-            "visit_datetime": (
-                f"{slot.date.strftime('%d/%m/%Y')} at {slot.time.strftime('%H:%M')}"
-                if slot else ""
-            ),
-
+            
+            
+            "attraction_id": booking.attraction.id if booking.attraction else "",
+            "attraction_name": booking.attraction.name if booking.attraction else "",
+            "attraction_location": booking.attraction.location if booking.attraction else "",
+            "attraction_description": booking.attraction.description if booking.attraction else "",
+            
+            
+            "visit_date": visit_date,
+            "visit_day": visit_day,
+            "visit_time": visit_time,
+            "visit_datetime": visit_datetime,
+            
+            
             "cancel_link": f"{domain}/booking/{booking.id}/cancel/",
             "view_booking_link": f"{domain}/booking/history/#booking-{booking.id}",
         })
-
+    
     
     if draw_booking:
-        slot = draw_booking.slot
-
+        
+        slot = draw_booking.slot if hasattr(draw_booking, 'slot') else None
+        
+        
+        visit_time = ""
+        visit_date = ""
+        visit_day = ""
+        visit_datetime = ""
+        
+        if slot:
+            if hasattr(slot, 'time') and slot.time:
+                visit_time = slot.time.strftime("%H:%M")
+            if hasattr(slot, 'date') and slot.date:
+                visit_date = slot.date.strftime("%d/%m/%Y")
+                visit_day = slot.date.strftime("%A")
+            if visit_date and visit_time:
+                visit_datetime = f"{visit_date} at {visit_time}"
+        
         context.update({
+            
             "booking_type": "draw",
             "booking_id": draw_booking.id,
-            "booking_created_date": draw_booking.created_at.strftime("%d/%m/%Y %H:%M"),
+            "booking_created_date": draw_booking.created_at.strftime("%d/%m/%Y %H:%M") if draw_booking.created_at else "",
             "booking_status": "Cancelled" if draw_booking.cancelled else "Entered",
             "booking_num_tickets": draw_booking.num_tickets,
-
-            "draw_id": draw_booking.ticket_draw.id,
-            "draw_name": draw_booking.ticket_draw.name,
-            "draw_location": draw_booking.ticket_draw.location,
-            "draw_description": draw_booking.ticket_draw.description,
-
             
-            "visit_date": slot.date.strftime("%d/%m/%Y") if slot else "",
-            "visit_day": slot.date.strftime("%A") if slot else "",
-            "visit_time": slot.time.strftime("%H:%M") if slot else "",
-            "visit_datetime": (
-                f"{slot.date.strftime('%d/%m/%Y')} at {slot.time.strftime('%H:%M')}"
-                if slot else ""
-            ),
-
+            
+            "draw_id": draw_booking.ticket_draw.id if draw_booking.ticket_draw else "",
+            "draw_name": draw_booking.ticket_draw.name if draw_booking.ticket_draw else "",
+            "draw_location": draw_booking.ticket_draw.location if draw_booking.ticket_draw else "",
+            "draw_description": draw_booking.ticket_draw.description if draw_booking.ticket_draw else "",
+            
+            
+            "visit_date": visit_date,
+            "visit_day": visit_day,
+            "visit_time": visit_time,
+            "visit_datetime": visit_datetime,
+            
+            
             "cancel_link": f"{domain}/ticket-draw/{draw_booking.id}/cancel/",
             "view_booking_link": f"{domain}/booking/history/#booking-{draw_booking.id}",
             "accept_link": f"{domain}/ticket-draw/winner/{draw_booking.id}/accept/",
