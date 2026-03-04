@@ -1884,27 +1884,28 @@ def send_draw_booking_email_redraw_winner(draw_booking):
     )
 
 
-def get_email_context(booking=None, draw_booking=None, user=None, **kwargs): # only pass one
-    
+def get_email_context(booking=None, draw_booking=None, user=None, **kwargs):
+
     try:
         from django.contrib.sites.models import Site
         current_site = Site.objects.get_current()
+
         if '127.0.0.1' in current_site.domain or 'localhost' in current_site.domain:
             domain = f"http://{current_site.domain}"
         else:
             domain = f"https://{current_site.domain}"
+
     except:
         domain = "http://127.0.0.1:8000"
 
     context = {
         "current_date": timezone.now().strftime("%d/%m/%Y"),
         "current_time": timezone.now().strftime("%H:%M"),
-        
         "site_url": "https://www.gla.ac.uk/myglasgow/courtoffice/fergusonbequest/",
         "homepage_url": domain,
         "contact_email": "fergusonbequest@glasgow.ac.uk",
     }
-    
+
     if user:
         context.update({
             "user_id": user.id,
@@ -1914,6 +1915,7 @@ def get_email_context(booking=None, draw_booking=None, user=None, **kwargs): # o
             "last_name": user.last_name,
             "full_name": f"{user.first_name} {user.last_name}".strip(),
         })
+
     elif booking and booking.user:
         context.update({
             "user_id": booking.user.id,
@@ -1923,6 +1925,7 @@ def get_email_context(booking=None, draw_booking=None, user=None, **kwargs): # o
             "last_name": booking.user.last_name,
             "full_name": booking.full_name or f"{booking.user.first_name} {booking.user.last_name}".strip(),
         })
+
     elif draw_booking and draw_booking.user:
         context.update({
             "user_id": draw_booking.user.id,
@@ -1932,56 +1935,58 @@ def get_email_context(booking=None, draw_booking=None, user=None, **kwargs): # o
             "last_name": draw_booking.user.last_name,
             "full_name": draw_booking.full_name or f"{draw_booking.user.first_name} {draw_booking.user.last_name}".strip(),
         })
-    
+
     if booking:
+        slot = booking.slot
+
         context.update({
-            # Booking info
             "booking_type": "attraction",
             "booking_id": booking.id,
             "booking_created_date": booking.created_at.strftime("%d/%m/%Y %H:%M"),
             "booking_status": "Cancelled" if booking.cancelled else "Confirmed",
             "booking_num_tickets": booking.num_tickets,
-            
-            # Attraction info
+
             "attraction_id": booking.attraction.id,
             "attraction_name": booking.attraction.name,
             "attraction_location": booking.attraction.location,
             "attraction_description": booking.attraction.description,
-            
-            # Slot info
-            "visit_date": booking.slot.date.strftime("%d/%m/%Y"),
-            "visit_day": booking.slot.date.strftime("%A"),  # Monday, Tuesday, etc.
-            "visit_time": booking.slot.time.strftime("%H:%M"),
-            "visit_datetime": f"{booking.slot.date.strftime('%d/%m/%Y')} at {booking.slot.time.strftime('%H:%M')}",
-            
-            # Links
+
+            "visit_date": slot.date.strftime("%d/%m/%Y") if slot else "",
+            "visit_day": slot.date.strftime("%A") if slot else "",
+            "visit_time": slot.time.strftime("%H:%M") if slot else "",
+            "visit_datetime": (
+                f"{slot.date.strftime('%d/%m/%Y')} at {slot.time.strftime('%H:%M')}"
+                if slot else ""
+            ),
+
             "cancel_link": f"{domain}/booking/{booking.id}/cancel/",
             "view_booking_link": f"{domain}/booking/history/#booking-{booking.id}",
         })
+
     
     if draw_booking:
+        slot = draw_booking.slot
+
         context.update({
-            # Draw booking info
             "booking_type": "draw",
             "booking_id": draw_booking.id,
             "booking_created_date": draw_booking.created_at.strftime("%d/%m/%Y %H:%M"),
             "booking_status": "Cancelled" if draw_booking.cancelled else "Entered",
             "booking_num_tickets": draw_booking.num_tickets,
-            
-            # Draw info
+
             "draw_id": draw_booking.ticket_draw.id,
             "draw_name": draw_booking.ticket_draw.name,
             "draw_location": draw_booking.ticket_draw.location,
             "draw_description": draw_booking.ticket_draw.description,
-            
-            # Draw slot info
-            "visit_date": draw_booking.slot.date.strftime("%d/%m/%Y"),
-            "visit_day": draw_booking.slot.date.strftime("%A"),
-            "visit_time": draw_booking.slot.time.strftime("%H:%M"),
-            "visit_datetime": f"{draw_booking.slot.date.strftime('%d/%m/%Y')} at {draw_booking.slot.time.strftime('%H:%M')}",
-            
-            # Links
 
+            
+            "visit_date": slot.date.strftime("%d/%m/%Y") if slot else "",
+            "visit_day": slot.date.strftime("%A") if slot else "",
+            "visit_time": slot.time.strftime("%H:%M") if slot else "",
+            "visit_datetime": (
+                f"{slot.date.strftime('%d/%m/%Y')} at {slot.time.strftime('%H:%M')}"
+                if slot else ""
+            ),
 
             "cancel_link": f"{domain}/ticket-draw/{draw_booking.id}/cancel/",
             "view_booking_link": f"{domain}/booking/history/#booking-{draw_booking.id}",
@@ -1990,10 +1995,9 @@ def get_email_context(booking=None, draw_booking=None, user=None, **kwargs): # o
         })
 
     context.update(kwargs)
-    
-    if context.get("winner_deadline"):
-        if isinstance(context["winner_deadline"], datetime.datetime):
-            context["winner_deadline"] = context["winner_deadline"].strftime("%d/%m/%Y %H:%M")
-            context["winner_deadline_days"] = 3
-    
+
+    if context.get("winner_deadline") and isinstance(context["winner_deadline"], datetime.datetime):
+        context["winner_deadline"] = context["winner_deadline"].strftime("%d/%m/%Y %H:%M")
+        context["winner_deadline_days"] = 3
+
     return context
