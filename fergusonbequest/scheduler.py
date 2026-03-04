@@ -64,12 +64,4 @@ def start_scheduler():
         misfire_grace_time=120,
     )
     
-    scheduler.add_job(
-        check_expired_winners,
-        trigger="date",
-        run_date=timezone.now(),
-        id="check_expired_winners_startup",
-        replace_existing=True,
-    )
-    
     scheduler.start()

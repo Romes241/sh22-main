@@ -1,5 +1,6 @@
 from django.apps import AppConfig
 import os
+import sys
 
 class FergusonbequestConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
@@ -8,7 +9,8 @@ class FergusonbequestConfig(AppConfig):
     def ready(self):
         import fergusonbequest.signals  # noqa
 
-        from .scheduler import start_scheduler
-        
-        if os.environ.get('RUN_MAIN') or not os.environ.get('DJANGO_AUTORELOAD'):
-            start_scheduler()
+        if "runserver" in sys.argv:
+            from .scheduler import start_scheduler
+            
+            if os.environ.get('RUN_MAIN') or not os.environ.get('DJANGO_AUTORELOAD'):
+                start_scheduler()
