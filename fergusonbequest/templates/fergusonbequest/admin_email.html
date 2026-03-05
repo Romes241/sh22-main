@@ -31,7 +31,7 @@
         <option value="">Select template</option>
         {% for temp in templates %}
           <option value="{{ temp.id }}" {% if selected_template and selected_template.id == temp.id %}selected{% endif %}>
-            {{ temp.name }}{% if temp.is_default %}(Default){% endif %}
+            {{ temp.name }}{% if temp.is_default %} (Default){% endif %}
           </option>
         {% endfor %}
       </select>
@@ -48,11 +48,10 @@
 
 </div>
 
-
 <div class="ae-card">
 
   {% if selected_template %}
-  <form method="POST">
+  <form method="POST" id="email-form">
     {% csrf_token %}
 
     <div class="ae-form-row">
@@ -65,77 +64,129 @@
       <input type="text" name="subject" value="{{ selected_template.subject }}">
     </div>
 
-<button type="button" class="fb-btn fb-btn--primary" onclick="toggleVariablesPanel()">
-  Show All Available Variables
-</button>
+    <button type="button" class="fb-btn fb-btn--primary" onclick="toggleVariablesPanel()">
+      Show All Available Variables
+    </button>
 
-<div id="variables-panel" style = "display: none;">
+    <div id="variables-panel" style="display: none;">
 
-  <code onclick="copyToClipboard('{{ current_date }}')">{% templatetag openvariable %} current_date {% templatetag closevariable %}</code> (e.g., 25/03/2024)<br>
-  <code onclick="copyToClipboard('{{ current_time }}')">{% templatetag openvariable %} current_time {% templatetag closevariable %}</code> (e.g., 14:30)<br>
-  <code onclick="copyToClipboard('{{ site_url }}')">{% templatetag openvariable %} site_url {% templatetag closevariable %}</code> Website link<br>
-  <code onclick="copyToClipboard('{{ homepage_url }}')">{% templatetag openvariable %} homepage_url {% templatetag closevariable %}</code> Homepage link<br>
-  <code onclick="copyToClipboard('{{ contact_email }}')">{% templatetag openvariable %} contact_email {% templatetag closevariable %}</code> fergusonbequest@glasgow.ac.uk<br>
+      <code onclick="copyToClipboard('{{ current_date }}')">{% templatetag openvariable %} current_date {% templatetag closevariable %}</code> (e.g., 25/03/2024)<br>
+      <code onclick="copyToClipboard('{{ current_time }}')">{% templatetag openvariable %} current_time {% templatetag closevariable %}</code> (e.g., 14:30)<br>
+      <code onclick="copyToClipboard('{{ site_url }}')">{% templatetag openvariable %} site_url {% templatetag closevariable %}</code> Website link<br>
+      <code onclick="copyToClipboard('{{ homepage_url }}')">{% templatetag openvariable %} homepage_url {% templatetag closevariable %}</code> Homepage link<br>
+      <code onclick="copyToClipboard('{{ contact_email }}')">{% templatetag openvariable %} contact_email {% templatetag closevariable %}</code> fergusonbequest@glasgow.ac.uk<br>
 
-  <h4>User</h4>
-  <code onclick="copyToClipboard('{{ user_id }}')">{% templatetag openvariable %} user_id {% templatetag closevariable %}</code><br>
-  <code onclick="copyToClipboard('{{ username }}')">{% templatetag openvariable %} username {% templatetag closevariable %}</code><br>
-  <code onclick="copyToClipboard('{{ email }}')">{% templatetag openvariable %} email {% templatetag closevariable %}</code><br>
-  <code onclick="copyToClipboard('{{ first_name }}')">{% templatetag openvariable %} first_name {% templatetag closevariable %}</code><br>
-  <code onclick="copyToClipboard('{{ last_name }}')">{% templatetag openvariable %} last_name {% templatetag closevariable %}</code><br>
-  <code onclick="copyToClipboard('{{ full_name }}')">{% templatetag openvariable %} full_name {% templatetag closevariable %}</code><br>
+      <h4>User</h4>
+      <code onclick="copyToClipboard('{{ user_id }}')">{% templatetag openvariable %} user_id {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ username }}')">{% templatetag openvariable %} username {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ email }}')">{% templatetag openvariable %} email {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ first_name }}')">{% templatetag openvariable %} first_name {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ last_name }}')">{% templatetag openvariable %} last_name {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ full_name }}')">{% templatetag openvariable %} full_name {% templatetag closevariable %}</code><br>
 
-  <h4>Booking (For both attraction and ticket draw)</h4>
-  <code onclick="copyToClipboard('{{ booking_type }}')">{% templatetag openvariable %} booking_type {% templatetag closevariable %}</code><br>
-  <code onclick="copyToClipboard('{{ booking_id }}')">{% templatetag openvariable %} booking_id {% templatetag closevariable %}</code><br>
-  <code onclick="copyToClipboard('{{ booking_created_date }}')">{% templatetag openvariable %} booking_created_date {% templatetag closevariable %}</code><br>
-  <code onclick="copyToClipboard('{{ booking_status }}')">{% templatetag openvariable %} booking_status {% templatetag closevariable %}</code><br>
-  <code onclick="copyToClipboard('{{ booking_num_tickets }}')">{% templatetag openvariable %} booking_num_tickets {% templatetag closevariable %}</code><br>
-  <code onclick="copyToClipboard('{{ visit_date }}')">{% templatetag openvariable %} visit_date {% templatetag closevariable %}</code><br>
-  <code onclick="copyToClipboard('{{ visit_day }}')">{% templatetag openvariable %} visit_day {% templatetag closevariable %}</code><br>
-  <code onclick="copyToClipboard('{{ visit_time }}')">{% templatetag openvariable %} visit_time {% templatetag closevariable %}</code><br>
-  <code onclick="copyToClipboard('{{ visit_datetime }}')">{% templatetag openvariable %} visit_datetime {% templatetag closevariable %}</code><br>
-  <div class="variable-example">
-    <code onclick="copyToClipboard('&lt;a href=&quot;{{ cancel_link }}&quot;&gt;Cancel&lt;/a&gt;')">
-      &lt;a href="{% templatetag openvariable %} cancel_link {% templatetag closevariable %}"&gt;Cancel&lt;/a&gt;
-    </code>
-  </div>
-  <div class="variable-example">
-    <code onclick="copyToClipboard('&lt;a href=&quot;{{ view_booking_link }}&quot;&gt;View Booking&lt;/a&gt;')">
-      &lt;a href="{% templatetag openvariable %} view_booking_link {% templatetag closevariable %}"&gt;View Booking&lt;/a&gt;
-    </code>
-  </div>
+      <h4>Booking (For both attraction and ticket draw)</h4>
+      <code onclick="copyToClipboard('{{ booking_type }}')">{% templatetag openvariable %} booking_type {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ booking_id }}')">{% templatetag openvariable %} booking_id {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ booking_created_date }}')">{% templatetag openvariable %} booking_created_date {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ booking_status }}')">{% templatetag openvariable %} booking_status {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ booking_num_tickets }}')">{% templatetag openvariable %} booking_num_tickets {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ visit_date }}')">{% templatetag openvariable %} visit_date {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ visit_day }}')">{% templatetag openvariable %} visit_day {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ visit_time }}')">{% templatetag openvariable %} visit_time {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ visit_datetime }}')">{% templatetag openvariable %} visit_datetime {% templatetag closevariable %}</code><br>
+      <div class="variable-example">
+        <code onclick="copyToClipboard('&lt;a href=&quot;{{ cancel_link }}&quot;&gt;Cancel&lt;/a&gt;')">
+          &lt;a href="{% templatetag openvariable %} cancel_link {% templatetag closevariable %}"&gt;Cancel&lt;/a&gt;
+        </code>
+      </div>
+      <div class="variable-example">
+        <code onclick="copyToClipboard('&lt;a href=&quot;{{ view_booking_link }}&quot;&gt;View Booking&lt;/a&gt;')">
+          &lt;a href="{% templatetag openvariable %} view_booking_link {% templatetag closevariable %}"&gt;View Booking&lt;/a&gt;
+        </code>
+      </div>
 
-  <h4>Attraction</h4>
-  <code onclick="copyToClipboard('{{ attraction_id }}')">{% templatetag openvariable %} attraction_id {% templatetag closevariable %}</code><br>
-  <code onclick="copyToClipboard('{{ attraction_name }}')">{% templatetag openvariable %} attraction_name {% templatetag closevariable %}</code><br>
-  <code onclick="copyToClipboard('{{ attraction_location }}')">{% templatetag openvariable %} attraction_location {% templatetag closevariable %}</code><br>
-  <code onclick="copyToClipboard('{{ attraction_description }}')">{% templatetag openvariable %} attraction_description {% templatetag closevariable %}</code><br>
+      <h4>Attraction</h4>
+      <code onclick="copyToClipboard('{{ attraction_id }}')">{% templatetag openvariable %} attraction_id {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ attraction_name }}')">{% templatetag openvariable %} attraction_name {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ attraction_location }}')">{% templatetag openvariable %} attraction_location {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ attraction_description }}')">{% templatetag openvariable %} attraction_description {% templatetag closevariable %}</code><br>
 
-  <h4>Ticket Draw</h4>
-  <code onclick="copyToClipboard('{{ draw_id }}')">{% templatetag openvariable %} draw_id {% templatetag closevariable %}</code><br>
-  <code onclick="copyToClipboard('{{ draw_name }}')">{% templatetag openvariable %} draw_name {% templatetag closevariable %}</code><br>
-  <code onclick="copyToClipboard('{{ draw_location }}')">{% templatetag openvariable %} draw_location {% templatetag closevariable %}</code><br>
-  <code onclick="copyToClipboard('{{ draw_description }}')">{% templatetag openvariable %} draw_description {% templatetag closevariable %}</code><br>
+      <h4>Ticket Draw</h4>
+      <code onclick="copyToClipboard('{{ draw_id }}')">{% templatetag openvariable %} draw_id {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ draw_name }}')">{% templatetag openvariable %} draw_name {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ draw_location }}')">{% templatetag openvariable %} draw_location {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ draw_description }}')">{% templatetag openvariable %} draw_description {% templatetag closevariable %}</code><br>
 
-  <h4>Ticket Draw Winner</h4>
-  <code onclick="copyToClipboard('{{ winner_deadline }}')">{% templatetag openvariable %} winner_deadline {% templatetag closevariable %}</code><br>
-  <code onclick="copyToClipboard('{{ winner_deadline_days }}')">{% templatetag openvariable %} winner_deadline_days {% templatetag closevariable %}</code><br>
-  <div class="variable-example">
-    <code onclick="copyToClipboard('&lt;a href=&quot;{{ accept_link }}&quot;&gt;Accept&lt;/a&gt;')">
-      &lt;a href="{% templatetag openvariable %} accept_link {% templatetag closevariable %}"&gt;Accept&lt;/a&gt;
-    </code>
-  </div>
-  <div class="variable-example">
-    <code onclick="copyToClipboard('&lt;a href=&quot;{{ reject_link }}&quot;&gt;Reject&lt;/a&gt;')">
-      &lt;a href="{% templatetag openvariable %} reject_link {% templatetag closevariable %}"&gt;Reject&lt;/a&gt;
-    </code>
-  </div>
+      <h4>Ticket Draw Winner</h4>
+      <code onclick="copyToClipboard('{{ winner_deadline }}')">{% templatetag openvariable %} winner_deadline {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ winner_deadline_days }}')">{% templatetag openvariable %} winner_deadline_days {% templatetag closevariable %}</code><br>
+      <div class="variable-example">
+        <code onclick="copyToClipboard('&lt;a href=&quot;{{ accept_link }}&quot;&gt;Accept&lt;/a&gt;')">
+          &lt;a href="{% templatetag openvariable %} accept_link {% templatetag closevariable %}"&gt;Accept&lt;/a&gt;
+        </code>
+      </div>
+      <div class="variable-example">
+        <code onclick="copyToClipboard('&lt;a href=&quot;{{ reject_link }}&quot;&gt;Reject&lt;/a&gt;')">
+          &lt;a href="{% templatetag openvariable %} reject_link {% templatetag closevariable %}"&gt;Reject&lt;/a&gt;
+        </code>
+      </div>
+
+    </div>
 
     <div class="ae-form-row">
       <label>Email Body (HTML allowed)</label>
       <textarea name="body" rows="18">{{ selected_template.body }}</textarea>
     </div>
+
+    
+    {% if selected_type == 'custom' %}
+    <div class="ae-form-row">
+      <label>Add User</label>
+      <select id="userSelector" onchange="addSelectedUser(this)">
+        <option value="">Select a user to add...</option>
+        {% for user in all_users %}
+          <option value="{{ user.id }}" data-name="{{ user.first_name }} {{ user.last_name }}" data-email="{{ user.email }}">
+            {{ user.first_name }} {{ user.last_name }} ({{ user.email }})
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Selected Users List -->
+    <div class="selected-users-container">
+      <div class="selected-users-title">
+        Selected Recipients <span class="recipient-count" id="selectedUsersCount">0</span>
+      </div>
+      <div class="selected-users-list" id="selectedUsersList">
+        <div class="no-users-message" id="noUsersMessage">No users selected. Use the dropdown above to add recipients.</div>
+      </div>
+    </div>
+
+    <!-- Hidden input to store selected user IDs -->
+    <input type="hidden" name="custom_recipient_ids" id="customRecipientIds" value="">
+
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+      <button type="submit" name="send_custom_selected" class="fb-btn fb-btn--primary">
+        Send to Selected Users
+      </button>
+      <button type="button" class="fb-btn fb-btn--secondary" onclick="clearAllSelections()">
+        Clear All
+      </button>
+      <button type="button" class="fb-btn fb-btn--secondary" onclick="addAllUsers()">
+        Add All Users
+      </button>
+    </div>
+    {% endif %}
+
+
+    {% if selected_type == 'announcement' %}
+    <div class="action-buttons" style="margin-top: 20px;">
+      <button type="submit" name="send_announcement_all" class="fb-btn fb-btn--primary">
+        Send to All Users
+      </button>
+    </div>
+    {% endif %}
 
     <div class="ae-form-row ae-form-row--actions">
       <button type="submit" name="save" class="fb-btn fb-btn--primary">Save</button>
@@ -148,8 +199,6 @@
   {% else %}
     <div class="ae-empty">Select an email type and template to begin editing.</div>
   {% endif %}
-
-</div>
 
 <script>
 const variablesPanel = document.getElementById('variables-panel');
@@ -173,6 +222,95 @@ function copyToClipboard(text) {
 
     setTimeout(() => toast.remove(), 1500);
   });
+}
+
+
+let selectedUsers = new Map();
+
+function addSelectedUser(selectElement) {
+  const userId = selectElement.value;
+  
+  if (!userId) {
+    return;
+  }
+  
+  const option = selectElement.options[selectElement.selectedIndex];
+  const userName = option.dataset.name;
+  const userEmail = option.dataset.email;
+  
+  // Check if user is already selected
+  if (!selectedUsers.has(parseInt(userId))) {
+    selectedUsers.set(parseInt(userId), { name: userName, email: userEmail });
+  }
+  
+  updateSelectedUsersDisplay();
+  updateHiddenInput();
+  
+  // Reset selector
+  selectElement.value = '';
+}
+
+function addAllUsers() {
+  const selector = document.getElementById('userSelector');
+  const options = selector.options;
+  
+  for (let i = 1; i < options.length; i++) {
+    const option = options[i];
+    const userId = parseInt(option.value);
+    const userName = option.dataset.name;
+    const userEmail = option.dataset.email;
+    
+    if (!selectedUsers.has(userId)) {
+      selectedUsers.set(userId, { name: userName, email: userEmail });
+    }
+  }
+  
+  updateSelectedUsersDisplay();
+  updateHiddenInput();
+}
+
+function removeUser(userId) {
+  selectedUsers.delete(userId);
+  updateSelectedUsersDisplay();
+  updateHiddenInput();
+}
+
+function updateSelectedUsersDisplay() {
+  const list = document.getElementById('selectedUsersList');
+  const countSpan = document.getElementById('selectedUsersCount');
+  const noUsersMessage = document.getElementById('noUsersMessage');
+  const selectedCount = selectedUsers.size;
+  
+  list.innerHTML = '';
+  
+  if (selectedCount === 0) {
+    list.appendChild(noUsersMessage);
+  } else {
+    selectedUsers.forEach((user, userId) => {
+      const tag = document.createElement('span');
+      tag.className = 'selected-user-tag';
+      tag.innerHTML = `
+        ${user.name} (${user.email})
+        <span class="remove-user" onclick="removeUser(${userId})">&times;</span>
+      `;
+      list.appendChild(tag);
+    });
+  }
+  
+  countSpan.textContent = selectedCount;
+}
+
+function updateHiddenInput() {
+  const ids = Array.from(selectedUsers.keys()).join(',');
+  document.getElementById('customRecipientIds').value = ids;
+}
+
+function clearAllSelections() {
+  if (selectedUsers.size > 0) {
+    selectedUsers.clear();
+    updateSelectedUsersDisplay();
+    updateHiddenInput();
+  }
 }
 </script>
 {% endblock %}

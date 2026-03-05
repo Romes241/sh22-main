@@ -217,6 +217,7 @@ class Booking(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled = models.BooleanField(default=False)
     ticket_code = models.CharField(max_length=16, unique=True, null=True, blank=True)
+    ticket_sent = models.BooleanField(default=False)
 
     class Meta:
         ordering = ("-created_at",)
@@ -262,6 +263,7 @@ class TicketDrawBooking(models.Model):
     cancelled = models.BooleanField(default=False)
     ticket_code = models.CharField(max_length=16, unique=True, null=True, blank=True)
     is_accepted = models.BooleanField(default=False)
+    ticket_sent = models.BooleanField(default=False)
 
     class Meta:
         ordering = ('-created_at',)
@@ -376,10 +378,10 @@ class EmailTemplate(models.Model):
         ("draw_reminder", "Ticket Draw Reminder"),
 
         # Forms - Feedback
-        ("feedback", "Feedback"),
+        #("feedback", "Feedback"),
 
         # Announcements
-        ("accouncement", "Announcements"),
+        ("announcement", "Announcements"),
 
         # Custom
         ("custom", "Custom"),

@@ -963,9 +963,10 @@ def accept_draw_win(request, pk):
             return redirect("booking_history")
     
     booking.is_accepted = True
-    booking.save(update_fields=["is_accepted"])
+    booking.ticket_sent = True
+    booking.save(update_fields=["is_accepted", "ticket_sent"])
     
-    # send ticket email
+    #send ticket right after accepting
     send_draw_booking_email_ticket_distribution(booking)
     
     messages.success(request, f"Congratulations! You have accepted the tickets for {draw.name}.")
@@ -992,15 +993,14 @@ def decline_draw_win(request, pk):
             booking.save(update_fields=["cancelled"])
             
             TicketDrawVisitSlot.objects.filter(pk=booking.slot_id).update(remaining=F("remaining") + booking.num_tickets)
+            # Send decline email
+            send_draw_booking_email_cancellation(booking)
         
         draw.winner_booking = None
         draw.winner_selected_at = None
         draw.save(update_fields=["winner_booking", "winner_selected_at"])
         
         assign_next_winner(draw)
-    
-    # Send decline email
-    send_draw_booking_email_cancellation(booking)
     
     messages.info(request, f"You have declined the tickets for {draw.name}. They will be offered to someone else.")
     return redirect("draw_waiting_list")
@@ -1712,6 +1712,37 @@ def admin_email(request):
                 context,
             )
             messages.success(request, "Test email sent")
+
+        elif "send_announcement_all" in request.POST:
+            selected_template.subject = subject
+            selected_template.body = body
+            selected_template.save()
+            all_users = User.objects.all()
+            count = 0
+            for user in all_users:
+                try:
+                    send_announcement_email(user)
+                    count += 1
+                except Exception as e:
+                    pass
+            messages.success(request, f"Announcement sent to all {count} users.")
+
+        elif "send_custom_selected" in request.POST:
+            selected_template.subject = subject
+            selected_template.body = body
+            selected_template.save()
+            raw_ids = request.POST.get("custom_recipient_ids", "")
+            ids = [int(i) for i in raw_ids.split(",") if i.strip().isdigit()]
+            users = User.objects.filter(id__in=ids)
+            count = 0
+            for user in users:
+                try:
+                    send_custom_email(user)
+                    count += 1
+                except Exception:
+                    pass
+            messages.success(request, f"Custom email sent to {count} selected user(s).")
+            
         
         elif "set_default" in request.POST:
             # Remove default from all other templates of this type
@@ -1766,6 +1797,7 @@ def admin_email(request):
         "templates": templates,
         "selected_template": selected_template,
         "selected_type": selected_type,
+        "all_users": User.objects.all().order_by("last_name", "first_name"),
     }
 
     return render(request, "fergusonbequest/admin_email.html", context)
@@ -1835,7 +1867,7 @@ def send_draw_booking_email_cancellation(draw_booking):
         context,
     )
 
-# Ticket Distribution
+# Ticket Distribution (send after deadline date)
 def send_attraction_booking_email_ticket_distribution(booking):
     context = get_email_context(booking=booking)
     send_template_email(
@@ -1844,6 +1876,7 @@ def send_attraction_booking_email_ticket_distribution(booking):
         context,
     )
 
+# sent after accepting the ticket
 def send_draw_booking_email_ticket_distribution(draw_booking):
     context = get_email_context(draw_booking=draw_booking)
     send_template_email(
@@ -1882,6 +1915,42 @@ def send_draw_booking_email_redraw_winner(draw_booking):
         draw_booking.user.email,
         context,
     )
+
+#Reminder (1 day before)
+def send_attraction_booking_email_reminder(booking):
+    context = get_email_context(booking=booking)
+    send_template_email(
+        "attraction_reminder",
+        booking.user.email,
+        context,
+    )
+
+def send_draw_booking_email_reminder(draw_booking):
+    context = get_email_context(draw_booking=draw_booking)
+    send_template_email(
+        "draw_reminder",
+        draw_booking.user.email,
+        context,
+    )
+
+def send_announcement_email(user):
+    context = get_email_context(user=user)
+    send_template_email(
+        "announcement",
+        user.email,
+        context,
+    )
+    
+def send_custom_email(user):
+    context = get_email_context(user=user)
+    send_template_email(
+        "custom",
+        user.email,
+        context,
+    )
+    
+
+
 
 
 def get_email_context(booking=None, draw_booking=None, user=None, **kwargs):
@@ -2023,8 +2092,8 @@ def get_email_context(booking=None, draw_booking=None, user=None, **kwargs):
             
             "cancel_link": f"{domain}/ticket-draw/{draw_booking.id}/cancel/",
             "view_booking_link": f"{domain}/booking/history/#booking-{draw_booking.id}",
-            "accept_link": f"{domain}/ticket-draw/winner/{draw_booking.id}/accept/",
-            "reject_link": f"{domain}/ticket-draw/winner/{draw_booking.id}/reject/",
+            "accept_link": f"{domain}/draw-waiting-list/accept/{draw_booking.id}",
+            "reject_link": f"{domain}/draw-waiting-list/decline/{draw_booking.id}",
         })
 
     context.update(kwargs)
