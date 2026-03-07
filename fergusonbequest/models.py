@@ -348,3 +348,32 @@ class AttractionSuggestion(models.Model):
     def __str__(self):
         return f"{self.name} ({self.status})"
 
+
+class AttractionWaitlistEntry(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="attraction_waitlist_entries",
+    )
+    attraction = models.ForeignKey(
+        "Attraction",
+        on_delete=models.CASCADE,
+        related_name="waitlist_entries",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    cancelled = models.BooleanField(default=False)
+    notified = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ("-created_at",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "attraction"],
+                condition=Q(cancelled=False),
+                name="unique_active_attraction_waitlist",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} → {self.attraction.name} waitlist"
+

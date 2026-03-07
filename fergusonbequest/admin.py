@@ -8,6 +8,7 @@ from .models import (
     TicketDrawBooking,
     TicketDrawVisitSlot,
     AttractionSuggestion,
+    AttractionWaitlistEntry,
     DiscountCode,   # ← 确保导入
 )
 
@@ -66,6 +67,15 @@ class AttractionSuggestionAdmin(admin.ModelAdmin):
     list_filter = ("status", "created_at")
     search_fields = ("name", "description", "why_recommended", "location", "website_url")
     ordering = ("-created_at",)
+
+
+@admin.register(AttractionWaitlistEntry)
+class AttractionWaitlistEntryAdmin(admin.ModelAdmin):
+    list_display = ("user", "attraction", "created_at", "cancelled", "notified")
+    list_filter = ("cancelled", "notified", "created_at", "attraction")
+    search_fields = ("user__username", "user__email", "attraction__name")
+    ordering = ("-created_at",)
+    readonly_fields = ("created_at",)
 
 
 @admin.register(DiscountCode)
