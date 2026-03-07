@@ -85,13 +85,13 @@
           <div class="panel-heading">Reserve Attraction</div>
 
         <div class="panel-body">
-          {% if remaining_allowance is not None %}
-            <div class="allowance">Your remaining allowance: {{ remaining_allowance }}/3 attractions this year</div>
-          {% else %}
-            <div class="allowance">Your remaining allowance: —/3 attractions this year</div>
-          {% endif %}
+          {% if has_bookable_slots %}
+            {% if remaining_allowance is not None %}
+              <div class="allowance">Your remaining allowance: {{ remaining_allowance }}/3 attractions this year</div>
+            {% else %}
+              <div class="allowance">Your remaining allowance: —/3 attractions this year</div>
+            {% endif %}
 
-          {% if available_slots %}
             <form method="GET"
                   action="{% url 'attraction_book' attraction_pk=attraction.pk %}"
                   novalidate>
@@ -101,12 +101,10 @@
                   <select id="slot-select" name="slot">
                     <option value="" selected disabled>Choose a slot</option>
 
-                    {% for s in available_slots %}
-                      {% if s.remaining > 0 %}
-                        <option value="{{ s.id }}">
-                          {{ s.date|date:"d/m/Y" }} — {{ s.time|time:"H:i" }} ({{ s.remaining }} left)
-                        </option>
-                      {% endif %}
+                    {% for s in bookable_slots %}
+                      <option value="{{ s.id }}">
+                        {{ s.date|date:"d/m/Y" }} — {{ s.time|time:"H:i" }} ({{ s.remaining }} left)
+                      </option>
                     {% endfor %}
                   </select>
 
@@ -121,9 +119,25 @@
               </button>
             </form>
 
+          {% elif user.is_authenticated and is_sold_out %}
+            <div style="margin-top: 4px;">
+              {% if on_waitlist %}
+                <p class="detail-line" style="margin-bottom: 10px; color: #065f46;">You're on this waiting list.</p>
+                <form method="POST" action="{% url 'waiting_listattraction_leave' attraction.pk %}">
+                  {% csrf_token %}
+                  <button class="btn primary" type="submit">Leave Waiting List</button>
+                </form>
+              {% else %}
+                <p class="detail-line" style="margin-bottom: 10px;">This attraction is sold out. Join the waiting list to be notified if spots open.</p>
+                <form method="POST" action="{% url 'waiting_listattraction_join' attraction.pk %}">
+                  {% csrf_token %}
+                  <button class="btn primary" type="submit">Join Waiting List</button>
+                </form>
+              {% endif %}
+            </div>
+
           {% else %}
             <div class="detail-line">No future slots available for booking.</div>
-            <button class="btn primary" type="button" disabled>Book now</button>
           {% endif %}
         </div>
       </div>
