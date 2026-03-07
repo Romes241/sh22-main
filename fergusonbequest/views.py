@@ -40,6 +40,7 @@ from .models import (
     TicketDrawBooking,
     TicketDrawVisitSlot,
     AttractionSuggestion,
+    AttractionWaitlistEntry,
     DiscountCode,
 )
 
@@ -418,10 +419,21 @@ def attraction(request, pk):
         attraction=attraction_obj,
         date__gte=timezone.now().date(),
     ).order_by("date", "time")
+    bookable_slots = available_slots.filter(remaining__gt=0)
+    has_bookable_slots = bookable_slots.exists()
 
     remaining_allowance = 0
     if request.user.is_authenticated:
         remaining_allowance = calculate_remaining_allowance(request.user, attraction_obj.attraction_type)
+
+    is_sold_out = attraction_obj.remaining_total == 0
+    on_waitlist = False
+    if request.user.is_authenticated and is_sold_out:
+        on_waitlist = AttractionWaitlistEntry.objects.filter(
+            user=request.user,
+            attraction=attraction_obj,
+            cancelled=False,
+        ).exists()
 
     return render(
         request,
@@ -429,7 +441,11 @@ def attraction(request, pk):
         {
             "attraction": attraction_obj,
             "available_slots": available_slots,
+            "bookable_slots": bookable_slots,
+            "has_bookable_slots": has_bookable_slots,
             "remaining_allowance": remaining_allowance,
+            "is_sold_out": is_sold_out,
+            "on_waitlist": on_waitlist,
         },
     )
 
@@ -940,17 +956,21 @@ def decline_draw_win(request, pk):
 
 
 # -----------------------------
-# Waiting list for attractions (session-based)
+# Waiting list for attractions
 # -----------------------------
 @login_required
 def waiting_listattraction(request):
-    attractions = Attraction.objects.all().order_by("name")
-    joined_ids = set(request.session.get("attraction_waitlist_ids", []))
+    """Attraction waiting list"""
+    user = request.user
 
-    for a in attractions:
-        a.joined = a.id in joined_ids
+    attraction_waitlist_entries = (
+        AttractionWaitlistEntry.objects
+        .filter(user=user, cancelled=False)
+        .select_related("attraction")
+        .order_by("-created_at")
+    )
 
-    return render(request, "fergusonbequest/waiting_listattraction.html", {"attractions": attractions})
+    return render(request, "fergusonbequest/waiting_listattraction.html", {"attraction_waitlist_entries": attraction_waitlist_entries})
 
 
 @require_POST
@@ -958,12 +978,26 @@ def waiting_listattraction(request):
 def waiting_listattraction_join(request, pk):
     attraction_obj = get_object_or_404(Attraction, pk=pk)
 
-    ids = set(request.session.get("attraction_waitlist_ids", []))
-    ids.add(attraction_obj.id)
-    request.session["attraction_waitlist_ids"] = list(ids)
+    if attraction_obj.remaining_total > 0:
+        messages.error(request, f"{attraction_obj.name} still has availability. Please book directly.")
+        return redirect("attraction", pk=attraction_obj.pk)
 
-    messages.success(request, f"You joined the waiting list for {attraction_obj.name}.")
-    return redirect("waiting_listattraction")
+    existing = AttractionWaitlistEntry.objects.filter(
+        user=request.user,
+        attraction=attraction_obj,
+        cancelled=False,
+    ).first()
+
+    if existing:
+        messages.info(request, f"You're already on the waiting list for {attraction_obj.name}.")
+    else:
+        AttractionWaitlistEntry.objects.create(
+            user=request.user,
+            attraction=attraction_obj,
+        )
+        messages.success(request, f"You joined the waiting list for {attraction_obj.name}.")
+
+    return redirect(request.META.get("HTTP_REFERER", "waiting_listattraction"))
 
 
 @require_POST
@@ -971,12 +1005,20 @@ def waiting_listattraction_join(request, pk):
 def waiting_listattraction_leave(request, pk):
     attraction_obj = get_object_or_404(Attraction, pk=pk)
 
-    ids = set(request.session.get("attraction_waitlist_ids", []))
-    ids.discard(attraction_obj.id)
-    request.session["attraction_waitlist_ids"] = list(ids)
+    entry = AttractionWaitlistEntry.objects.filter(
+        user=request.user,
+        attraction=attraction_obj,
+        cancelled=False,
+    ).first()
 
-    messages.success(request, f"You left the waiting list for {attraction_obj.name}.")
-    return redirect("waiting_listattraction")
+    if entry:
+        entry.cancelled = True
+        entry.save(update_fields=["cancelled"])
+        messages.success(request, f"You left the waiting list for {attraction_obj.name}.")
+    else:
+        messages.info(request, f"You were not on the waiting list for {attraction_obj.name}.")
+
+    return redirect(request.META.get("HTTP_REFERER", "waiting_listattraction"))
 
 
 # -----------------------------
