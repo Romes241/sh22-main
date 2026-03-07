@@ -30,11 +30,8 @@ urlpatterns = [
     # Waiting list (draw)
     path("draw-waiting-list/", views.draw_waiting_list, name="draw_waiting_list"),
     path("draw-waiting-list/cancel/<int:pk>/", views.cancel_ticket_draw_entry, name="cancel_draw_entry"),
-    path("draw-waiting-list/accept/<int:pk>/", views.accept_draw_win, name="accept_draw_win"),
-    path("draw-waiting-list/decline/<int:pk>/", views.decline_draw_win, name="decline_draw_win"),
-
-    # Compatibility alias (optional): keep if templates still link to /waiting-list/
-    path("waiting-list/", views.waiting_list, name="waiting_list"),
+    path("draw/accept/<int:pk>/", views.accept_draw_win, name="accept_draw_win"),
+    path("draw/decline/<int:pk>/", views.decline_draw_win, name="decline_draw_win"),
 
     # Attractions + bookings
     path("attraction/<int:pk>/", views.attraction, name="attraction"),
