@@ -1,0 +1,110 @@
+{# Shared ticket view popup. Used in both Booking History and Ticket Upload  pages to display the user's ticket when "View Ticket" is clicked. #}
+<div id="ticketViewConfig" data-ticket-view-url-template="{{ ticket_view_url_template }}"></div>
+
+<div id="ticketViewModal" class="tu-modal" aria-hidden="true">
+  <div class="tu-modal-content" role="dialog" aria-modal="true" aria-labelledby="ticketViewTitle">
+    <div class="tu-modal-top">
+      <h3 id="ticketViewTitle">Ticket</h3>
+      <button type="button" class="tu-modal-close" onclick="closeTicketViewModal()">✕</button>
+    </div>
+
+    <div class="tu-modal-body" id="ticketViewBody">Loading…</div>
+
+    <div class="tu-modal-actions">
+      <button type="button" class="tu-btn tu-btn--chip" onclick="closeTicketViewModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function escapeHtml(str) {
+    return String(str)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function getTicketViewUrl(bookingId) {
+    const cfg = document.getElementById("ticketViewConfig");
+    const tmpl = cfg?.dataset.ticketViewUrlTemplate;
+    if (!tmpl) return "";
+    return tmpl.replace("999999", String(bookingId));
+  }
+
+  function setTicketViewModalOpen(isOpen) {
+    const modal = document.getElementById("ticketViewModal");
+    if (!modal) return;
+    modal.classList.toggle("is-open", isOpen);
+    modal.setAttribute("aria-hidden", isOpen ? "false" : "true");
+    modal.style.display = "";
+  }
+
+  function closeTicketViewModal() {
+    setTicketViewModalOpen(false);
+  }
+
+  document.addEventListener("click", (e) => {
+    const modal = document.getElementById("ticketViewModal");
+    if (!modal || modal.getAttribute("aria-hidden") === "true") return;
+    if (e.target === modal) closeTicketViewModal();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    const modal = document.getElementById("ticketViewModal");
+    if (!modal || modal.getAttribute("aria-hidden") === "true") return;
+    if (e.key === "Escape") closeTicketViewModal();
+  });
+
+  async function openTicketViewModal(bookingId) {
+    const body = document.getElementById("ticketViewBody");
+    if (!body) return;
+
+    body.textContent = "Loading…";
+    setTicketViewModalOpen(true);
+
+    try {
+      const url = getTicketViewUrl(bookingId);
+      const res = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+
+      if (!res.ok) {
+        const msg = await res.text();
+        body.innerHTML = `<pre style="white-space:pre-wrap;margin:0;">${escapeHtml(msg || ("HTTP " + res.status))}</pre>`;
+        return;
+      }
+
+      const ct = (res.headers.get("content-type") || "").toLowerCase();
+
+      if (ct.startsWith("image/")) {
+        const blob = await res.blob();
+        const objUrl = URL.createObjectURL(blob);
+        body.innerHTML = `
+          <div style="display:flex;justify-content:center;">
+            <img src="${objUrl}" alt="Ticket image" style="max-width:100%;height:auto;">
+          </div>
+        `;
+        return;
+      }
+
+      if (ct.includes("application/pdf")) {
+        const blob = await res.blob();
+        const objUrl = URL.createObjectURL(blob);
+        body.innerHTML = `
+          <div style="height:60vh;">
+            <iframe src="${objUrl}" style="width:100%;height:100%;border:0;"></iframe>
+          </div>
+          <div style="margin-top:12px;">
+            <a class="tu-btn tu-btn--primary" href="${objUrl}" target="_blank" rel="noopener">Open PDF</a>
+          </div>
+        `;
+        return;
+      }
+
+      const text = await res.text();
+      body.innerHTML = `<pre style="white-space:pre-wrap;margin:0;">${escapeHtml(text)}</pre>`;
+    } catch (e) {
+      body.textContent = "Could not load ticket.";
+    }
+  }
+</script>

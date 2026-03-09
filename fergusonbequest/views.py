@@ -16,10 +16,12 @@ from operator import itemgetter
 import csv
 import calendar
 import random
+import string
 
+from io import TextIOWrapper
 from django.db import transaction
 from django.urls import reverse
-from django.http import HttpResponse
+from django.http import HttpResponse, FileResponse
 from django.utils import timezone
 from django.contrib import messages
 from django.shortcuts import render, redirect
@@ -31,10 +33,12 @@ from django.db.models import Q
 from openpyxl import Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.utils import get_column_letter
-
+from django.http import HttpResponseForbidden
+from django.contrib.auth.decorators import login_required
 from .forms_suggestions import AttractionSuggestionForm
 from django.contrib.auth.views import LoginView
 from django.urls import reverse_lazy
+from django.core.paginator import Paginator
 
 User = get_user_model()
 MAX_ATTRACTIONS_PER_YEAR = 3
@@ -105,15 +109,43 @@ def admin_dashboard(request):
             "pending_requests_count": pending_requests_count,
         },
     )
+
 @staff_member_required
 def ticket_upload(request):
     q = (request.GET.get("q") or "").strip()
     venue_id = (request.GET.get("venue") or "").strip()
     sort = (request.GET.get("sort") or "date_desc").strip()
+    kind = (request.GET.get("kind") or "").strip()
+    show_all = (request.GET.get("all") == "1")
 
     venues = Attraction.objects.all().order_by("name")
 
-    qs = Booking.objects.select_related("user", "attraction", "slot").filter(cancelled=False)
+    counts = (
+        Booking.objects
+        .filter(cancelled=False)
+        .values("attraction_id")
+        .annotate(
+            total=Count("id"),
+            ticketed=Count("id", filter=Q(ticket_sent=True)),
+        )
+    )
+
+    by_venue = {
+        str(r["attraction_id"]): (r["ticketed"], r["total"])
+        for r in counts
+    }
+
+    for v in venues:
+        ticketed, total = by_venue.get(str(v.id), (0, 0))
+        v.tu_ticketed = ticketed
+        v.tu_total = total
+
+    # normal bookings
+    qs = (
+        Booking.objects
+        .select_related("user", "attraction", "slot")
+        .filter(cancelled=False)
+    )
 
     if venue_id:
         qs = qs.filter(attraction_id=venue_id)
@@ -126,43 +158,159 @@ def ticket_upload(request):
             | Q(id__icontains=q)
         )
 
-    if sort == "date_asc":
-        qs = qs.order_by("slot__date", "slot__time")
-    elif sort == "surname":
-        qs = qs.order_by("user__last_name", "user__first_name")
-    elif sort == "venue":
-        qs = qs.order_by("attraction__name", "-slot__date")
-    else:
-        qs = qs.order_by("-slot__date", "-slot__time")
+    if kind == "draw":
+        qs = qs.none()
 
-    rows = []
-    for b in qs[:50]:
-        rows.append({
+    # draw bookings
+    draw_qs = (
+        TicketDrawBooking.objects
+        .select_related("user", "ticket_draw", "slot")
+        .filter(cancelled=False)
+    )
+
+    if venue_id:
+        venue_obj = Attraction.objects.filter(id=venue_id).first()
+        if venue_obj:
+            draw_qs = draw_qs.filter(ticket_draw__name__iexact=venue_obj.name)
+
+    if q:
+        draw_qs = draw_qs.filter(
+            Q(ticket_draw__name__icontains=q)
+            | Q(user__first_name__icontains=q)
+            | Q(user__last_name__icontains=q)
+            | Q(id__icontains=q)
+        )
+
+    draw_counts = (
+        TicketDrawBooking.objects
+        .filter(cancelled=False)
+        .values("ticket_draw_id")
+        .annotate(
+            total=Count("id"),
+            ticketed=Count("id", filter=Q(ticket_sent=True)),
+        )
+    )
+
+    draw_by_id = {
+        str(r["ticket_draw_id"]): (r["ticketed"], r["total"])
+        for r in draw_counts
+    }
+
+    if kind == "attraction":
+        draw_qs = draw_qs.none()
+
+    all_rows = []
+
+    for b in qs:
+        ticketed_count, total_count = by_venue.get(str(b.attraction_id), (0, 0))
+        all_rows.append({
             "id": b.id,
             "venue_name": b.attraction.name if b.attraction else "",
             "first_name": b.user.first_name if b.user else "",
             "last_name": b.user.last_name if b.user else "",
-            "guid": b.user.profile.staff_guid if b.user and hasattr(b.user, "profile") else "", # placeholder
+            "guid": b.user.profile.staff_guid if b.user and hasattr(b.user, "profile") else "",
             "booking_date": b.slot.date.strftime("%d/%m/%Y") if b.slot and b.slot.date else "",
+            "sort_date": b.slot.date if b.slot else None,
+            "sort_time": b.slot.time if b.slot else None,
+            "ticketed_count": ticketed_count,
+            "total_count": total_count,
+            "ticket_sent": bool(
+                b.ticket_file
+                or getattr(b, "ticket_qr_value", "")
+                or getattr(b, "ticket_code", "")
+                or getattr(b, "generic_booking_code", "")
+                or getattr(b, "ticket_instructions", "")
+                or b.ticket_type == "box_office"
+            ),
+            "ticket_type": b.ticket_type if b.ticket_type else "—",
+            "ticket_code": b.ticket_code,
+            "ticket_file_url": b.ticket_file.url if b.ticket_file else "",
+            "is_draw": False,
         })
 
-    empty_rows = [None] * max(0, 6 - len(rows))
+    for b in draw_qs:
+        ticketed_count, total_count = draw_by_id.get(str(b.ticket_draw_id), (0, 0))
+        all_rows.append({
+            "id": b.id,
+            "venue_name": b.ticket_draw.name if b.ticket_draw else "",
+            "first_name": b.user.first_name if b.user else "",
+            "last_name": b.user.last_name if b.user else "",
+            "guid": b.user.profile.staff_guid if b.user and hasattr(b.user, "profile") else "",
+            "booking_date": b.slot.date.strftime("%d/%m/%Y") if b.slot and b.slot.date else "",
+            "sort_date": b.slot.date if b.slot else None,
+            "sort_time": b.slot.time if b.slot else None,
+            "ticket_sent": bool(
+                getattr(b, "ticket_sent", False)
+                or getattr(b, "ticket_code", "")
+                or getattr(b, "ticket_file", None)
+                or getattr(b, "ticket_qr_value", "")
+                or getattr(b, "generic_booking_code", "")
+                or getattr(b, "ticket_instructions", "")
+                or getattr(b, "ticket_type", "") == "box_office"
+            ),
+            "ticket_type": b.ticket_type if b.ticket_type else "—",
+            "ticket_code": b.ticket_code,
+            "ticket_file_url": b.ticket_file.url if getattr(b, "ticket_file", None) else "",
+            "is_draw": True,
+            "ticketed_count": ticketed_count,
+            "total_count": total_count,
+        })
 
-    return render(request, "fergusonbequest/ticket_upload.html", {
-        "venues": venues,
-        "rows": rows,
-        "empty_rows": empty_rows,
-        "q": q,
-        "venue_id": venue_id,
-        "sort": sort,
-    })
+    # sort combined list
+    if sort == "date_asc":
+        all_rows.sort(key=lambda r: (r["sort_date"] or "", r["sort_time"] or ""))
+    elif sort == "surname":
+        all_rows.sort(key=lambda r: (r["last_name"] or "", r["first_name"] or ""))
+    elif sort == "venue":
+        all_rows.sort(key=lambda r: (r["venue_name"] or "", r["sort_date"] or ""), reverse=False)
+    else:
+        all_rows.sort(key=lambda r: (r["sort_date"] or "", r["sort_time"] or ""), reverse=True)
+
+    per_page = 10
+    paginator = Paginator(all_rows, per_page if per_page > 0 else 10)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    paged_rows = list(page_obj.object_list)
+    rows = [r for r in paged_rows if not r["is_draw"]]
+    draw_rows = [r for r in paged_rows if r["is_draw"]]
+
+    empty_rows = [] if show_all else [None] * max(0, 10 - len(paged_rows))
+
+    return render(
+        request,
+        "fergusonbequest/ticket_upload.html",
+        {
+            "venues": venues,
+            "rows": rows,
+            "draw_rows": draw_rows,
+            "empty_rows": empty_rows,
+            "page_obj": page_obj,
+            "q": q,
+            "venue_id": venue_id,
+            "sort": sort,
+            "kind": kind,
+            "show_all": show_all,
+            "ticket_view_url_template": reverse("ticket_view", args=[999999]),
+        },
+    )
+
 @staff_member_required
 @require_http_methods(["POST"])
 def ticket_upload_send(request):
-    row_id = request.POST.get("row_id")
-    messages.success(request, f"Ticket sent successfully for booking #{row_id} (demo).")
-    return redirect("ticket_upload")
+    booking_id = request.POST.get("row_id")
+    booking = get_object_or_404(Booking, id=booking_id)
 
+    if not booking.ticket_type:
+        messages.error(request, "No ticket configured for this booking.")
+        return redirect("ticket_upload")
+
+    booking.ticket_sent = True
+    booking.ticket_sent_at = timezone.now()
+    booking.save(update_fields=["ticket_sent", "ticket_sent_at"])
+
+    messages.success(request, f"Ticket marked as sent for booking #{booking.id}.")
+    return redirect("ticket_upload")
 
 @staff_member_required
 @require_http_methods(["POST"])
@@ -170,14 +318,696 @@ def ticket_upload_view_all(request):
     return redirect("ticket_upload")
 
 
+
+def _ticket_response_for_booking(booking):
+    # Prefer a real uploaded PDF/asset if present
+    if getattr(booking, "ticket_file", None):
+        try:
+            return FileResponse(
+                booking.ticket_file.open("rb"),
+                as_attachment=True,
+                filename=getattr(booking.ticket_file, "name", "ticket.pdf").split("/")[-1],
+            )
+        except Exception:
+            # If storage fails, fall through to QR/code
+            pass
+
+    # QR ticket: return QR PNG image
+    if booking.ticket_type == "qr_individual" and booking.ticket_qr_value:
+        import qrcode
+        from io import BytesIO
+
+        img = qrcode.make(booking.ticket_qr_value)
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+        return HttpResponse(buf.getvalue(), content_type="image/png")
+
+    # E-ticket / random code
+    if booking.ticket_code:
+        return HttpResponse(
+            f"Ticket code for booking #{booking.id}: {booking.ticket_code}",
+            content_type="text/plain",
+        )
+
+    # Generic booking code
+    if booking.ticket_type == "booking_code" and booking.generic_booking_code:
+        return HttpResponse(
+            f"Booking code for booking #{booking.id}: {booking.generic_booking_code}",
+            content_type="text/plain",
+        )
+
+    # Staff instructions
+    if booking.ticket_type == "instructions" and booking.ticket_instructions:
+        return HttpResponse(
+            f"Instructions for booking #{booking.id}:\n\n{booking.ticket_instructions}",
+            content_type="text/plain",
+        )
+
+    # Box office
+    if booking.ticket_type == "box_office":
+        return HttpResponse(
+            f"Booking #{booking.id}: Collect tickets at the box office (no digital ticket).",
+            content_type="text/plain",
+        )
+
+    return HttpResponse("No ticket info available for this booking.", status=404)
+
+    # Otherwise fall back to showing the code (random/code types)
+    if booking.ticket_code:
+        return HttpResponse(
+            f"Ticket code for booking #{booking.id}: {booking.ticket_code}",
+            content_type="text/plain",
+        )
+
+    return HttpResponse("No ticket file/code available for this booking.", status=404)
 @staff_member_required
-@require_http_methods(["POST"])
-def ticket_upload_random(request):
-    messages.success(request, "Tickets randomly distributed (demo).")
+def ticket_view(request, booking_id):
+    # staff can view any booking’s ticket
+    booking = Booking.objects.filter(id=booking_id).first()
+
+    if booking:
+        return _ticket_response_for_booking(booking)
+
+    # Try draw booking
+    draw_booking = TicketDrawBooking.objects.filter(id=booking_id).first()
+
+    if draw_booking:
+        class TempBooking:
+            pass
+
+        temp = TempBooking()
+        temp.id = draw_booking.id
+        temp.ticket_file = getattr(draw_booking, "ticket_file", None)
+        temp.ticket_type = getattr(draw_booking, "ticket_type", None)
+        temp.ticket_code = getattr(draw_booking, "ticket_code", None)
+        temp.ticket_qr_value = getattr(draw_booking, "ticket_qr_value", None)
+        temp.ticket_instructions = getattr(draw_booking, "ticket_instructions", None)
+        temp.generic_booking_code = getattr(draw_booking, "generic_booking_code", None)
+
+        return _ticket_response_for_booking(temp)
+
+    return HttpResponse("Ticket not found.", status=404)
+
+@login_required
+def user_ticket_view(request, booking_id):
+
+    booking = Booking.objects.filter(id=booking_id, cancelled=False).first()
+
+    if booking:
+        if booking.user_id != request.user.id and not request.user.is_staff:
+            return HttpResponseForbidden("Not allowed.")
+        return _ticket_response_for_booking(booking)
+
+    # If not a normal booking try a draw booking
+    draw_booking = TicketDrawBooking.objects.filter(id=booking_id, cancelled=False).first()
+
+    if draw_booking:
+        if draw_booking.user_id != request.user.id and not request.user.is_staff:
+            return HttpResponseForbidden("Not allowed.")
+
+        # Convert draw booking into something the ticket viewer understands
+        class TempBooking:
+            pass
+
+        temp = TempBooking()
+        temp.id = draw_booking.id
+        temp.ticket_file = getattr(draw_booking, "ticket_file", None)
+        temp.ticket_type = getattr(draw_booking, "ticket_type", None)
+        temp.ticket_code = getattr(draw_booking, "ticket_code", None)
+        temp.ticket_qr_value = getattr(draw_booking, "ticket_qr_value", None)
+        temp.ticket_instructions = getattr(draw_booking, "ticket_instructions", None)
+        temp.generic_booking_code = getattr(draw_booking, "generic_booking_code", None)
+
+        return _ticket_response_for_booking(temp)
+
+    return HttpResponse("Ticket not found.", status=404)
+
+
+def _bulk_assign(request, bookings, *, apply_fn, label):
+    """
+    apply_fn(booking, idx) should set fields on booking and return update_fields list.
+    """
+    total = len(bookings)
+    assigned = 0
+    now = timezone.now()
+
+    for idx, b in enumerate(bookings):
+        update_fields = apply_fn(b, idx)
+
+        b.ticket_sent = True
+        b.ticket_sent_at = now
+
+        if "ticket_sent" not in update_fields:
+            update_fields.append("ticket_sent")
+        if "ticket_sent_at" not in update_fields:
+            update_fields.append("ticket_sent_at")
+
+        b.save(update_fields=update_fields)
+        assigned += 1
+
+    messages.success(request, f"{label}: assigned {assigned} of {total}.")
+    return assigned
+
+@staff_member_required
+@require_POST
+def venue_distribute_tickets(request):
+    venue_id = (request.POST.get("venue_id") or "").strip()
+    ticket_type = (request.POST.get("ticket_type") or "").strip()
+
+    # Inputs
+    codes_file = request.FILES.get("codes_file")
+    codes_text = request.POST.get("codes_text")
+    trim_spaces = bool(request.POST.get("trim_spaces"))
+    dedupe_codes = bool(request.POST.get("dedupe_codes"))
+
+    if not venue_id:
+        messages.error(request, "No venue selected.")
+        return redirect("/ticket-upload/?open_upload=1")
+
+    if not ticket_type:
+        messages.error(request, "No ticket type selected.")
+        return redirect("ticket_upload")
+
+    def parse_codes():
+        codes = []
+
+        if codes_file:
+            wrapper = TextIOWrapper(codes_file, encoding="utf-8")
+            for line in wrapper:
+                codes.append(line.rstrip("\n"))
+        elif codes_text:
+            codes = codes_text.splitlines()
+
+        if trim_spaces:
+            codes = [c.strip() for c in codes]
+
+        codes = [c for c in codes if c]  # remove blanks
+
+        if dedupe_codes:
+            seen = set()
+            unique = []
+            for c in codes:
+                if c not in seen:
+                    unique.append(c)
+                    seen.add(c)
+            codes = unique
+
+        return codes
+
+    with transaction.atomic():
+        # lock only unsent bookings for this venue
+        bookings = list(
+            Booking.objects.filter(
+                attraction_id=venue_id,
+                cancelled=False,
+                ticket_sent=False,
+            ).select_for_update().order_by("created_at")
+        )
+
+        if not bookings:
+            messages.info(request, "No unsent bookings found for this venue.")
+            return redirect("ticket_upload")
+
+        total_needed = len(bookings)
+
+        # E-ticket codes (partial allowed)
+        if ticket_type == "codes":
+            codes = parse_codes()
+            if not codes:
+                messages.error(request, "No codes provided.")
+                return redirect("ticket_upload")
+
+            to_assign = min(len(codes), total_needed)
+            extra = max(0, len(codes) - to_assign)
+
+            def apply_fn(b, idx):
+                b.ticket_type = "codes"
+                b.ticket_code = codes[idx]
+                b.ticket_file = None
+                return ["ticket_type", "ticket_code", "ticket_file"]
+
+            _bulk_assign(request, bookings[:to_assign], apply_fn=apply_fn, label="E-ticket codes")
+
+            remaining = total_needed - to_assign
+            if remaining:
+                messages.info(request, f"{remaining} booking(s) still need tickets.")
+            if extra:
+                messages.info(request, f"{extra} extra code(s) ignored.")
+            return redirect("ticket_upload")
+
+        # PDF + random code (applies to ALL unsent)
+        if ticket_type == "pdf_template_random":
+            pdf = request.FILES.get("ticket_pdf")
+            if not pdf:
+                messages.error(request, "Please upload a PDF.")
+                return redirect("ticket_upload")
+
+            used = set(
+                Booking.objects.filter(ticket_code__isnull=False)
+                .exclude(ticket_code="")
+                .values_list("ticket_code", flat=True)
+            )
+
+            def generate_random_code():
+                while True:
+                    c = "FB-" + "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
+                    if c not in used:
+                        used.add(c)
+                        return c
+
+            def apply_fn(b, idx):
+                b.ticket_type = "pdf_template_random"
+                b.ticket_file = pdf
+                b.ticket_code = generate_random_code()
+                return ["ticket_type", "ticket_file", "ticket_code"]
+
+            _bulk_assign(request, bookings, apply_fn=apply_fn, label="PDF + random code")
+            return redirect("ticket_upload")
+
+        # QR individual files (partial allowed)
+        # expects: <input name="qr_files" multiple>
+        if ticket_type == "qr_individual":
+            files = request.FILES.getlist("qr_files")
+            if not files:
+                messages.error(request, "Please upload at least one QR file.")
+                return redirect("ticket_upload")
+
+            to_assign = min(len(files), total_needed)
+            extra = max(0, len(files) - to_assign)
+
+            def apply_fn(b, idx):
+                b.ticket_type = "qr_individual"
+                b.ticket_file = files[idx]
+                b.ticket_code = ""
+                return ["ticket_type", "ticket_file", "ticket_code"]
+
+            _bulk_assign(request, bookings[:to_assign], apply_fn=apply_fn, label="QR tickets")
+
+            remaining = total_needed - to_assign
+            if remaining:
+                messages.info(request, f"{remaining} booking(s) still need tickets.")
+            if extra:
+                messages.info(request, f"{extra} extra file(s) ignored.")
+            return redirect("ticket_upload")
+
+        # Instructions (applies to ALL unsent)
+        if ticket_type == "instructions":
+            instructions = (request.POST.get("instructions") or "").strip()
+            if not instructions:
+                messages.error(request, "Please enter instructions.")
+                return redirect("ticket_upload")
+
+            def apply_fn(b, idx):
+                b.ticket_type = "instructions"
+                b.ticket_code = instructions
+                b.ticket_file = None
+                return ["ticket_type", "ticket_code", "ticket_file"]
+
+            _bulk_assign(request, bookings, apply_fn=apply_fn, label="Instructions")
+            return redirect("ticket_upload")
+
+        # Box office (applies to ALL unsent)
+        if ticket_type == "box_office":
+            def apply_fn(b, idx):
+                b.ticket_type = "box_office"
+                b.ticket_code = ""
+                b.ticket_file = None
+                return ["ticket_type", "ticket_code", "ticket_file"]
+
+            _bulk_assign(request, bookings, apply_fn=apply_fn, label="Box office collection")
+            return redirect("ticket_upload")
+
+        # fallback
+        messages.error(request, "Unsupported ticket type.")
+        return redirect("ticket_upload")
+
+@staff_member_required
+@require_POST
+def individual_booking(request):
+    booking_id = (request.POST.get("booking_id") or "").strip()
+    ticket_type = (request.POST.get("ticket_type") or "").strip()
+    row_kind = request.POST.get("row_kind", "b")
+
+    if not booking_id:
+        messages.error(request, "Missing booking id.")
+        return redirect("ticket_upload")
+
+    if not ticket_type:
+        messages.error(request, "No ticket type selected.")
+        return redirect("ticket_upload")
+
+    if row_kind == "d":
+        booking = get_object_or_404(TicketDrawBooking, id=booking_id, cancelled=False)
+    else:
+        booking = get_object_or_404(Booking, id=booking_id, cancelled=False)
+
+    template_pdf = request.FILES.get("ticket_file")
+    codes_file = request.FILES.get("codes_file")
+    codes_text = request.POST.get("codes_text")
+
+    trim_spaces = bool(request.POST.get("trim_spaces"))
+    dedupe_codes = bool(request.POST.get("dedupe_codes"))
+
+    now = timezone.now()
+
+    ticket_visible_at_raw = request.POST.get("ticket_visible_at")
+    ticket_visible_at = None
+
+    if ticket_visible_at_raw:
+        from django.utils.dateparse import parse_datetime
+        dt = parse_datetime(ticket_visible_at_raw)
+        if dt:
+            ticket_visible_at = timezone.make_aware(dt, timezone.get_current_timezone())
+
+    # Booking code (generic)
+    if ticket_type == "booking_code":
+        code = (request.POST.get("booking_code") or "").strip()
+        if not code:
+            messages.error(request, "Please enter a booking code.")
+            return redirect("ticket_upload")
+
+        booking.ticket_type = "booking_code"
+        booking.generic_booking_code = code
+        booking.ticket_visible_at = ticket_visible_at
+        booking.ticket_file = None
+        booking.ticket_code = ""
+        booking.ticket_sent = True
+        booking.ticket_sent_at = now
+        booking.save()
+
+        messages.success(request, f"Booking code set for booking #{booking.id}.")
+        return redirect("ticket_upload")
+
+    # Staff-card instructions
+    if ticket_type == "instructions":
+        text = (request.POST.get("instructions") or "").strip()
+        if not text:
+            messages.error(request, "Please enter instructions.")
+            return redirect("ticket_upload")
+
+        booking.ticket_type = "instructions"
+        booking.ticket_instructions = text
+        booking.ticket_file = None
+        booking.ticket_code = ""
+        booking.ticket_sent = True
+        booking.ticket_sent_at = now
+        booking.save()
+
+        messages.success(request, f"Instructions set for booking #{booking.id}.")
+        return redirect("ticket_upload")
+
+    # Individual QR ticket
+    # Individual QR ticket
+    if ticket_type == "qr_individual":
+        qr_file = request.FILES.get("qr_file")
+
+        if not qr_file:
+            messages.error(request, "Please upload a QR ticket file.")
+            return redirect("ticket_upload")
+
+        booking.ticket_type = "qr_individual"
+        booking.ticket_file = qr_file
+        booking.ticket_code = ""
+        booking.ticket_qr_value = ""
+        booking.ticket_sent = True
+        booking.ticket_sent_at = now
+        booking.save(update_fields=[
+            "ticket_type",
+            "ticket_file",
+            "ticket_code",
+            "ticket_qr_value",
+            "ticket_sent",
+            "ticket_sent_at",
+        ])
+
+        messages.success(request, f"QR ticket uploaded for booking #{booking.id}.")
+        return redirect("ticket_upload")
+
+    # Box office
+    if ticket_type == "box_office":
+        booking.ticket_type = "box_office"
+        booking.ticket_code = ""
+        booking.ticket_file = None
+        booking.ticket_sent = True
+        booking.ticket_sent_at = now
+        booking.save()
+
+        messages.success(request, f"Box office set for booking #{booking.id}.")
+        return redirect("ticket_upload")
+
+    # E-ticket code (single)
+    if ticket_type == "codes":
+        code = ""
+
+        if codes_file:
+            wrapper = TextIOWrapper(codes_file, encoding="utf-8")
+            for line in wrapper:
+                line = line.strip()
+                if line:
+                    code = line
+                    break
+
+        elif codes_text:
+            lines = codes_text.splitlines()
+            if trim_spaces:
+                lines = [l.strip() for l in lines]
+            lines = [l for l in lines if l]
+
+            if dedupe_codes:
+                seen = set()
+                uniq = []
+                for l in lines:
+                    if l not in seen:
+                        uniq.append(l)
+                        seen.add(l)
+                lines = uniq
+
+            if lines:
+                code = lines[0]
+
+        if not code:
+            messages.error(request, "Please provide at least one code.")
+            return redirect("ticket_upload")
+
+        booking.ticket_type = "codes"
+        booking.ticket_code = code
+        booking.ticket_file = None
+        booking.ticket_sent = True
+        booking.ticket_sent_at = now
+        booking.save(update_fields=[
+            "ticket_type",
+            "ticket_code",
+            "ticket_file",
+            "ticket_sent",
+            "ticket_sent_at"
+        ])
+
+        messages.success(request, f"Code assigned for booking #{booking.id}.")
+        return redirect("ticket_upload")
+
+    # PDF template or template + random code
+    if ticket_type in {"pdf_template", "pdf_template_random"}:
+        if not template_pdf:
+            messages.error(request, "Please upload a PDF.")
+            return redirect("ticket_upload")
+
+        booking.ticket_type = ticket_type
+
+        if ticket_type == "pdf_template_random":
+            booking.ticket_code = "FB-" + "".join(
+                random.choices(string.ascii_uppercase + string.digits, k=8)
+            )
+        else:
+            booking.ticket_code = ""
+
+        booking.ticket_file = template_pdf
+        booking.ticket_sent = True
+        booking.ticket_sent_at = now
+        booking.save()
+
+        messages.success(request, f"PDF assigned for booking #{booking.id}.")
+        return redirect("ticket_upload")
+
+    messages.error(request, f"Unsupported ticket type: {ticket_type}")
+    return redirect("ticket_upload")
+
+def normalize_ticket_fields(booking):
+    """
+    Ensure only relevant ticket fields are populated for the chosen ticket_type.
+    Call before booking.save() if you want to enforce consistency.
+    """
+    if booking.ticket_type == "box_office":
+        booking.ticket_code = ""
+        booking.ticket_file = None
+        booking.ticket_qr_value = ""
+        booking.ticket_instructions = ""
+
+    elif booking.ticket_type == "codes":
+        booking.ticket_file = None
+        booking.ticket_qr_value = ""
+        booking.ticket_instructions = ""
+
+    elif booking.ticket_type in {"pdf_template", "pdf_template_random"}:
+        if booking.ticket_type == "pdf_template":
+            booking.ticket_code = ""
+        booking.ticket_qr_value = ""
+        booking.ticket_instructions = ""
+
+    elif booking.ticket_type == "qr_individual":
+        booking.ticket_file = None
+        booking.ticket_code = ""
+        booking.ticket_instructions = ""
+
+    elif booking.ticket_type == "instructions":
+        booking.ticket_file = None
+        booking.ticket_code = ""
+        booking.ticket_qr_value = ""
+
+    elif booking.ticket_type == "booking_code":
+        booking.ticket_file = None
+        booking.ticket_code = ""
+        booking.ticket_qr_value = ""
+        booking.ticket_instructions = ""
+
+
+@staff_member_required
+@require_POST
+def ticket_upload_delete(request):
+    row_id = request.POST.get("row_id")
+    row_kind = (request.POST.get("row_kind") or "b").strip().lower()  # "b" for booking, "d" for draw
+
+    # select the correct model based on the row_kind
+    Model = Booking if row_kind == "b" else TicketDrawBooking
+    obj = get_object_or_404(Model, id=row_id)
+
+    has_ticket = (
+        getattr(obj, "ticket_file", None)
+        or getattr(obj, "ticket_type", None)
+        or getattr(obj, "ticket_code", None)
+        or getattr(obj, "ticket_sent", False)
+        or getattr(obj, "ticket_qr_value", "")
+        or getattr(obj, "ticket_instructions", "")
+        or getattr(obj, "generic_booking_code", "")
+    )
+
+    if not has_ticket:
+        messages.error(
+            request,
+            f"No ticket exists for {'draw booking' if row_kind == 'd' else 'booking'} #{obj.id}."
+        )
+        return redirect("ticket_upload")
+
+    # delete the file from storage if it exists
+    if getattr(obj, "ticket_file", None):
+        obj.ticket_file.delete(save=False)
+
+    # reset standard ticket fields found in both models
+    obj.ticket_file = None
+    obj.ticket_type = None
+    obj.ticket_code = None
+    obj.ticket_sent = False
+
+    # handle fields that might only exist on the standard Booking model
+    # this prevents 'AttributeError' when processing a TicketDrawBooking
+    fields_to_clear = ["ticket_sent_at", "ticket_qr_value", "ticket_instructions", "generic_booking_code"]
+    for field in fields_to_clear:
+        if hasattr(obj, field):
+            setattr(obj, field, None if "at" in field else "")
+    # save the object to keep the booking record but remove the ticket data
+    obj.save()
+    messages.success(request, f"Ticket removed for {'draw booking' if row_kind == 'd' else 'booking'} #{obj.id}.")
+    return redirect("ticket_upload")
+
+
+@staff_member_required
+@require_POST
+def ticket_upload_bulk_delete(request):
+    ids = request.POST.getlist("selected_ids")
+    if not ids:
+        messages.error(request, "No rows selected.")
+        return redirect("ticket_upload")
+
+    booking_ids = []
+    draw_ids = []
+
+    for v in ids:
+        try:
+            kind, pk = v.split(":", 1)
+            if kind == "d":
+                draw_ids.append(pk)
+            else:
+                booking_ids.append(pk)
+        except ValueError:
+            booking_ids.append(v)
+
+    removed = 0
+    missing = 0
+
+    for obj in Booking.objects.filter(id__in=booking_ids):
+        has_ticket = (
+            obj.ticket_file
+            or obj.ticket_type
+            or obj.ticket_code
+            or obj.ticket_sent
+            or getattr(obj, "ticket_qr_value", "")
+            or getattr(obj, "ticket_instructions", "")
+            or getattr(obj, "generic_booking_code", "")
+        )
+
+        if not has_ticket:
+            missing += 1
+            continue
+
+        if obj.ticket_file:
+            obj.ticket_file.delete(save=False)
+
+        obj.ticket_file = None
+        obj.ticket_type = None
+        obj.ticket_code = None
+        obj.ticket_sent = False
+        obj.ticket_sent_at = None
+        obj.ticket_qr_value = ""
+        obj.ticket_instructions = ""
+        obj.generic_booking_code = ""
+        obj.save()
+
+        removed += 1
+
+    for obj in TicketDrawBooking.objects.filter(id__in=draw_ids):
+        has_ticket = (
+            getattr(obj, "ticket_file", None)
+            or getattr(obj, "ticket_type", None)
+            or getattr(obj, "ticket_code", None)
+            or getattr(obj, "ticket_sent", False)
+            or getattr(obj, "ticket_qr_value", "")
+            or getattr(obj, "ticket_instructions", "")
+            or getattr(obj, "generic_booking_code", "")
+        )
+
+        if not has_ticket:
+            missing += 1
+            continue
+
+        if getattr(obj, "ticket_file", None):
+            obj.ticket_file.delete(save=False)
+
+        obj.ticket_file = None
+        obj.ticket_type = None
+        obj.ticket_code = None
+        obj.ticket_sent = False
+        obj.save()
+
+        removed += 1
+
+    if removed:
+        messages.success(request, f"Removed tickets for {removed} row(s).")
+    if missing:
+        messages.error(request, f"{missing} selected row(s) had no ticket to delete.")
+
     return redirect("ticket_upload")
 
 User = get_user_model()
-
 
 @login_required
 def create_attraction_suggestion(request):
@@ -1297,6 +2127,7 @@ def booking_history(request):
     start = request.GET.get('start')
     end = request.GET.get('end')
     sort = request.GET.get('sort', 'created_at')
+    booking_type = (request.GET.get("type") or "").lower()  # attraction|draw|both
 
     today = timezone.now().date()
 
@@ -1328,6 +2159,12 @@ def booking_history(request):
             bookings = bookings.filter(attraction__slug__icontains=venue)
             draw_bookings = draw_bookings.filter(ticket_draw__slug__icontains=venue)
 
+    # Apply booking type filter
+    if booking_type == "attraction":
+        draw_bookings = draw_bookings.none()
+    elif booking_type == "draw":
+        bookings = bookings.none()
+
     if q:
         bookings = bookings.filter(
             Q(attraction__name__icontains=q) |
@@ -1358,43 +2195,93 @@ def booking_history(request):
     past_bookings = list(bookings.filter(slot__date__lt=today))
     past_draws = list(draw_bookings.filter(slot__date__lt=today))
 
-    #  flags
+    # Ticket release helpers
+    def apply_ticket_release_flags(obj, *, is_draw: bool):
+        """
+        Ticket visibility rules:
+        - If obj.ticket_visible_at is set: ticket visible when timezone.now() >= ticket_visible_at
+        - Else: visible when days_until_visit <= ticket_release_days
+        """
+        now_dt = timezone.now()
+        today_local = now_dt.date()
+
+        visit_date = getattr(getattr(obj, "slot", None), "date", None)
+
+        # Pull release-days from the related venue/draw if present, else default 0.
+        src = getattr(obj, "ticket_draw", None) if is_draw else getattr(obj, "attraction", None)
+        release_days = int(getattr(src, "ticket_release_days", 0) or 0)
+
+        # Only meaningful if there IS a ticket configured/assigned.
+        has_ticket = bool(
+            getattr(obj, "ticket_type", None)
+            or getattr(obj, "ticket_code", None)
+            or getattr(obj, "ticket_file", None)
+        )
+
+        # Defaults
+        can_view = False
+        days_until = None
+        days_to_release = None
+
+        # 1) Scheduled visibility takes priority
+        visible_at = getattr(obj, "ticket_visible_at", None)
+        if visible_at:
+            can_view = has_ticket and (now_dt >= visible_at)
+            if not can_view:
+                delta = visible_at - now_dt
+                days_to_release = max(0, delta.days)
+
+        # 2) Fallback to "X days before visit"
+        else:
+            if visit_date:
+                days_until = (visit_date - today_local).days
+
+            if has_ticket and days_until is not None:
+                can_view = (days_until <= release_days)
+
+            if days_until is not None:
+                days_to_release = max(0, days_until - release_days)
+
+        obj.ticket_release_days = release_days
+        obj.days_until_visit = days_until
+        obj.days_to_release = days_to_release
+        obj.can_view_ticket = can_view
+
+    # flags + APPLY the helper (this is the missing part)
     for b in future_bookings + past_bookings:
-        b.booking_type = 'attraction'
+        b.booking_type = "attraction"
         b.is_draw = False
+        apply_ticket_release_flags(b, is_draw=False)
 
     for d in future_draws + past_draws:
-        d.booking_type = 'draw'
+        d.booking_type = "draw"
         d.is_draw = True
+        apply_ticket_release_flags(d, is_draw=True)
 
     # Combine and sort
-    if sort == 'slot_date':
+    if sort == "slot_date":
+
         def sort_key(item):
             return (item.slot.date, item.created_at)
-        reverse = False
+
+        reverse_sort = False
+
     else:
+
         def sort_key(item):
             return item.created_at
-        reverse = True
 
-    future_all = sorted(future_bookings + future_draws, key=sort_key, reverse=reverse)
-    past_all = sorted(past_bookings + past_draws, key=sort_key, reverse=reverse)
+        reverse_sort = True
 
-    return render(request, 'fergusonbequest/booking_history.html', {
-        'future_bookings': future_all,
-        'past_bookings': past_all,
-        'when': when,
-        'status': status,
-        'venue': venue,
-        'q': q,
-        'start': start,
-        'end': end,
-        'sort': sort,
-        'now': timezone.now(),
+    future_all = sorted(future_bookings + future_draws, key=sort_key, reverse=reverse_sort)
+    past_all = sorted(past_bookings + past_draws, key=sort_key, reverse=reverse_sort)
+    return render(request, "fergusonbequest/booking_history.html", {
+        "future_bookings": future_all,
+        "past_bookings": past_all,
         "remaining_allowance": remaining_allowance,
-        "max_allowance": MAX_ATTRACTIONS_PER_YEAR,
+        "today": today,
+        "user_ticket_url_template": reverse("user_ticket_view", args=[999999]),
     })
-
 @require_POST
 @login_required
 def cancel_booking(request, pk):
