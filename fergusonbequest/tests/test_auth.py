@@ -72,3 +72,22 @@ class EmailLoginTests(TestCase):
         resp = self.client.post(reverse('login'), {'username': self.email, 'password': 'wrong'})
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'Please ensure your email and password are correct')
+
+    def test_login_duplicate_email_matches_password_without_crashing(self):
+        """Duplicate emails should not raise MultipleObjectsReturned during login."""
+        other_password = "AnotherComplexPass123"
+        second_user = User.objects.create_user(
+            username=unique_username(),
+            email=self.email,
+            password=other_password,
+        )
+
+        resp_first = self.client.post(reverse('login'), {'username': self.email, 'password': self.password})
+        self.assertEqual(resp_first.status_code, 302)
+        self.assertEqual(int(self.client.session.get('_auth_user_id')), self.user.id)
+
+        self.client.logout()
+
+        resp_second = self.client.post(reverse('login'), {'username': self.email, 'password': other_password})
+        self.assertEqual(resp_second.status_code, 302)
+        self.assertEqual(int(self.client.session.get('_auth_user_id')), second_user.id)

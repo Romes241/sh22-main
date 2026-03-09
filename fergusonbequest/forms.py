@@ -21,14 +21,20 @@ class EmailAuthenticationForm(AuthenticationForm):
         password = cleaned_data.get('password')
 
         if email and password:
-            try:
-                user_obj = User.objects.get(email__iexact=email.strip())
-            except User.DoesNotExist:
+            candidates = list(User.objects.filter(email__iexact=email.strip()).order_by('id'))
+
+            if not candidates:
                 raise forms.ValidationError(self.error_messages.get('invalid_login',
                     "Please ensure your email and password are correct."),
                     code='invalid_login')
 
-            if not user_obj.check_password(password):
+            user_obj = None
+            for candidate in candidates:
+                if candidate.check_password(password):
+                    user_obj = candidate
+                    break
+
+            if user_obj is None:
                 raise forms.ValidationError(self.error_messages.get('invalid_login',
                     "Please ensure your email and password are correct."),
                     code='invalid_login')

@@ -126,6 +126,16 @@ class TicketDraw(models.Model):
         default='weekly_event'
     )
 
+    # winner info (for run draw results)
+    winner_booking = models.ForeignKey(
+        "TicketDrawBooking",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="won_for_draw"
+    )
+    winner_selected_at = models.DateTimeField(null=True, blank=True)
+
     def __str__(self):
         return self.name
 
@@ -316,14 +326,30 @@ class Profile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    staff_guid = models.CharField(max_length=64, unique=True, blank=True, null=True) # Placeholder for staff GUID
-    eligible= models.BooleanField(default=False) # Placeholder for eligibility status
-    eligibility_reason = models.TextField(blank=True, null=True) # Placeholder for eligibility reason
-    department = models.CharField(max_length=255, blank=True, null=True) # Placeholder for department field
+    staff_guid = models.CharField(max_length=64, unique=True, blank=True, null=True)  # Placeholder for staff GUID
+    eligible = models.BooleanField(default=False)  # Placeholder for eligibility status
+    eligibility_reason = models.TextField(blank=True, null=True)  # Placeholder for eligibility reason
+    department = models.CharField(max_length=255, blank=True, null=True)  # Placeholder for department field
 
     def __str__(self):
         return f"Profile of {self.user.username}"
-    
+
+
+class DiscountCode(models.Model):
+    title = models.CharField(max_length=120)
+    code = models.CharField(max_length=50, unique=True)
+    description = models.TextField(blank=True)
+
+    valid_from = models.DateTimeField()
+    valid_until = models.DateTimeField()
+
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.code} - {self.title}"
+
+
 class AttractionSuggestion(models.Model):
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
@@ -335,7 +361,7 @@ class AttractionSuggestion(models.Model):
     submitted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="attraction_suggestions"
+        related_name="attraction_suggestions",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -354,4 +380,33 @@ class AttractionSuggestion(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.status})"
+
+
+class AttractionWaitlistEntry(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="attraction_waitlist_entries",
+    )
+    attraction = models.ForeignKey(
+        "Attraction",
+        on_delete=models.CASCADE,
+        related_name="waitlist_entries",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    cancelled = models.BooleanField(default=False)
+    notified = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ("-created_at",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "attraction"],
+                condition=Q(cancelled=False),
+                name="unique_active_attraction_waitlist",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} → {self.attraction.name} waitlist"
 
