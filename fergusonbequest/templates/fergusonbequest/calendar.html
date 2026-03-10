@@ -70,15 +70,10 @@
 
             {% if day.events %}
               {% for event in day.events %}
-              <a href="{% if event.event_type == 'attraction' %}{% url 'attraction' event.object.pk %}{% elif event.event_type == 'ticket_draw' %}{% url 'ticket_draw_detail' event.object.slug %}{% endif %}"
-              class = "event {{ event.event_type }} {{ event.class_name }}">
+              <a href="{% if event.event_type == 'attraction' %}{% url 'attraction' event.object.attraction.pk %}{% elif event.event_type == 'ticket_draw' %}{% url 'ticket_draw_detail' event.object.ticket_draw.slug %}{% endif %}"
+              class = "event {{ event.event_type }}">
                 
-                  <strong>{{ event.object.name }}</strong>      
-                    {% if event.class_name == 'booking-open' %}
-                    opens<br>
-                    {% elif event.class_name == 'booking-close' %}
-                    closes<br>
-                    {% endif %}
+                  <strong>{% if event.event_type == 'attraction' %}{{ event.object.attraction.name }}{% elif event.event_type == 'ticket_draw' %}{{ event.object.ticket_draw.name }}{% endif %}</strong>      
                          
               </a>
               {% endfor %}
