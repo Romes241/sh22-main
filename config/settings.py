@@ -54,6 +54,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    'django_apscheduler',
+    'django.contrib.sites',
     "fergusonbequest.apps.FergusonbequestConfig",
 ]
 
@@ -137,3 +139,13 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/dashboard/"
 LOGOUT_REDIRECT_URL = "/"
+
+#Email settings
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = '587'
+EMAIL_HOST_USER = '' 
+EMAIL_HOST_PASSWORD = '' 
+EMAIL_USE_TLS = True
+# EMAIL_USE_SSL = False
+
+SITE_ID = 1

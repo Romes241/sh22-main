@@ -125,6 +125,16 @@ class TicketDraw(models.Model):
         default='weekly_event'
     )
 
+    # winner info (for run draw results)
+    winner_booking = models.ForeignKey(
+        "TicketDrawBooking",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="won_for_draw"
+    )
+    winner_selected_at = models.DateTimeField(null=True, blank=True)
+
     def __str__(self):
         return self.name
 
@@ -207,6 +217,7 @@ class Booking(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled = models.BooleanField(default=False)
     ticket_code = models.CharField(max_length=16, unique=True, null=True, blank=True)
+    ticket_sent = models.BooleanField(default=False)
 
     class Meta:
         ordering = ("-created_at",)
@@ -252,6 +263,7 @@ class TicketDrawBooking(models.Model):
     cancelled = models.BooleanField(default=False)
     ticket_code = models.CharField(max_length=16, unique=True, null=True, blank=True)
     is_accepted = models.BooleanField(default=False)
+    ticket_sent = models.BooleanField(default=False)
 
     class Meta:
         ordering = ('-created_at',)
@@ -283,14 +295,30 @@ class Profile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    staff_guid = models.CharField(max_length=64, unique=True, blank=True, null=True) # Placeholder for staff GUID
-    eligible= models.BooleanField(default=False) # Placeholder for eligibility status
-    eligibility_reason = models.TextField(blank=True, null=True) # Placeholder for eligibility reason
-    department = models.CharField(max_length=255, blank=True, null=True) # Placeholder for department field
+    staff_guid = models.CharField(max_length=64, unique=True, blank=True, null=True)  # Placeholder for staff GUID
+    eligible = models.BooleanField(default=False)  # Placeholder for eligibility status
+    eligibility_reason = models.TextField(blank=True, null=True)  # Placeholder for eligibility reason
+    department = models.CharField(max_length=255, blank=True, null=True)  # Placeholder for department field
 
     def __str__(self):
         return f"Profile of {self.user.username}"
-    
+
+
+class DiscountCode(models.Model):
+    title = models.CharField(max_length=120)
+    code = models.CharField(max_length=50, unique=True)
+    description = models.TextField(blank=True)
+
+    valid_from = models.DateTimeField()
+    valid_until = models.DateTimeField()
+
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.code} - {self.title}"
+
+
 class AttractionSuggestion(models.Model):
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
@@ -302,7 +330,7 @@ class AttractionSuggestion(models.Model):
     submitted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="attraction_suggestions"
+        related_name="attraction_suggestions",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -321,4 +349,91 @@ class AttractionSuggestion(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.status})"
+    
+class EmailTemplate(models.Model):
+    TYPE_CHOICES = [
+        # Confirmation
+        ("attraction_confirmation", "Attraction Confirmation"),
+        ("draw_confirmation", "Ticket Draw Confirmation"),
+
+        # Cancellation
+        ("attraction_cancellation", "Attraction Cancellation"),
+        ("draw_cancellation", "Ticket Draw Cancellation"),
+
+        # Ticket Distribution - Send ticket 3 days before if not cancelled, cannot be cancelled after ticket has been sent
+        ("attraction_distribution", "Attraction Ticket Distribution"),
+        ("draw_distribution", "Ticket Draw Ticket Distribution"),
+
+        # Draw Winner, accept or reject (cant reject after accepting, reject after 72h)
+        ("draw_winner", "Ticket Draw Winner"),
+
+        # Attraction Waiting List reallocation (Attraciton Waiting List)
+        ("attraction_reallocation", "Attraction Reallocation (Next in waiting list)"),
+
+        # Draw Waiting List Winner - Redraw Winner, Accept or Reject (Waiting List redraw if winner cancelled)
+        ("draw_reallocation", "Ticket Draw Reallocation (Redraw Winner)"),
+
+        # Reminder 1 day before of attraction or draw
+        ("attraction_reminder", "Attraction Reminder"),
+        ("draw_reminder", "Ticket Draw Reminder"),
+
+        # Forms - Feedback
+        #("feedback", "Feedback"),
+
+        # Announcements
+        ("announcement", "Announcements"),
+
+        # Custom
+        ("custom", "Custom"),
+
+
+    ]
+
+    type = models.CharField(max_length=100, choices=TYPE_CHOICES, default="confirmation")
+    name = models.CharField(max_length=100)
+    subject = models.CharField(max_length=250)
+    body = models.TextField()
+    is_default = models.BooleanField(default=False, help_text="Use this as the default template for this email type")
+
+    class Meta:
+        # Ensure only one default per type
+        constraints = [
+            models.UniqueConstraint(
+                fields=['type'],
+                condition=Q(is_default=True),
+                name='unique_default_per_type'
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.get_type_display()} – {self.name}"
+
+
+class AttractionWaitlistEntry(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="attraction_waitlist_entries",
+    )
+    attraction = models.ForeignKey(
+        "Attraction",
+        on_delete=models.CASCADE,
+        related_name="waitlist_entries",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    cancelled = models.BooleanField(default=False)
+    notified = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ("-created_at",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "attraction"],
+                condition=Q(cancelled=False),
+                name="unique_active_attraction_waitlist",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} → {self.attraction.name} waitlist"
 

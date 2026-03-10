@@ -1,24 +1,14 @@
 {% extends "fergusonbequest/base.html" %}
 {% load static %}
 
-{% block title %}Waiting List – Attractions | Ferguson Bequest{% endblock %}
+{% block title %}Attraction Waiting List – Ferguson Bequest{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'fergusonbequest/css/waiting_listattraction.css' %}">
 {% endblock %}
 
 {% block content %}
-<h1 class="fb-h1">Waiting List Enrolment</h1>
-
-{% if messages %}
-  <div class="messages-container">
-    {% for message in messages %}
-      <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
-        {{ message }}
-      </div>
-    {% endfor %}
-  </div>
-{% endif %}
+<h1 class="fb-h1">Attraction Waiting List</h1>
 
 <div class="wl-card">
   <div class="wl-table-wrap">
@@ -27,57 +17,32 @@
         <tr>
           <th>Attraction</th>
           <th>Location</th>
-          <th>Status</th>
-          <th class="wl-col-status">Action</th>
+          <th>Joined Date</th>
+          <th>Action</th>
         </tr>
       </thead>
 
       <tbody>
-        {% for a in attractions %}
-          <tr>
-            <td>
-              <a class="wl-link-name" href="{% url 'attraction' a.pk %}">
-                {{ a.name }}
-              </a>
-            </td>
+        {% for entry in attraction_waitlist_entries %}
+        <tr>
+          <td>
+            <a class="wl-link-name" href="{% url 'attraction' entry.attraction.pk %}">
+              {{ entry.attraction.name }}
+            </a>
+          </td>
+          <td>{{ entry.attraction.location }}</td>
+          <td>{{ entry.created_at|date:"d/m/Y H:i" }}</td>
 
-            <td>
-              {% if a.location %}
-                {{ a.location }}
-              {% else %}
-                <span class="wl-muted">—</span>
-              {% endif %}
-            </td>
-
-            <td>
-              {% if a.joined %}
-                <span class="wl-status-joined">Joined</span>
-              {% else %}
-                <span class="wl-muted">Not joined</span>
-              {% endif %}
-            </td>
-
-            <td class="wl-col-status">
-              <div class="wl-status-container">
-                {% if a.joined %}
-                  <form method="POST"
-                        action="{% url 'waiting_listattraction_leave' a.pk %}"
-                        onsubmit="return confirm('Leave waiting list for {{ a.name }}?');">
-                    {% csrf_token %}
-                    <button type="submit" class="wl-cancel-btn">Leave</button>
-                  </form>
-                {% else %}
-                  <form method="POST" action="{% url 'waiting_listattraction_join' a.pk %}">
-                    {% csrf_token %}
-                    <button type="submit" class="wl-btn">Join waiting list</button>
-                  </form>
-                {% endif %}
-              </div>
-            </td>
-          </tr>
+          <td class="wl-actions">
+            <form method="POST" action="{% url 'waiting_listattraction_leave' entry.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="fb-btn fb-btn--primary">Leave waiting list</button>
+            </form>
+          </td>
+        </tr>
         {% empty %}
           <tr>
-            <td colspan="4" class="wl-empty">No attractions found.</td>
+            <td colspan="4" class="wl-empty">You are not on any attraction waiting lists.</td>
           </tr>
         {% endfor %}
       </tbody>

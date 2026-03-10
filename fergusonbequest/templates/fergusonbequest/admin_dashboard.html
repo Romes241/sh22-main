@@ -54,9 +54,10 @@
     <div class="ad-panel">
       <div class="ad-panel__title">Quick Links</div>
       <div class="ad-panel__body">
-        <a class="ad-link" href="{% url 'create_ticket_draw' %}">
-          <span class="ad-link__icon" aria-hidden="true">+</span>
-          <span class="ad-link__text">Create Draw</span>
+
+        <a class="ad-link" href="{% url 'admin_management' %}">
+          <span class="ad-link__icon" aria-hidden="true">🛠</span>
+          <span class="ad-link__text">Manage Content</span>
           <span class="ad-link__chev" aria-hidden="true">›</span>
         </a>
 
@@ -66,9 +67,9 @@
           <span class="ad-link__chev" aria-hidden="true">›</span>
         </a>
 
-        <a class="ad-link" href="{% url 'admin_management' %}">
-          <span class="ad-link__icon" aria-hidden="true">🛠</span>
-          <span class="ad-link__text">Manage Content</span>
+        <a class="ad-link" href="{% url 'create_ticket_draw' %}">
+          <span class="ad-link__icon" aria-hidden="true">+</span>
+          <span class="ad-link__text">Create Draw</span>
           <span class="ad-link__chev" aria-hidden="true">›</span>
         </a>
 
@@ -78,11 +79,24 @@
         <span class="ad-link__chev" aria-hidden="true">›</span>
        </a>
 
-      <a class="ad-link" href="{% url 'export_suggestions_excel' %}">
+       <a class="ad-link" href="{% url 'admin_email' %}">
+        <span class="ad-link__icon" aria-hidden="true">✉️</span>
+        <span class="ad-link__text">Manage Email Templates</span>
+        <span class="ad-link__chev" aria-hidden="true">›</span>
+       </a>
+
+       <a class="ad-link" href="{% url 'export_suggestions_excel' %}">
         <span class="ad-link__icon" aria-hidden="true">📥</span>
         <span class="ad-link__text">Export Suggestions (Excel)</span>
         <span class="ad-link__chev" aria-hidden="true">›</span>
+       </a>
+
+       <a class="ad-link" href="{% url 'discount_codes_page' %}">
+        <span class="ad-link__icon" aria-hidden="true">🎟️</span>
+        <span class="ad-link__text">Discount Codes</span>
+        <span class="ad-link__chev" aria-hidden="true">›</span>
       </a>
+
       </div>
     </div>
 

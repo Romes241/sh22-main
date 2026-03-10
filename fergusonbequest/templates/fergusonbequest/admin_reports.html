@@ -59,6 +59,8 @@
           <th>GUID</th>
           <th>Email</th>
           <th>Booking Date</th>
+          <th>Ticket Code</th>
+          <th>Tickets</th> 
           <th>Status</th>
         </tr>
       </thead>
@@ -73,6 +75,8 @@
             <td>{{ b.guid }}</td>
             <td>{{ b.email }}</td>
             <td>{{ b.date|date:"d/m/Y" }}, {{ b.time|time:"H:i" }}</td>
+            <td>{{ b.ticket_code|default:"—" }}</td>
+            <td>{{ b.num_tickets }}</td>   
             <td class="ar-col-status">
               <div class="ar-status-container">
                 {% if b.status_text == "Cancelled" %}
@@ -87,7 +91,7 @@
           </tr>
         {% empty %}
           <tr>
-            <td colspan="9" class="ar-empty">No bookings found.</td>
+            <td colspan="10" class="ar-empty">No bookings found.</td>
           </tr>
         {% endfor %}
       </tbody>
@@ -199,6 +203,21 @@
         </select>
       </div>
 
+      <div class="ar-form-row">
+        <label for="id_ticket_code">Ticket Code</label>
+        <input id="id_ticket_code" name="ticket_code" type="search" value="{{ request.GET.ticket_code|default:'' }}">
+      </div>
+
+      <div class="ar-form-row">
+        <label for="id_min_tickets">Min Tickets (Range)</label>
+        <input id="id_min_tickets" name="min_tickets" type="number" value="{{ request.GET.min_tickets|default:'' }}">
+      </div>
+
+      <div class="ar-form-row">
+        <label for="id_max_tickets">Max Tickets (Range)</label>
+        <input id="id_max_tickets" name="max_tickets" type="number" value="{{ request.GET.max_tickets|default:'' }}">
+      </div>
+
 
       <!-- Specific Date -->
       <div class="ar-form-row">
@@ -301,6 +320,9 @@
       <input type="hidden" name="start" value="{{ request.GET.start|default:'' }}">
       <input type="hidden" name="end" value="{{ request.GET.end|default:'' }}">
       <input type="hidden" name="status" value="{{ selected_status|default:'all' }}">
+      <input type="hidden" name="ticket_code" value="{{ request.GET.ticket_code|default:'' }}">
+      <input type="hidden" name="min_tickets" value="{{ request.GET.min_tickets|default:'' }}">
+      <input type="hidden" name="max_tickets" value="{{ request.GET.max_tickets|default:'' }}">
 
       <div class="ar-form-row">
         <label for="id_sort">Sort By</label>
@@ -330,6 +352,11 @@
         <div class="ar-stat-card">
           <div class="ar-stat-number">{{ statistics.total_bookings }}</div>
           <div class="ar-stat-label">Total Bookings</div>
+        </div>
+        
+        <div class="ar-stat-card">
+          <div class="ar-stat-number">{{ statistics.total_tickets }}</div>
+          <div class="ar-stat-label">Total Tickets</div>
         </div>
         
         <!-- By Type -->
