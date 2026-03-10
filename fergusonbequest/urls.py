@@ -56,6 +56,8 @@ urlpatterns = [
     path("admin-dashboard/management/draws/<int:draw_id>/delete/", views.mng_delete_draw, name="mng_delete_draw"),
     path("admin-dashboard/management/attractions/<int:attraction_id>/delete/", views.mng_delete_attraction, name="mng_delete_attraction"),
     path("admin-reports/", views.admin_reports, name="admin_reports"),
+    path("admin-email/", views.admin_email, name = "admin_email"),
+
 
     # Admin create/edit
     path("create-attraction/", views.create_attraction, name="create_attraction"),
@@ -69,5 +71,5 @@ urlpatterns = [
 
     # Discount codes staff page
     path("staff/discounts/", views.discount_codes_page, name="discount_codes"),
-    path("staff/discounts/", views.discount_codes_page, name="discount_codes_page")
+    path("staff/discounts/", views.discount_codes_page, name="discount_codes_page"),
 ]

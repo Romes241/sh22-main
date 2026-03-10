@@ -217,6 +217,7 @@ class Booking(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled = models.BooleanField(default=False)
     ticket_code = models.CharField(max_length=16, unique=True, null=True, blank=True)
+    ticket_sent = models.BooleanField(default=False)
 
     class Meta:
         ordering = ("-created_at",)
@@ -262,6 +263,7 @@ class TicketDrawBooking(models.Model):
     cancelled = models.BooleanField(default=False)
     ticket_code = models.CharField(max_length=16, unique=True, null=True, blank=True)
     is_accepted = models.BooleanField(default=False)
+    ticket_sent = models.BooleanField(default=False)
 
     class Meta:
         ordering = ('-created_at',)
@@ -347,6 +349,64 @@ class AttractionSuggestion(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.status})"
+    
+class EmailTemplate(models.Model):
+    TYPE_CHOICES = [
+        # Confirmation
+        ("attraction_confirmation", "Attraction Confirmation"),
+        ("draw_confirmation", "Ticket Draw Confirmation"),
+
+        # Cancellation
+        ("attraction_cancellation", "Attraction Cancellation"),
+        ("draw_cancellation", "Ticket Draw Cancellation"),
+
+        # Ticket Distribution - Send ticket 3 days before if not cancelled, cannot be cancelled after ticket has been sent
+        ("attraction_distribution", "Attraction Ticket Distribution"),
+        ("draw_distribution", "Ticket Draw Ticket Distribution"),
+
+        # Draw Winner, accept or reject (cant reject after accepting, reject after 72h)
+        ("draw_winner", "Ticket Draw Winner"),
+
+        # Attraction Waiting List reallocation (Attraciton Waiting List)
+        ("attraction_reallocation", "Attraction Reallocation (Next in waiting list)"),
+
+        # Draw Waiting List Winner - Redraw Winner, Accept or Reject (Waiting List redraw if winner cancelled)
+        ("draw_reallocation", "Ticket Draw Reallocation (Redraw Winner)"),
+
+        # Reminder 1 day before of attraction or draw
+        ("attraction_reminder", "Attraction Reminder"),
+        ("draw_reminder", "Ticket Draw Reminder"),
+
+        # Forms - Feedback
+        #("feedback", "Feedback"),
+
+        # Announcements
+        ("announcement", "Announcements"),
+
+        # Custom
+        ("custom", "Custom"),
+
+
+    ]
+
+    type = models.CharField(max_length=100, choices=TYPE_CHOICES, default="confirmation")
+    name = models.CharField(max_length=100)
+    subject = models.CharField(max_length=250)
+    body = models.TextField()
+    is_default = models.BooleanField(default=False, help_text="Use this as the default template for this email type")
+
+    class Meta:
+        # Ensure only one default per type
+        constraints = [
+            models.UniqueConstraint(
+                fields=['type'],
+                condition=Q(is_default=True),
+                name='unique_default_per_type'
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.get_type_display()} – {self.name}"
 
 
 class AttractionWaitlistEntry(models.Model):
