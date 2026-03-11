@@ -54,6 +54,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    'django_apscheduler',
+    'django.contrib.sites',
     "fergusonbequest.apps.FergusonbequestConfig",
 ]
 
@@ -138,12 +140,12 @@ LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/dashboard/"
 LOGOUT_REDIRECT_URL = "/"
 
-# Email Configuration (Console backend for development)
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-DEFAULT_FROM_EMAIL = 'fergusonbequest@glasgow.ac.uk'
+#Email settings
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = '587'
+EMAIL_HOST_USER = '' 
+EMAIL_HOST_PASSWORD = '' 
+EMAIL_USE_TLS = True
+# EMAIL_USE_SSL = False
 
-# Feedback Form URL
-FEEDBACK_FORM_URL = os.environ.get(
-    "FEEDBACK_FORM_URL",
-    "https://forms.office.com/Pages/ResponsePage.aspx?id=KVxybjp2UE-B8i4lTwEzyKi8RE5OIhlLqu3FN1D5vsBUREFDRUZKQUxCWEdMTlBXT1VRN0NHTTNYSy4u"
-)
+SITE_ID = 1

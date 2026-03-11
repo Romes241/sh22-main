@@ -1,5 +1,5 @@
 .ar-card {
-  width: min(1200px, 95%);
+  width: min(1565px, 95%);
   margin: 18px auto 0;
   background: #fff;
   border-radius: 26px;
@@ -7,14 +7,23 @@
   box-shadow: 0 2px 10px rgba(0,0,0,0.06);
 }
 
+.fb-container {
+  max-width: 1565px;
+}
+
 .ar-table-wrap {
   border: 2px solid #e5e7eb;
   border-radius: 16px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
 }
 
+
 .ar-table {
-  width: 100%;
+  min-width: 1400px;
+  width: auto;
   border-collapse: collapse;
   background: #fff;
   font-size: 0.95rem;
@@ -26,12 +35,16 @@
   padding: 14px 16px;
   background: #f6f7f9;
   border-bottom: 2px solid #e5e7eb;
+  white-space: nowrap;
 }
 
 .ar-table tbody td {
   padding: 14px 16px;
   border-bottom: 1px solid #e5e7eb;
   vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Vertical Dividers Between Columns */
@@ -40,17 +53,18 @@
   border-left: 1px solid #e5e7eb;
 }
 
-/* Underlined Name Link */
-.ar-link-name {
-  font-weight: 800;
-  color: #0b2f6b;
-  text-decoration: underline;
-}
 
-/* Left alignment for status */
 .ar-col-status {
   text-align: left;
-  width: 260px;
+  width: auto;
+  min-width: 120px;
+}
+
+
+.ar-table tbody td.ar-col-status {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .ar-status-container {
@@ -58,6 +72,39 @@
   align-items: center;
   justify-content: flex-start;
   gap: 15px;
+}
+
+.ar-status {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-align: center;
+  min-width: 70px;
+}
+
+.ar-status-active {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.ar-status-completed {
+  background-color: #e8f5e8;
+  color: #2e7d32;
+}
+
+.ar-status-cancelled {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+/* Underlined Name Link */
+.ar-link-name {
+  font-weight: 800;
+  color: #0b2f6b;
+  text-decoration: underline;
 }
 
 /* Cancel Link red and underlined */
@@ -103,6 +150,7 @@
   justify-content: space-between;
   gap: 20px;
   margin-bottom: 18px;
+  flex-wrap: wrap;
 }
 
 
@@ -163,6 +211,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 
@@ -189,7 +238,7 @@
   width: 90%;
   max-width: 500px;
   max-height: 85vh;
-  overflow-y: scroll;
+  overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   animation: modalSlideIn 0.3s ease-out;
   z-index: 10000;
@@ -201,9 +250,6 @@
   max-height: auto !important;
   padding-bottom: 32px;
 }
-
-
-
 
 .ar-modal__panel::-webkit-scrollbar {
   width: 10px;
@@ -218,8 +264,6 @@
   background: #c5cedf;
   border-radius: 4px;
 }
-
-
 
 @keyframes modalSlideIn {
   from {
@@ -287,6 +331,7 @@
   justify-content: flex-end;
   gap: 10px;
   margin-top: 24px;
+  flex-wrap: wrap;
 }
 
 .ar-modal-open {
@@ -300,43 +345,7 @@
   height: 40px;
   padding: 0 20px;
   text-align: center;
-}
-
-@media (max-width: 1100px) {
-  .ar-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-  
-  .ar-search-form {
-    width: 100%;
-  }
-  
-  .ar-search-input {
-    width: 100%;
-  }
-}
-
-@media (max-width: 768px) {
-  .ar-modal__panel {
-    width: 92%;
-    min-width: 0;
-    padding: 20px;
-  }
-  
-  .ar-form-row--actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .ar-table-wrap {
-    overflow-x: auto;
-  }
-  
-  .ar-table {
-    min-width: 900px;
-  }
+  white-space: nowrap;
 }
 
 /* Statistics Modal Styles */
@@ -417,29 +426,6 @@
   margin-top: 8px;
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .ar-stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .ar-stat-range,
-  .ar-stat-popular {
-    grid-column: span 2;
-  }
-}
-
-@media (max-width: 480px) {
-  .ar-stats-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .ar-stat-range,
-  .ar-stat-popular {
-    grid-column: span 1;
-  }
-}
-
 /* Pagination Styles */
 .ar-pagination {
   display: flex;
@@ -462,6 +448,8 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .ar-pagination-btn {
@@ -502,6 +490,8 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .ar-pagination-page {
@@ -537,39 +527,6 @@
   font-weight: 600;
 }
 
-/* Responsive pagination */
-@media (max-width: 768px) {
-  .ar-pagination {
-    flex-direction: column;
-    gap: 12px;
-  }
-  
-  .ar-pagination-controls {
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-  
-  .ar-pagination-btn span:not(.sr-only) {
-    display: none;
-  }
-  
-  .ar-pagination-btn {
-    padding: 8px 12px;
-  }
-  
-  .ar-pagination-btn svg {
-    margin: 0;
-  }
-  
-  .ar-pagination-pages {
-    order: -1;
-    width: 100%;
-    justify-content: center;
-    margin-bottom: 8px;
-  }
-}
-
-
 .messages-container {
     margin-bottom: 20px;
 }
@@ -593,4 +550,87 @@
     background-color: #d4edda;
     color: #155724;
     border: 1px solid #c3e6cb;
+}
+
+/* Responsive Styles */
+@media (max-width: 1100px) {
+  .ar-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  
+  .ar-search-form {
+    width: 100%;
+  }
+  
+  .ar-search-input {
+    width: 100%;
+  }
+  
+  .ar-export,
+  .ar-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 768px) {
+  .ar-modal__panel {
+    width: 92%;
+    min-width: 0;
+    padding: 20px;
+  }
+  
+  .ar-form-row--actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .ar-table-wrap {
+    overflow-x: auto;
+  }
+  
+  .ar-table {
+    min-width: 1400px;
+  }
+  
+  .ar-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .ar-stat-range,
+  .ar-stat-popular {
+    grid-column: span 2;
+  }
+  
+  .ar-pagination-controls {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .ar-stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .ar-stat-range,
+  .ar-stat-popular {
+    grid-column: span 1;
+  }
+  
+  .ar-pagination-btn span:not(.sr-only) {
+    display: none;
+  }
+  
+  .ar-pagination-btn {
+    padding: 8px 12px;
+  }
+  
+  .ar-pagination-pages {
+    order: -1;
+    width: 100%;
+    justify-content: center;
+    margin-bottom: 8px;
+  }
 }

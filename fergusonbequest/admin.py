@@ -1,13 +1,24 @@
 from django.contrib import admin
-from .models import Attraction, VisitSlot, Booking, Profile, TicketDraw, TicketDrawBooking, TicketDrawVisitSlot, AttractionSuggestion, FeedbackEmailTemplate
+from .models import (
+    Attraction,
+    VisitSlot,
+    Booking,
+    Profile,
+    TicketDraw,
+    TicketDrawBooking,
+    TicketDrawVisitSlot,
+    AttractionSuggestion, FeedbackEmailTemplate,
+    AttractionWaitlistEntry,
+    DiscountCode,   # ← 确保导入
+)
 
 
 @admin.register(Attraction)
 class AttractionAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
-    list_display = ("name", "location", "per_year_limit",
+    list_display = ("name", "location", "attraction_type", "per_year_limit",
                     "booking_open", "booking_close")
-    list_filter = ("booking_open", "booking_close")
+    list_filter = ("attraction_type", "booking_open", "booking_close")
     search_fields = ("name", "slug", "location")
 
 
@@ -29,10 +40,11 @@ class BookingAdmin(admin.ModelAdmin):
 @admin.register(TicketDraw)
 class TicketDrawAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
-    list_display = ("name", "location", "per_year_limit",
+    list_display = ("name", "location", "attraction_type", "per_year_limit",
                     "booking_open", "booking_close", "draw_date")
-    list_filter = ("booking_open", "booking_close")
+    list_filter = ("attraction_type", "booking_open", "booking_close")
     search_fields = ("name", "slug", "location")
+
 
 @admin.register(TicketDrawBooking)
 class TicketDrawBookingAdmin(admin.ModelAdmin):
@@ -41,11 +53,13 @@ class TicketDrawBookingAdmin(admin.ModelAdmin):
     list_filter = ("ticket_draw", "slot", "cancelled")
     search_fields = ("full_name", "email")
 
+
 @admin.register(TicketDrawVisitSlot)
 class TicketDrawVisitSlotAdmin(admin.ModelAdmin):
     list_display = ("ticket_draw", "date", "time", "capacity", "remaining")
     list_filter = ("ticket_draw", "date")
     ordering = ("date", "time")
+
 
 @admin.register(AttractionSuggestion)
 class AttractionSuggestionAdmin(admin.ModelAdmin):
@@ -83,3 +97,19 @@ class FeedbackEmailTemplateAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         # Don't allow deletion
         return False
+
+
+@admin.register(AttractionWaitlistEntry)
+class AttractionWaitlistEntryAdmin(admin.ModelAdmin):
+    list_display = ("user", "attraction", "created_at", "cancelled", "notified")
+    list_filter = ("cancelled", "notified", "created_at", "attraction")
+    search_fields = ("user__username", "user__email", "attraction__name")
+    ordering = ("-created_at",)
+    readonly_fields = ("created_at",)
+
+
+@admin.register(DiscountCode)
+class DiscountCodeAdmin(admin.ModelAdmin):
+    list_display = ("title", "code", "is_active", "valid_until")
+    list_filter = ("is_active",)
+    search_fields = ("title", "code")
