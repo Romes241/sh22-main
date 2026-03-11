@@ -31,6 +31,22 @@
             <span class="ud-link__text">Suggest an attraction</span>
             <span class="ud-link__chev" aria-hidden="true">›</span>
           </a>
+          <!-- A place holder url until discount code link is available -->
+          <a class="ud-link" href="https://example.com" target="_blank" rel="noopener noreferrer">
+            <span class="ud-link__icon" aria-hidden="true">🏷️</span>
+            <span class="ud-link__text">View discount codes</span>
+            <span class="ud-link__chev" aria-hidden="true">›</span>
+          </a>
+          <a class="ud-link" href="{% url 'waiting_listattraction' %}">
+            <span class="ud-link__icon" aria-hidden="true">📃</span>
+            <span class="ud-link__text">View attraction waiting list</span>
+            <span class="ud-link__chev" aria-hidden="true">›</span>
+          </a>
+          <a class="ud-link" href="{% url 'booking_history' %}">
+            <span class="ud-link__icon" aria-hidden="true">📅</span>
+            <span class="ud-link__text">View booking history</span>
+            <span class="ud-link__chev" aria-hidden="true">›</span>
+          </a>
         </div>
       </div>
     </aside>
