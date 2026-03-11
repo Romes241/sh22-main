@@ -379,7 +379,7 @@ class EmailTemplate(models.Model):
         ("draw_reminder", "Ticket Draw Reminder"),
 
         # Forms - Feedback
-        #("feedback", "Feedback"),
+        ("feedback", "Feedback"),
 
         # Announcements
         ("announcement", "Announcements"),

@@ -101,6 +101,30 @@ The Ferguson Bequest Team</div>
   </form>
 </div>
 
+<div class="fb-card" style="margin-top: 2rem;">
+  <h2>📤 Send Feedback Emails Now</h2>
+  <p>Manually trigger feedback emails for all eligible completed bookings. This runs the same job that runs automatically each day at 10:00 AM.</p>
+  {% if not template.enabled %}
+    <div class="fb-alert fb-alert--warning" role="alert">
+      ⚠️ Feedback emails are currently <strong>disabled</strong>. Enable them above and save before sending.
+    </div>
+  {% else %}
+    {% if not template.feedback_url %}
+      <div class="fb-alert fb-alert--warning" role="alert">
+        ⚠️ No Microsoft Forms URL set. Add one above and save before sending.
+      </div>
+    {% else %}
+      <form method="post" action="{% url 'trigger_feedback_emails' %}">
+        {% csrf_token %}
+        <button type="submit" class="fb-btn fb-btn--primary"
+                onclick="return confirm('Send feedback emails to all users with completed visits who have not yet received one?')">
+          📧 Send Now
+        </button>
+      </form>
+    {% endif %}
+  {% endif %}
+</div>
+
 <script>
   const subjectInput = document.getElementById('{{ form.subject.id_for_label }}');
   const bodyInput = document.getElementById('{{ form.body.id_for_label }}');

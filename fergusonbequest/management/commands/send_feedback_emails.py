@@ -1,9 +1,7 @@
 from django.core.management.base import BaseCommand
-from django.core.mail import send_mail
-from django.conf import settings
 from django.utils import timezone
-from django.db.models import Q
-from fergusonbequest.models import Booking, FeedbackEmailTemplate
+from fergusonbequest.models import Booking, FeedbackEmailTemplate, EmailTemplate
+from fergusonbequest.views import send_feedback_email_request
 from datetime import timedelta
 
 
@@ -36,6 +34,20 @@ class Command(BaseCommand):
             )
             return
         
+        feedback_email_template = (
+            EmailTemplate.objects.filter(type="feedback", is_default=True).first()
+            or EmailTemplate.objects.filter(type="feedback").first()
+        )
+
+        if feedback_email_template is None:
+            EmailTemplate.objects.create(
+                type="feedback",
+                name="Feedback Template",
+                subject=template.subject,
+                body=template.body,
+                is_default=True,
+            )
+
         now = timezone.now()
         
         completed_bookings = Booking.objects.filter(
@@ -72,22 +84,6 @@ class Command(BaseCommand):
         error_count = 0
         
         for booking in eligible_bookings:
-            user_name = booking.user.first_name if booking.user and booking.user.first_name else booking.full_name.split()[0]
-
-            subject = template.subject.format(
-                attraction_name=booking.attraction.name,
-                user_name=user_name,
-                visit_date=booking.slot.date.strftime('%d %B %Y'),
-                feedback_url=template.feedback_url
-            )
-            
-            message = template.body.format(
-                user_name=user_name,
-                attraction_name=booking.attraction.name,
-                visit_date=booking.slot.date.strftime('%d %B %Y'),
-                feedback_url=template.feedback_url
-            )
-            
             if dry_run:
                 self.stdout.write(
                     f'[DRY RUN] Would send feedback email to {booking.email} for booking #{booking.id}'
@@ -95,13 +91,7 @@ class Command(BaseCommand):
                 sent_count += 1
             else:
                 try:
-                    send_mail(
-                        subject=subject,
-                        message=message,
-                        from_email=settings.DEFAULT_FROM_EMAIL,
-                        recipient_list=[booking.email],
-                        fail_silently=False,
-                    )
+                    send_feedback_email_request(booking, template.feedback_url)
                     
                     booking.feedback_email_sent = True
                     booking.save(update_fields=['feedback_email_sent'])

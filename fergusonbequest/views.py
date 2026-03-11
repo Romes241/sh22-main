@@ -739,11 +739,51 @@ def manage_feedback_email(request):
     Allow admins to edit the feedback email template through a simple web form.
     """
     template = FeedbackEmailTemplate.get_template()
+
+    feedback_email_template = (
+        EmailTemplate.objects.filter(type="feedback", is_default=True).first()
+        or EmailTemplate.objects.filter(type="feedback").first()
+    )
+
+    if feedback_email_template:
+        changed_fields = []
+        if template.subject != feedback_email_template.subject:
+            template.subject = feedback_email_template.subject
+            changed_fields.append("subject")
+        if template.body != feedback_email_template.body:
+            template.body = feedback_email_template.body
+            changed_fields.append("body")
+        if changed_fields:
+            template.save(update_fields=changed_fields)
     
     if request.method == 'POST':
         form = FeedbackEmailTemplateForm(request.POST, instance=template)
         if form.is_valid():
-            form.save()
+            saved_template = form.save()
+
+            email_template_defaults = {
+                "name": "Feedback Template",
+                "subject": saved_template.subject,
+                "body": saved_template.body,
+                "is_default": True,
+            }
+
+            feedback_email_template = (
+                EmailTemplate.objects.filter(type="feedback", is_default=True).first()
+                or EmailTemplate.objects.filter(type="feedback").first()
+            )
+
+            if feedback_email_template:
+                feedback_email_template.subject = saved_template.subject
+                feedback_email_template.body = saved_template.body
+                if not feedback_email_template.is_default:
+                    EmailTemplate.objects.filter(type="feedback").update(is_default=False)
+                    feedback_email_template.is_default = True
+                feedback_email_template.save()
+            else:
+                EmailTemplate.objects.filter(type="feedback").update(is_default=False)
+                EmailTemplate.objects.create(type="feedback", **email_template_defaults)
+
             messages.success(request, 'Feedback email settings saved successfully!')
             return redirect('manage_feedback_email')
     else:
@@ -753,6 +793,19 @@ def manage_feedback_email(request):
         'form': form,
         'template': template,
     })
+
+
+@staff_member_required
+@require_POST
+def trigger_feedback_emails(request):
+    """Allow staff to manually trigger the feedback email send from the web UI."""
+    from .scheduler import send_scheduled_feedback_emails
+    try:
+        send_scheduled_feedback_emails()
+        messages.success(request, 'Feedback emails sent successfully.')
+    except Exception as e:
+        messages.error(request, f'Error sending feedback emails: {e}')
+    return redirect('manage_feedback_email')
 
 
 @require_POST
@@ -1788,6 +1841,13 @@ def admin_email(request):
             selected_template.subject = subject
             selected_template.body = body
             selected_template.save()
+            
+            if selected_template.type == "feedback":
+                feedback_singleton = FeedbackEmailTemplate.get_template()
+                feedback_singleton.subject = subject
+                feedback_singleton.body = body
+                feedback_singleton.save(update_fields=["subject", "body"])
+            
             messages.success(request, "Template saved")
 
         # SEND TEST
@@ -1891,7 +1951,10 @@ def admin_email(request):
 
 def send_template_email(template_type, recipient, context_dict):
 
-    template = EmailTemplate.objects.filter(type=template_type).first()
+    template = (
+        EmailTemplate.objects.filter(type=template_type, is_default=True).first()
+        or EmailTemplate.objects.filter(type=template_type).first()
+    )
 
     if not template:
         return
@@ -2033,6 +2096,16 @@ def send_custom_email(user):
     send_template_email(
         "custom",
         user.email,
+        context,
+    )
+
+
+def send_feedback_email_request(booking, feedback_url):
+    recipient = booking.user.email if booking.user and booking.user.email else booking.email
+    context = get_email_context(booking=booking, feedback_url=feedback_url)
+    send_template_email(
+        "feedback",
+        recipient,
         context,
     )
     
