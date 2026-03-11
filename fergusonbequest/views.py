@@ -1799,16 +1799,13 @@ def admin_email(request):
             
         
         elif "set_default" in request.POST:
-            # Remove default from all other templates of this type
             EmailTemplate.objects.filter(type=selected_template.type).update(is_default=False)
-            # Set this one as default
             selected_template.is_default = True
             selected_template.save()
             messages.success(request, f"'{selected_template.name}' is now the default template for {selected_template.get_type_display()}")
 
         # DELETE
         elif "delete" in request.POST:
-            # Check if this is the default template
             was_default = selected_template.is_default
             template_name = selected_template.name
             template_type = selected_template.type
@@ -1832,7 +1829,6 @@ def admin_email(request):
 
     # CREATE NEW
     if request.method == "POST" and "create" in request.POST:
-        # Check if this is the first template of this type
         is_first = not EmailTemplate.objects.filter(type=selected_type).exists()
         
         new_template = EmailTemplate.objects.create(
@@ -1863,11 +1859,9 @@ def send_template_email(template_type, recipient, context_dict):
     if not template:
         return
 
-    # render subject + body from DB template
     subject = Template(template.subject).render(Context(context_dict))
     body_content = Template(template.body).render(Context(context_dict))
 
-    # inject into your HTML layout
     html_body = render_to_string(
         "fergusonbequest/base_email.html",
         {
@@ -1877,7 +1871,7 @@ def send_template_email(template_type, recipient, context_dict):
 
     email = EmailMultiAlternatives(
         subject,
-        body_content,  # plain text fallback
+        body_content,
         settings.DEFAULT_FROM_EMAIL,
         [recipient]
     )
