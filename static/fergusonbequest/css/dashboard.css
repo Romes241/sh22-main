@@ -1,3 +1,8 @@
+
+.fb-container {
+  --container: 1400px;
+}
+
 .ud-wrap {
   max-width: 1200px;
   margin: 28px auto 60px;
@@ -14,7 +19,7 @@
 
 .ud-grid {
   display: grid;
-  grid-template-columns: 1fr 420px;
+  grid-template-columns: minmax(700px, 2fr) 300px;
   gap: 28px;
   align-items: start;
 }
