@@ -243,6 +243,7 @@ class Booking(models.Model):
         validators=[MinValueValidator(0), MaxValueValidator(30)],
         help_text="How many days before the visit date the ticket becomes visible to the user."
     )
+
     class Meta:
         ordering = ("-created_at",)
         constraints = [
@@ -264,48 +265,30 @@ class Booking(models.Model):
         # Only auto-generate code for random template type
         if self.ticket_type == "pdf_template_random" and not self.ticket_code:
             import uuid
+        base = "FB-" + uuid.uuid4().hex[:8].upper()
+        tries = 0
+        while tries < 5:
+            if not Booking.objects.filter(ticket_code=base).exists():
+                self.ticket_code = base
+                break
             base = "FB-" + uuid.uuid4().hex[:8].upper()
-            tries = 0
-            while tries < 5:
-                if not Booking.objects.filter(ticket_code=base).exists():
-                    self.ticket_code = base
-                    break
-                base = "FB-" + uuid.uuid4().hex[:8].upper()
-                tries += 1
+            tries += 1
         super().save(*args, **kwargs)
 
 class TicketDrawBooking(models.Model):
-    """One reservation for a ticket draw."""
+    """One reservation. (Using name/email for now; can swap to auth.User later.)"""
     ticket_draw = models.ForeignKey('TicketDraw', on_delete=models.CASCADE)
     slot = models.ForeignKey(TicketDrawVisitSlot, on_delete=models.PROTECT)
     full_name = models.CharField(max_length=120)
     email = models.EmailField()
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
-                             blank=True, related_name='ticket_draw_bookings')
+                              blank=True, related_name='ticket_draw_bookings')
     num_tickets = models.PositiveIntegerField(default=1)
     agreed_terms = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled = models.BooleanField(default=False)
+    ticket_code = models.CharField(max_length=16, unique=True, null=True, blank=True)
     is_accepted = models.BooleanField(default=False)
-    ticket_code = models.CharField(max_length=100, blank=True, null=True)
-    TICKET_TYPE_CHOICES = [
-        ("codes", "E-ticket codes"),
-        ("pdf_template", "PDF template"),
-        ("pdf_template_random", "PDF template + random code"),
-        ("pdf_individual", "Individual PDF tickets"),
-        ("qr_individual", "Individual QR tickets"),
-        ("booking_code", "Generic booking code"),
-        ("instructions", "Staff-card instructions"),
-        ("box_office", "Box office collection"),
-    ]
-    ticket_type = models.CharField(max_length=50,choices=TICKET_TYPE_CHOICES,blank=True,null=True)
-    ticket_file = models.FileField(upload_to="tickets/", blank=True, null=True)
-    ticket_sent = models.BooleanField(default=False)
-    ticket_sent_at = models.DateTimeField(null=True, blank=True)
-    ticket_instructions = models.TextField(blank=True, null=True)
-    generic_booking_code = models.CharField(max_length=100, blank=True, null=True)
-    ticket_qr_value = models.TextField(blank=True, null=True)
-    ticket_visible_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ('-created_at',)
@@ -317,8 +300,19 @@ class TicketDrawBooking(models.Model):
     @property
     def year(self):
         return self.created_at.year
-
+    
     def save(self, *args, **kwargs):
+        if not self.ticket_code:
+            import uuid
+            base = 'FB-' + uuid.uuid4().hex[:8].upper()
+            from django.db import IntegrityError
+            tries = 0
+            while tries < 5:
+                if not TicketDrawBooking.objects.filter(ticket_code=base).exists():
+                    self.ticket_code = base
+                    break
+                base = 'FB-' + uuid.uuid4().hex[:8].upper()
+                tries += 1
         super().save(*args, **kwargs)
 
 class Profile(models.Model):
@@ -381,6 +375,63 @@ class AttractionSuggestion(models.Model):
     def __str__(self):
         return f"{self.name} ({self.status})"
 
+class EmailTemplate(models.Model):
+    TYPE_CHOICES = [
+        # Confirmation
+        ("attraction_confirmation", "Attraction Confirmation"),
+        ("draw_confirmation", "Ticket Draw Confirmation"),
+
+        # Cancellation
+        ("attraction_cancellation", "Attraction Cancellation"),
+        ("draw_cancellation", "Ticket Draw Cancellation"),
+
+        # Ticket Distribution - Send ticket 3 days before if not cancelled, cannot be cancelled after ticket has been sent
+        ("attraction_distribution", "Attraction Ticket Distribution"),
+        ("draw_distribution", "Ticket Draw Ticket Distribution"),
+
+        # Draw Winner, accept or reject (cant reject after accepting, reject after 72h)
+        ("draw_winner", "Ticket Draw Winner"),
+
+        # Attraction Waiting List reallocation (Attraciton Waiting List)
+        ("attraction_reallocation", "Attraction Reallocation (Next in waiting list)"),
+
+        # Draw Waiting List Winner - Redraw Winner, Accept or Reject (Waiting List redraw if winner cancelled)
+        ("draw_reallocation", "Ticket Draw Reallocation (Redraw Winner)"),
+
+        # Reminder 1 day before of attraction or draw
+        ("attraction_reminder", "Attraction Reminder"),
+        ("draw_reminder", "Ticket Draw Reminder"),
+
+        # Forms - Feedback
+        #("feedback", "Feedback"),
+
+        # Announcements
+        ("announcement", "Announcements"),
+
+        # Custom
+        ("custom", "Custom"),
+
+
+    ]
+
+    type = models.CharField(max_length=100, choices=TYPE_CHOICES, default="confirmation")
+    name = models.CharField(max_length=100)
+    subject = models.CharField(max_length=250)
+    body = models.TextField()
+    is_default = models.BooleanField(default=False, help_text="Use this as the default template for this email type")
+
+    class Meta:
+        # Ensure only one default per type
+        constraints = [
+            models.UniqueConstraint(
+                fields=['type'],
+                condition=Q(is_default=True),
+                name='unique_default_per_type'
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.get_type_display()} – {self.name}"
 
 class AttractionWaitlistEntry(models.Model):
     user = models.ForeignKey(

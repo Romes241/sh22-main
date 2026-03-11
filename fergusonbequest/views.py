@@ -1,11 +1,17 @@
 from django import forms
+from django.conf import settings
+from django.contrib import messages
+from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
+from django.core.mail import send_mail, EmailMultiAlternatives
 from django.db import IntegrityError, transaction
 from django.db.models import Q, F, Sum, Count
 from django.db.models.functions import Coalesce, Least
 from django.shortcuts import render, redirect, get_object_or_404
+from django.template import Template, Context
+from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
 from django.utils.dateparse import parse_date
 from .forms_discount_codes import DiscountCodeForm
@@ -42,8 +48,17 @@ from .models import (
     AttractionSuggestion,
     AttractionWaitlistEntry,
     DiscountCode,
+    EmailTemplate,
+)
+from .forms import (
+    BookingForm,
+    AttractionCreateForm,
+    TicketDrawCreateForm,
+    EmailAuthenticationForm,
 )
 
+from .forms_discount_codes import DiscountCodeForm
+from .forms_suggestions import AttractionSuggestionForm
 User = get_user_model()
 
 # Business rule: max 3 bookings per calendar year (regular) and 3 per year (weekly_event) unless overridden elsewhere.
@@ -140,7 +155,7 @@ def get_calendar(year=None, month=None):
 
     weeks = []
     for i in range(0, len(month_days), 7):
-        week = month_days[i: i + 7]
+        week = month_days[i : i + 7]
         week_info = []
         for day in week:
             day_events = events_by_day.get(day.day, []) if day.month == month else []
@@ -162,14 +177,41 @@ def get_calendar(year=None, month=None):
 
 def assign_next_winner(draw: TicketDraw):
     """
-    If current winner entry is cancelled/missing then pick a new winner from active entries.
+    If current winner entry is cancelled/missing or deadline passed, pick a new winner from active entries.
     If no active entries then clear winner.
     """
-    if getattr(draw, "winner_booking", None) and not draw.winner_booking.cancelled:
-        return
+    if getattr(draw, "winner_booking", None):
+        winner = draw.winner_booking
 
+        if winner.is_accepted:
+            return
+
+        if winner.cancelled:
+            draw.winner_booking = None
+            draw.winner_selected_at = None
+
+        # Check if winner has exceeded 72 hour deadline
+        elif draw.winner_selected_at:
+            deadline = draw.winner_selected_at + datetime.timedelta(hours=72)
+            if timezone.now() > deadline:
+                winner.cancelled = True
+                winner.save(update_fields=["cancelled"])
+
+                # Restore slot capacity
+                TicketDrawVisitSlot.objects.filter(pk=winner.slot_id).update(
+                    remaining=F("remaining") + winner.num_tickets
+                )
+
+                draw.winner_booking = None
+                draw.winner_selected_at = None
+            else:
+                return
+
+    # Get all active entries (not cancelled, not accepted)
     entries = list(
-        TicketDrawBooking.objects.filter(ticket_draw=draw, cancelled=False).select_related("user")
+        TicketDrawBooking.objects.filter(ticket_draw=draw, cancelled=False, is_accepted=False).select_related("user",
+                                                                                                              "ticket_draw",
+                                                                                                              "slot")
     )
 
     if not entries:
@@ -178,6 +220,8 @@ def assign_next_winner(draw: TicketDraw):
     else:
         draw.winner_booking = random.choice(entries)
         draw.winner_selected_at = timezone.now()
+
+        send_draw_booking_email_redraw_winner(draw.winner_booking)
 
     draw.save(update_fields=["winner_booking", "winner_selected_at"])
 
@@ -574,6 +618,7 @@ def booking_view(request, attraction_pk):
         )
 
 
+
 @login_required
 def booking_history(request):
     """Show list of bookings for the logged in user, including both attractions and ticket draws."""
@@ -898,6 +943,7 @@ def ticket_draw_detail(request, slug):
             TicketDrawVisitSlot.objects.filter(pk=slot.pk).update(remaining=F("remaining") - num_tickets)
 
         messages.success(request, "Successfully entered draw!")
+        send_draw_booking_email_confirmation(booking)
         return redirect("draw_waiting_list")
 
     slots = TicketDrawVisitSlot.objects.filter(
@@ -977,23 +1023,40 @@ def cancel_ticket_draw_entry(request, pk):
     return redirect(request.META.get("HTTP_REFERER", "draw_waiting_list"))
 
 
-@require_POST
 @login_required
 def accept_draw_win(request, pk):
     booking = get_object_or_404(TicketDrawBooking, pk=pk, user=request.user)
     draw = booking.ticket_draw
 
-    if getattr(draw, "winner_booking_id", None) == booking.id:
-        booking.is_accepted = True
-        booking.save(update_fields=["is_accepted"])
-        messages.success(request, f"You have officially accepted your tickets for {draw.name}!")
-    else:
+    # Verify the winner
+    if getattr(draw, "winner_booking_id", None) != booking.id:
         messages.error(request, "You are not the current winner of this draw.")
+        return redirect("booking_history")
 
+    # Check if already accepted
+    if booking.is_accepted:
+        messages.info(request, "You have already accepted these tickets.")
+        return redirect("booking_history")
+
+    # Check if within deadline (72 hours from when winner was selected)
+    if draw.winner_selected_at:
+        deadline = draw.winner_selected_at + datetime.timedelta(hours=72)
+        if timezone.now() > deadline:
+            messages.error(request,
+                           "Sorry, the acceptance deadline has passed. These tickets will be offered to someone else.")
+            return redirect("booking_history")
+
+    booking.is_accepted = True
+    booking.ticket_sent = True
+    booking.save(update_fields=["is_accepted", "ticket_sent"])
+
+    # send ticket right after accepting
+    send_draw_booking_email_ticket_distribution(booking)
+
+    messages.success(request, f"Congratulations! You have accepted the tickets for {draw.name}.")
     return redirect("booking_history")
 
 
-@require_POST
 @login_required
 def decline_draw_win(request, pk):
     booking = get_object_or_404(TicketDrawBooking, pk=pk, user=request.user)
@@ -1003,13 +1066,19 @@ def decline_draw_win(request, pk):
         messages.error(request, "Invalid request.")
         return redirect("draw_waiting_list")
 
+    if booking.is_accepted:
+        messages.error(request, "You have already accepted these tickets and cannot decline them now.")
+        return redirect("booking_history")
+
     with transaction.atomic():
         if not booking.cancelled:
             booking.cancelled = True
             booking.save(update_fields=["cancelled"])
+
             TicketDrawVisitSlot.objects.filter(pk=booking.slot_id).update(
-                remaining=F("remaining") + booking.num_tickets
-            )
+                remaining=F("remaining") + booking.num_tickets)
+            # Send decline email
+            send_draw_booking_email_cancellation(booking)
 
         draw.winner_booking = None
         draw.winner_selected_at = None
@@ -1017,9 +1086,8 @@ def decline_draw_win(request, pk):
 
         assign_next_winner(draw)
 
-    messages.info(request, "You have declined the tickets. A new winner has been selected.")
+    messages.info(request, f"You have declined the tickets for {draw.name}. They will be offered to someone else.")
     return redirect("draw_waiting_list")
-
 
 # -----------------------------
 # Waiting list for attractions
@@ -1213,7 +1281,6 @@ def discount_codes_page(request):
             "now": now,
         },
     )
-
 
 # -----------------------------
 # Staff / Admin dashboard + management
@@ -1428,7 +1495,6 @@ def edit_ticket_draw(request, pk):
         {"form": form, "title": "Edit Ticket Draw", "ticket_draw": draw},
     )
 
-
 # -----------------------------
 # Reports (admin)
 # -----------------------------
@@ -1478,7 +1544,7 @@ def admin_reports(request):
 
         if ticket_code:
             qs_out = qs_out.filter(ticket_code__icontains=ticket_code)
-
+        
         if min_tickets and min_tickets.isdigit():
             qs_out = qs_out.filter(num_tickets__gte=int(min_tickets))
         if max_tickets and max_tickets.isdigit():
@@ -1508,14 +1574,14 @@ def admin_reports(request):
 
         if q:
             common_filters = (
-                    Q(user__first_name__icontains=q)
-                    | Q(user__last_name__icontains=q)
-                    | Q(user__username__icontains=q)
-                    | Q(user__email__icontains=q)
-                    | Q(slot__date__icontains=q)
-                    | Q(slot__time__icontains=q)
-                    | Q(ticket_code__icontains=q)
-                    | Q(num_tickets__icontains=q)
+                Q(user__first_name__icontains=q)
+                | Q(user__last_name__icontains=q)
+                | Q(user__username__icontains=q)
+                | Q(user__email__icontains=q)
+                | Q(slot__date__icontains=q)
+                | Q(slot__time__icontains=q)
+                | Q(ticket_code__icontains=q)
+                | Q(num_tickets__icontains=q)
             )
             if is_draw:
                 qs_out = qs_out.filter(common_filters | Q(ticket_draw__name__icontains=q))
@@ -1600,8 +1666,7 @@ def admin_reports(request):
 
     export_type = request.GET.get("export")
     if export_type:
-        headers = ["Type", "Attraction/Draw", "Forename", "Surname", "GUID", "Email", "Date", "Time", "Ticket Code",
-                   "Tickets", "Status"]
+        headers = ["Type", "Attraction/Draw", "Forename", "Surname", "GUID", "Email", "Date", "Time", "Ticket Code", "Tickets", "Status"]
 
         if export_type == "csv":
             response = HttpResponse(content_type="text/csv")
@@ -1727,6 +1792,437 @@ def admin_reports(request):
             "time_list": time_list,
         },
     )
+
+
+# -----------------------------
+# Emails (admin)
+# -----------------------------
+@staff_member_required
+def admin_email(request):
+    email_types = EmailTemplate.TYPE_CHOICES
+
+    selected_type = request.GET.get("email_type")
+    template_id = request.GET.get("template_id")
+
+    templates = EmailTemplate.objects.filter(type=selected_type) if selected_type else []
+
+    selected_template = None
+    if template_id:
+        selected_template = get_object_or_404(EmailTemplate, id=template_id)
+
+    # POST actions
+    if request.method == "POST" and selected_template:
+
+        subject = request.POST.get("subject")
+        body = request.POST.get("body")
+
+        # SAVE
+        if "save" in request.POST:
+            selected_template.subject = subject
+            selected_template.body = body
+            selected_template.save()
+            messages.success(request, "Template saved")
+
+        # SEND TEST
+        elif "send" in request.POST:
+            context = get_email_context(user=request.user)
+            send_template_email(
+                selected_template.type,
+                request.user.email,  # send to yourself
+                context,
+            )
+            messages.success(request, "Test email sent")
+
+        elif "send_announcement_all" in request.POST:
+            selected_template.subject = subject
+            selected_template.body = body
+            selected_template.save()
+            all_users = User.objects.all()
+            count = 0
+            for user in all_users:
+                try:
+                    send_announcement_email(user)
+                    count += 1
+                except Exception as e:
+                    pass
+            messages.success(request, f"Announcement sent to all {count} users.")
+
+        elif "send_custom_selected" in request.POST:
+            selected_template.subject = subject
+            selected_template.body = body
+            selected_template.save()
+            raw_ids = request.POST.get("custom_recipient_ids", "")
+            ids = [int(i) for i in raw_ids.split(",") if i.strip().isdigit()]
+            users = User.objects.filter(id__in=ids)
+            count = 0
+            for user in users:
+                try:
+                    send_custom_email(user)
+                    count += 1
+                except Exception:
+                    pass
+            messages.success(request, f"Custom email sent to {count} selected user(s).")
+
+
+        elif "set_default" in request.POST:
+            # Remove default from all other templates of this type
+            EmailTemplate.objects.filter(type=selected_template.type).update(is_default=False)
+            # Set this one as default
+            selected_template.is_default = True
+            selected_template.save()
+            messages.success(request,
+                             f"'{selected_template.name}' is now the default template for {selected_template.get_type_display()}")
+
+        # DELETE
+        elif "delete" in request.POST:
+            # Check if this is the default template
+            was_default = selected_template.is_default
+            template_name = selected_template.name
+            template_type = selected_template.type
+
+            selected_template.delete()
+
+            # If we deleted the default, set another template as default if available
+            if was_default:
+                next_template = EmailTemplate.objects.filter(type=template_type).first()
+                if next_template:
+                    next_template.is_default = True
+                    next_template.save()
+                    messages.success(request, f"Template deleted. '{next_template.name}' is now the default.")
+                else:
+                    messages.success(request, "Template deleted. No templates remain for this type.")
+            else:
+                messages.success(request, "Template deleted")
+
+            return redirect(request.path + f"?email_type={selected_type}")
+
+    # CREATE NEW
+    if request.method == "POST" and "create" in request.POST:
+        # Check if this is the first template of this type
+        is_first = not EmailTemplate.objects.filter(type=selected_type).exists()
+
+        new_template = EmailTemplate.objects.create(
+            name="New Template",
+            type=selected_type,
+            subject="Subject here",
+            body="",
+            is_default=is_first  # First template becomes default automatically
+        )
+
+        messages.success(request, "Template created" + (" and set as default" if is_first else ""))
+        return redirect(request.path + f"?email_type={selected_type}&template_id={new_template.id}")
+
+    context = {
+        "email_types": email_types,
+        "templates": templates,
+        "selected_template": selected_template,
+        "selected_type": selected_type,
+        "all_users": User.objects.all().order_by("last_name", "first_name"),
+    }
+
+    return render(request, "fergusonbequest/admin_email.html", context)
+
+
+def send_template_email(template_type, recipient, context_dict):
+    template = EmailTemplate.objects.filter(type=template_type).first()
+
+    if not template:
+        return
+
+    # render subject + body from DB template
+    subject = Template(template.subject).render(Context(context_dict))
+    body_content = Template(template.body).render(Context(context_dict))
+
+    # inject into your HTML layout
+    html_body = render_to_string(
+        "fergusonbequest/base_email.html",
+        {
+            "body": body_content
+        }
+    )
+
+    email = EmailMultiAlternatives(
+        subject,
+        body_content,  # plain text fallback
+        settings.DEFAULT_FROM_EMAIL,
+        [recipient]
+    )
+
+    email.attach_alternative(html_body, "text/html")
+
+    email.send(fail_silently=False)
+
+
+# Confirmation
+def send_attraction_booking_email_confirmation(booking):
+    context = get_email_context(booking=booking)
+    send_template_email(
+        "attraction_confirmation",
+        booking.user.email,
+        context,
+    )
+
+
+def send_draw_booking_email_confirmation(draw_booking):
+    context = get_email_context(draw_booking=draw_booking)
+    send_template_email(
+        "draw_confirmation",
+        draw_booking.user.email,
+        context,
+    )
+
+
+# Cancellation
+def send_attraction_booking_email_cancellation(booking):
+    context = get_email_context(booking=booking)
+    send_template_email(
+        "attraction_cancellation",
+        booking.user.email,
+        context,
+    )
+
+
+def send_draw_booking_email_cancellation(draw_booking):
+    context = get_email_context(draw_booking=draw_booking)
+    send_template_email(
+        "draw_cancellation",
+        draw_booking.user.email,
+        context,
+    )
+
+
+# Ticket Distribution (send after deadline date)
+def send_attraction_booking_email_ticket_distribution(booking):
+    context = get_email_context(booking=booking)
+    send_template_email(
+        "attraction_distribution",
+        booking.user.email,
+        context,
+    )
+
+
+# sent after accepting the ticket
+def send_draw_booking_email_ticket_distribution(draw_booking):
+    context = get_email_context(draw_booking=draw_booking)
+    send_template_email(
+        "draw_distribution",
+        draw_booking.user.email,
+        context,
+    )
+
+
+# Ticket Draw Winner (Accept or Decline, 3 day deadline)
+def send_draw_booking_email_winner(draw_booking):
+    deadline = timezone.now() + datetime.timedelta(hours=72)
+
+    context = get_email_context(draw_booking=draw_booking, winner_deadline=deadline)
+    send_template_email(
+        "draw_winner",
+        draw_booking.user.email,
+        context,
+    )
+
+
+# Attraction List Reallocation
+def send_attraction_booking_email_ticket_reallocaton(booking):
+    context = get_email_context(booking=booking)
+    send_template_email(
+        "attraction_reallocation",
+        booking.user.email,
+        context,
+    )
+
+
+# Ticket Draw Redraw Winner
+def send_draw_booking_email_redraw_winner(draw_booking):
+    deadline = timezone.now() + datetime.timedelta(hours=72)
+
+    context = get_email_context(draw_booking=draw_booking, winner_deadline=deadline)
+    send_template_email(
+        "draw_reallocation",
+        draw_booking.user.email,
+        context,
+    )
+
+
+# Reminder (1 day before)
+def send_attraction_booking_email_reminder(booking):
+    context = get_email_context(booking=booking)
+    send_template_email(
+        "attraction_reminder",
+        booking.user.email,
+        context,
+    )
+
+
+def send_draw_booking_email_reminder(draw_booking):
+    context = get_email_context(draw_booking=draw_booking)
+    send_template_email(
+        "draw_reminder",
+        draw_booking.user.email,
+        context,
+    )
+
+
+def send_announcement_email(user):
+    context = get_email_context(user=user)
+    send_template_email(
+        "announcement",
+        user.email,
+        context,
+    )
+
+
+def send_custom_email(user):
+    context = get_email_context(user=user)
+    send_template_email(
+        "custom",
+        user.email,
+        context,
+    )
+
+
+def get_email_context(booking=None, draw_booking=None, user=None, **kwargs):
+    try:
+        from django.contrib.sites.models import Site
+        current_site = Site.objects.get_current()
+
+        if '127.0.0.1' in current_site.domain or 'localhost' in current_site.domain:
+            domain = f"http://{current_site.domain}"
+        else:
+            domain = f"https://{current_site.domain}"
+
+    except:
+        domain = "http://127.0.0.1:8000"
+
+    context = {
+        "current_date": timezone.now().strftime("%d/%m/%Y"),
+        "current_time": timezone.now().strftime("%H:%M"),
+        "site_url": "https://www.gla.ac.uk/myglasgow/courtoffice/fergusonbequest/",
+        "homepage_url": domain,
+        "contact_email": "fergusonbequest@glasgow.ac.uk",
+    }
+
+    if user:
+        context.update({
+            "user_id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "full_name": f"{user.first_name} {user.last_name}".strip(),
+        })
+
+    elif booking and booking.user:
+        context.update({
+            "user_id": booking.user.id,
+            "username": booking.user.username,
+            "email": booking.user.email,
+            "first_name": booking.user.first_name,
+            "last_name": booking.user.last_name,
+            "full_name": booking.full_name or f"{booking.user.first_name} {booking.user.last_name}".strip(),
+        })
+
+    elif draw_booking and draw_booking.user:
+        context.update({
+            "user_id": draw_booking.user.id,
+            "username": draw_booking.user.username,
+            "email": draw_booking.user.email,
+            "first_name": draw_booking.user.first_name,
+            "last_name": draw_booking.user.last_name,
+            "full_name": draw_booking.full_name or f"{draw_booking.user.first_name} {draw_booking.user.last_name}".strip(),
+        })
+
+    if booking:
+
+        slot = booking.slot if hasattr(booking, 'slot') else None
+
+        visit_time = ""
+        visit_date = ""
+        visit_day = ""
+        visit_datetime = ""
+
+        if slot:
+            if hasattr(slot, 'time') and slot.time:
+                visit_time = slot.time.strftime("%H:%M")
+            if hasattr(slot, 'date') and slot.date:
+                visit_date = slot.date.strftime("%d/%m/%Y")
+                visit_day = slot.date.strftime("%A")
+            if visit_date and visit_time:
+                visit_datetime = f"{visit_date} at {visit_time}"
+
+        context.update({
+
+            "booking_type": "attraction",
+            "booking_id": booking.id,
+            "booking_created_date": booking.created_at.strftime("%d/%m/%Y %H:%M") if booking.created_at else "",
+            "booking_status": "Cancelled" if booking.cancelled else "Confirmed",
+            "booking_num_tickets": booking.num_tickets,
+
+            "attraction_id": booking.attraction.id if booking.attraction else "",
+            "attraction_name": booking.attraction.name if booking.attraction else "",
+            "attraction_location": booking.attraction.location if booking.attraction else "",
+            "attraction_description": booking.attraction.description if booking.attraction else "",
+
+            "visit_date": visit_date,
+            "visit_day": visit_day,
+            "visit_time": visit_time,
+            "visit_datetime": visit_datetime,
+
+            "cancel_link": f"{domain}/booking/{booking.id}/cancel/",
+            "view_booking_link": f"{domain}/booking/history/#booking-{booking.id}",
+        })
+
+    if draw_booking:
+
+        slot = draw_booking.slot if hasattr(draw_booking, 'slot') else None
+
+        visit_time = ""
+        visit_date = ""
+        visit_day = ""
+        visit_datetime = ""
+
+        if slot:
+            if hasattr(slot, 'time') and slot.time:
+                visit_time = slot.time.strftime("%H:%M")
+            if hasattr(slot, 'date') and slot.date:
+                visit_date = slot.date.strftime("%d/%m/%Y")
+                visit_day = slot.date.strftime("%A")
+            if visit_date and visit_time:
+                visit_datetime = f"{visit_date} at {visit_time}"
+
+        context.update({
+
+            "booking_type": "draw",
+            "booking_id": draw_booking.id,
+            "booking_created_date": draw_booking.created_at.strftime(
+                "%d/%m/%Y %H:%M") if draw_booking.created_at else "",
+            "booking_status": "Cancelled" if draw_booking.cancelled else "Entered",
+            "booking_num_tickets": draw_booking.num_tickets,
+
+            "draw_id": draw_booking.ticket_draw.id if draw_booking.ticket_draw else "",
+            "draw_name": draw_booking.ticket_draw.name if draw_booking.ticket_draw else "",
+            "draw_location": draw_booking.ticket_draw.location if draw_booking.ticket_draw else "",
+            "draw_description": draw_booking.ticket_draw.description if draw_booking.ticket_draw else "",
+
+            "visit_date": visit_date,
+            "visit_day": visit_day,
+            "visit_time": visit_time,
+            "visit_datetime": visit_datetime,
+
+            "cancel_link": f"{domain}/ticket-draw/{draw_booking.id}/cancel/",
+            "view_booking_link": f"{domain}/booking/history/#booking-{draw_booking.id}",
+            "accept_link": f"{domain}/draw-waiting-list/accept/{draw_booking.id}",
+            "reject_link": f"{domain}/draw-waiting-list/decline/{draw_booking.id}",
+        })
+
+    context.update(kwargs)
+
+    if context.get("winner_deadline") and isinstance(context["winner_deadline"], datetime.datetime):
+        context["winner_deadline"] = context["winner_deadline"].strftime("%d/%m/%Y %H:%M")
+        context["winner_deadline_days"] = 3
+
+    return context
 
 # -----------------------------
 # Ticket Upload Mechanism
