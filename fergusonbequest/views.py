@@ -114,15 +114,14 @@ def calculate_remaining_allowance(user, attraction_type="regular"):
 def add_events(objects, events_by_day, start, end, event_type):
     """Add booking_open / booking_close events for calendar display."""
     for obj in objects:
-        for field, class_name in [("booking_open", "booking-open"), ("booking_close", "booking-close")]:
-            date_value = getattr(obj, field, None)
-            if not date_value:
-                continue
-            event_date = date_value.date()
-            if start <= event_date <= end:
-                events_by_day.setdefault(event_date.day, []).append(
-                    {"class_name": class_name, "object": obj, "event_type": event_type}
-                )
+        date_value = getattr(obj, "date", None)
+        if not date_value:
+            continue
+        event_date = date_value
+        if start <= event_date <= end:
+            events_by_day.setdefault(event_date.day, []).append(
+                {"object": obj, "event_type": event_type}
+            )
 
 
 def get_calendar(year=None, month=None):
@@ -150,8 +149,8 @@ def get_calendar(year=None, month=None):
     start, end = month_days[0], month_days[-1]
 
     events_by_day = {}
-    add_events(Attraction.objects.all(), events_by_day, start, end, "attraction")
-    add_events(TicketDraw.objects.all(), events_by_day, start, end, "ticket_draw")
+    add_events(VisitSlot.objects.all(), events_by_day, start, end, "attraction")
+    add_events(TicketDrawVisitSlot.objects.all(), events_by_day, start, end, "ticket_draw")
 
     weeks = []
     for i in range(0, len(month_days), 7):
@@ -1865,9 +1864,7 @@ def admin_email(request):
 
 
         elif "set_default" in request.POST:
-            # Remove default from all other templates of this type
             EmailTemplate.objects.filter(type=selected_template.type).update(is_default=False)
-            # Set this one as default
             selected_template.is_default = True
             selected_template.save()
             messages.success(request,
@@ -1875,7 +1872,6 @@ def admin_email(request):
 
         # DELETE
         elif "delete" in request.POST:
-            # Check if this is the default template
             was_default = selected_template.is_default
             template_name = selected_template.name
             template_type = selected_template.type
@@ -1898,7 +1894,6 @@ def admin_email(request):
 
     # CREATE NEW
     if request.method == "POST" and "create" in request.POST:
-        # Check if this is the first template of this type
         is_first = not EmailTemplate.objects.filter(type=selected_type).exists()
 
         new_template = EmailTemplate.objects.create(
@@ -1929,11 +1924,9 @@ def send_template_email(template_type, recipient, context_dict):
     if not template:
         return
 
-    # render subject + body from DB template
     subject = Template(template.subject).render(Context(context_dict))
     body_content = Template(template.body).render(Context(context_dict))
 
-    # inject into your HTML layout
     html_body = render_to_string(
         "fergusonbequest/base_email.html",
         {
@@ -1943,7 +1936,7 @@ def send_template_email(template_type, recipient, context_dict):
 
     email = EmailMultiAlternatives(
         subject,
-        body_content,  # plain text fallback
+        body_content,
         settings.DEFAULT_FROM_EMAIL,
         [recipient]
     )

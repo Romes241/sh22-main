@@ -74,16 +74,6 @@
     text-align: left;
 }
 
-
-
-.event.booking-open { 
-    border: 2px solid #22c55e;
-}
-
-.event.booking-close { 
-    border: 2px solid #ef4444;
-}  
-
 .event.ticket_draw {
     background-color: #bed7fe;
     color: #1e3a8a;
@@ -93,7 +83,7 @@
     background-color: #deb7fe;
     color: #6b21a8;
 }
-.event.booking-open:hover, .event.booking-close:hover {
+.event.ticket_draw:hover, .event.attraction:hover {
     filter:brightness(0.85);
 }
 
@@ -149,13 +139,4 @@
 
 .legend-box.attraction {
     background: #deb7fe;
-}
-
-/* status borders */
-.legend-box.booking-open {
-    border: 2px solid #22c55e;
-}
-
-.legend-box.booking-close {
-    border: 2px solid #ef4444;
 }
