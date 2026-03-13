@@ -682,7 +682,7 @@ def booking_history(request):
             Q(ticket_draw__name__icontains=q) |
             Q(id__icontains=q) |
             Q(email__icontains=q) |
-            Q(ticket_code__icontains=q)
+            Q(converted_booking__ticket_code__icontains=q)
         )
 
     sd = parse_date(start) if start else None
