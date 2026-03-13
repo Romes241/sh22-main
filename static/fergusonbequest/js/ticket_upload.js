@@ -39,6 +39,8 @@ function refreshBookingButtons() {
   );
 }
 
+
+
 function openBookingAtIndex(index) {
   refreshBookingButtons();
   if (index < 0 || index >= bookingButtons.length) return;
@@ -89,6 +91,77 @@ if (nextBtn) {
     return "codes";
   }
 
+function renderTicketInputs(numTickets) {
+  const n = parseInt(numTickets, 10) || 1;
+  const activeType = document.getElementById("ticketType")?.value || "codes";
+  const mode = document.getElementById("uploadModal")?.dataset.mode || "individual";
+
+  // Ticket codes
+  if (activeType === "codes") {
+    const ta = mode === "bulk"
+      ? document.getElementById("bulkCodesText")
+      : document.getElementById("singleCodesText");
+
+    const hint = mode === "bulk"
+      ? document.getElementById("bulkCodeCountHint")
+      : document.getElementById("singleCodeCountHint");
+
+    if (ta && hint) {
+      const updateCodeCounter = () => {
+        const count = ta.value
+          .split(/\r?\n/)
+          .map(x => x.trim())
+          .filter(Boolean).length;
+
+        hint.textContent = `${count} / ${n} codes entered (Required: ${n})`;
+        hint.style.color = (count === n) ? "#28a745" : "#dc3545";
+      };
+
+      updateCodeCounter();
+      ta.oninput = updateCodeCounter;
+    }
+  }
+
+  // PDF tickets
+  if (activeType === "pdf_template" || activeType === "pdf_template_random") {
+    const input = document.getElementById("ticketFilesInput");
+    const hint = document.getElementById("pdfUploadStatusHint");
+
+    if (input && hint) {
+      const updatePdfCounter = () => {
+        const count = input.files.length;
+        hint.textContent = `${count} / ${n} files selected (Required: ${n})`;
+        hint.style.color = (count === n) ? "#28a745" : "#dc3545";
+      };
+
+      updatePdfCounter();
+      input.onchange = updatePdfCounter;
+    }
+  }
+
+  // QR ticket files
+  if (activeType === "qr_individual") {
+    const input = mode === "bulk"
+      ? document.getElementById("qrFilesBulk")
+      : document.getElementById("qrFilesIndividual");
+
+    const hint = mode === "bulk"
+      ? document.getElementById("qrBulkUploadStatusHint")
+      : document.getElementById("qrIndividualUploadStatusHint");
+
+    if (input && hint) {
+      const updateQrCounter = () => {
+        const count = input.files.length;
+        hint.textContent = `${count} / ${n} files selected (Required: ${n})`;
+        hint.style.color = (count === n) ? "#28a745" : "#dc3545";
+      };
+
+      updateQrCounter();
+      input.onchange = updateQrCounter;
+    }
+  }
+}
+
   function activateTicketType(type) {
     const hiddenType = document.getElementById("ticketType");
     if (hiddenType) hiddenType.value = type || "codes";
@@ -98,6 +171,8 @@ if (nextBtn) {
     });
 
     const targetPanelKey = panelKeyForType(type);
+    const numTickets = document.getElementById("modalNumTickets")?.value || 1;
+        renderTicketInputs(numTickets);
 
     document.querySelectorAll(".tu-type-panel").forEach((panel) => {
       panel.classList.toggle("is-active", panel.dataset.panel === targetPanelKey);
@@ -114,117 +189,61 @@ if (nextBtn) {
     activateTicketType(initialType);
   });
 
-  // Modal form reset helpers
-  function resetModalFields() {
-    const form = document.getElementById("ticketUploadForm");
-    if (!form) return;
 
-    form.querySelectorAll("input, textarea").forEach((el) => {
-      const name = el.getAttribute("name") || "";
-      const type = (el.getAttribute("type") || "").toLowerCase();
 
-      if (name === "csrfmiddlewaretoken") return;
-      if (type === "hidden") return;
+// Add a validation check to the form submission
+const ticketUploadForm = document.getElementById("ticketUploadForm");
 
-      if (type === "checkbox") {
-        el.checked = el.defaultChecked;
-        return;
+if (ticketUploadForm) {
+  ticketUploadForm.onsubmit = function (e) {
+    const mode = document.getElementById("uploadModal")?.dataset.mode || "individual";
+    const type = document.getElementById("ticketType")?.value;
+    const n = parseInt(document.getElementById("modalNumTickets")?.value, 10) || 1;
+
+    if (type === "qr_individual") {
+      const input = mode === "bulk"
+        ? document.getElementById("qrFilesBulk")
+        : document.getElementById("qrFilesIndividual");
+
+      const count = input?.files.length || 0;
+
+      if (count !== n) {
+        e.preventDefault();
+        alert(`Please upload exactly ${n} file(s). You have selected ${count}.`);
+        return false;
       }
-
-      if (type === "file") {
-        el.value = "";
-        return;
-      }
-
-      el.value = "";
-    });
-
-    activateTicketType("codes");
-  }
-
-
-  // Open modal: Individual booking
-function openIndividualTicketModal(
-  bookingId,
-  venueName,
-  ticketType,
-  ticketCode,
-  ticketFileUrl,
-  rowKind = 'b',
-  ticketedCount = "0",
-  totalCount = "0",
-  triggerEl = null
-) {  const form = document.getElementById("ticketUploadForm");
-  if (!form) return;
-
-  refreshBookingButtons();
-  if (triggerEl) {
-    currentRowIndex = bookingButtons.indexOf(triggerEl);
-  }
-  resetModalFields();
-  const nav = document.getElementById("bookingNav");
-  if (nav) nav.style.display = "";
-
-  form.action = form.dataset.individualAction;
-  updateModalMode("individual");
-
-  const bookingIdEl = document.getElementById("modalBookingId");
-  const venueEl = document.getElementById("modalVenue");
-  const venueNameEl = document.getElementById("modalVenueName");
-
-  // Get the hidden input for row_kind
-  const rowKindEl = document.getElementById("modalRowKind");
-
-  const ticketedEl = document.getElementById("ticketedCount");
-  const totalEl = document.getElementById("ticketTotal");
-
-  if (ticketedEl) ticketedEl.textContent = ticketedCount || "0";
-  if (totalEl) totalEl.textContent = totalCount || "0";
-
-  if (bookingIdEl) bookingIdEl.value = bookingId || "";
-
-  // Set 'b' for booking or 'd' for draw
-  if (rowKindEl) rowKindEl.value = rowKind;
-
-  if (venueEl) venueEl.value = "";
-
-  // Adjust label to show if it's a Draw or Booking
-  const labelPrefix = rowKind === 'd' ? "Draw Entry" : "Booking";
-  if (venueNameEl) venueNameEl.textContent = `${venueName || "—"} (${labelPrefix} #${bookingId})`;
-
-  if (ticketType) activateTicketType(ticketType);
-
-    if (ticketType === "booking_code") {
-      const codeInput = document.querySelector('input[name="booking_code"]');
-      if (codeInput) codeInput.value = ticketCode || "";
     }
 
-    //  PDF hint
-    if (ticketFileUrl) {
-      const pdfPanel = document.querySelector('.tu-type-panel[data-panel="pdfs"]');
-      if (pdfPanel) {
-        let hint = pdfPanel.querySelector(".tu-existing-file-hint");
-        if (!hint) {
-          hint = document.createElement("div");
-          hint.className = "tu-hint tu-existing-file-hint";
-          pdfPanel.appendChild(hint);
-        }
-        hint.innerHTML = `Existing file: <a href="${ticketFileUrl}" target="_blank" rel="noopener">view</a> (upload to replace)`;
-      }
-    } else {
-      document.querySelectorAll(".tu-existing-file-hint").forEach((el) => el.remove());
-    }
-    const labelEl = document.getElementById("ticketedLabel");
-    const ticketedWrap = document.getElementById("ticketedInfo");
+    else if (["pdf_template", "pdf_template_random"].includes(type)) {
+      const count = document.getElementById("ticketFilesInput")?.files.length || 0;
 
-    if (rowKind === "d") {
-      if (ticketedWrap) ticketedWrap.style.display = "none";
-    } else {
-      if (ticketedWrap) ticketedWrap.style.display = "";
-      if (labelEl) labelEl.textContent = "Ticketed for specific attraction (excluding draws)";
+      if (count !== n) {
+        e.preventDefault();
+        alert(`Please upload exactly ${n} file(s). You have selected ${count}.`);
+        return false;
+      }
     }
-    setModalOpen(true);
-  }
+
+    else if (type === "codes") {
+      const ta = mode === "bulk"
+        ? document.querySelector('textarea[name="codes_text"]')
+        : document.getElementById("singleCodesText");
+
+      const count = (ta?.value || "")
+        .split(/\r?\n/)
+        .map(x => x.trim())
+        .filter(Boolean).length;
+
+      if (count !== n) {
+        e.preventDefault();
+        alert(`Please enter exactly ${n} code(s). You have entered ${count}.`);
+        return false;
+      }
+    }
+
+    return true;
+  };
+}
 
 // Open modal: Bulk venue distribute
 function openUploadModal() {
@@ -272,15 +291,25 @@ function openUploadModal() {
   const ticketed = opt?.dataset.ticketed || "0";
   const total = opt?.dataset.total || "0";
 
+  const needed = Math.max(0, (parseInt(total, 10) || 0) - (parseInt(ticketed, 10) || 0));
+  const numTicketsEl = document.getElementById("modalNumTickets");
+  if (numTicketsEl) numTicketsEl.value = needed;
+
   const ticketedEl = document.getElementById("ticketedCount");
   const totalEl = document.getElementById("ticketTotal");
   const labelEl = document.getElementById("ticketedLabel");
 
-  if (ticketedEl) ticketedEl.textContent = ticketed;
-  if (totalEl) totalEl.textContent = total;
-  if (labelEl) labelEl.textContent = "Ticketed for specific attraction";
+  const ticketedWrap = document.getElementById("ticketedInfo");
 
-  resetModalFields();
+  if (venueId.startsWith("d-")) {
+    if (ticketedWrap) ticketedWrap.style.display = "none";
+  } else {
+    if (ticketedWrap) ticketedWrap.style.display = "";
+    if (ticketedEl) ticketedEl.textContent = ticketed;
+    if (totalEl) totalEl.textContent = total;
+    if (labelEl) labelEl.textContent = "Ticketed for specific attraction";
+  }
+
   updateModalMode("bulk");
   form.action = form.dataset.venueAction;
 
@@ -296,8 +325,143 @@ function openUploadModal() {
   if (rowKindEl) rowKindEl.value = "b";
   if (nav) nav.style.display = "none";
 
+  const activeType = document.getElementById("ticketType")?.value || "codes";
+  activateTicketType(activeType);
   setModalOpen(true);
 }
+
+let _ticketPages = [];
+let _ticketIdx = 0;
+
+function _showTicketPage(body) {
+  const entry = _ticketPages[_ticketIdx];
+  const prev = document.getElementById("ticketPrev");
+  const next = document.getElementById("ticketNext");
+  const multi = _ticketPages.length > 1;
+
+  if (prev) prev.style.display = multi ? "" : "none";
+  if (next) next.style.display = multi ? "" : "none";
+
+  const counter = multi
+    ? `<div style="text-align:center;font-size:0.85em;color:#666;margin-bottom:8px;">
+         Ticket ${_ticketIdx + 1} of ${_ticketPages.length}
+       </div>`
+    : "";
+
+  if (entry.type === "image") {
+    body.innerHTML = `
+      ${counter}
+      <div style="display:flex;justify-content:center;">
+        <img src="${entry.url}" alt="Ticket image" style="max-width:100%;height:auto;">
+      </div>`;
+  } else if (entry.type === "pdf") {
+    body.innerHTML = `
+      ${counter}
+      <div style="height:60vh;">
+        <iframe src="${entry.url}" style="width:100%;height:100%;border:0;"></iframe>
+      </div>
+      <div style="margin-top:12px;">
+        <a class="tu-btn tu-btn--primary" href="${entry.url}" target="_blank" rel="noopener">Open PDF</a>
+      </div>`;
+  } else {
+    body.innerHTML = `
+      ${counter}
+      <pre style="white-space:pre-wrap;margin:0;">${escapeHtml(entry.text)}</pre>`;
+  }
+}
+
+async function _fetchAndPushPage(url) {
+  const res = await fetch(url, {
+    headers: { "X-Requested-With": "XMLHttpRequest" },
+    credentials: "same-origin",
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch ${url}: ${res.status}`);
+  }
+
+  const ct = (res.headers.get("content-type") || "").toLowerCase();
+
+  if (ct.startsWith("image/")) {
+    const blob = await res.blob();
+    _ticketPages.push({ type: "image", url: URL.createObjectURL(blob) });
+  } else if (ct.includes("application/pdf")) {
+    const blob = await res.blob();
+    _ticketPages.push({ type: "pdf", url: URL.createObjectURL(blob) });
+  } else {
+    const text = await res.text();
+    _ticketPages.push({ type: "text", text });
+  }
+}
+
+async function openTicketViewModal(bookingId) {
+  const body = document.getElementById("ticketViewBody");
+  if (!body) return;
+
+  _ticketPages = [];
+  _ticketIdx = 0;
+  body.textContent = "Loading…";
+  setTicketViewModalOpen(true);
+
+  const prev = document.getElementById("ticketPrev");
+  const next = document.getElementById("ticketNext");
+
+  if (prev) {
+    prev.onclick = () => {
+      if (_ticketIdx > 0) {
+        _ticketIdx--;
+        _showTicketPage(body);
+      }
+    };
+  }
+
+  if (next) {
+    next.onclick = () => {
+      if (_ticketIdx < _ticketPages.length - 1) {
+        _ticketIdx++;
+        _showTicketPage(body);
+      }
+    };
+  }
+
+  try {
+    const listRes = await fetch(`/tickets/${bookingId}/list/`, {
+      headers: { "X-Requested-With": "XMLHttpRequest" },
+      credentials: "same-origin",
+    });
+
+    if (!listRes.ok) {
+      throw new Error(`List endpoint failed: ${listRes.status}`);
+    }
+
+    const listData = await listRes.json();
+    const urls = Array.isArray(listData.tickets) ? listData.tickets : [];
+
+    for (const url of urls) {
+      await _fetchAndPushPage(url);
+    }
+
+    if (_ticketPages.length === 0) {
+      const fallbackUrl = getTicketViewUrl(bookingId);
+      if (fallbackUrl) {
+        await _fetchAndPushPage(fallbackUrl);
+      }
+    }
+
+    if (_ticketPages.length === 0) {
+      body.textContent = "No ticket available for this booking.";
+      return;
+    }
+
+    _showTicketPage(body);
+  } catch (err) {
+    console.error("Ticket viewer error:", err);
+    body.textContent = "Could not load ticket.";
+  }
+}
+
+window.openTicketViewModal = openTicketViewModal;
+window.closeTicketViewModal = closeTicketViewModal;
 
   // Delete modal open/close (single)
   function setDeleteModalOpen(isOpen) {
@@ -410,6 +574,54 @@ function openDeleteSingleModal(rowId, venueName, rowKind = "b") {
       setDeleteModalOpen(true);
     });
   }
+function openIndividualTicketModal(
+  bookingId,
+  venueName,
+  firstName,
+  lastName,
+  guid,
+  rowKind,
+  ticketedCount,
+  totalCount,
+  numTickets,
+  btn
+) {
+  const form = document.getElementById("ticketUploadForm");
+  if (!form) return;
+
+  updateModalMode("individual");
+
+  if (form.dataset.individualAction) {
+    form.action = form.dataset.individualAction;
+  }
+
+  const venueEl = document.getElementById("modalVenue");
+  const bookingIdEl = document.getElementById("modalBookingId");
+  const venueNameEl = document.getElementById("modalVenueName");
+  const rowKindEl = document.getElementById("modalRowKind");
+  const numTicketsEl = document.getElementById("modalNumTickets");
+  const ticketedEl = document.getElementById("ticketedCount");
+  const totalEl = document.getElementById("ticketTotal");
+  const ticketedWrap = document.getElementById("ticketedInfo");
+  const nav = document.getElementById("bookingNav");
+
+  if (venueEl) venueEl.value = "";
+  if (bookingIdEl) bookingIdEl.value = bookingId || "";
+  if (venueNameEl) venueNameEl.textContent = venueName || "—";
+  if (rowKindEl) rowKindEl.value = rowKind || "b";
+  if (numTicketsEl) numTicketsEl.value = numTickets || "1";
+
+  if (ticketedWrap) ticketedWrap.style.display = "";
+  if (ticketedEl) ticketedEl.textContent = ticketedCount || "0";
+  if (totalEl) totalEl.textContent = totalCount || "0";
+  if (nav) nav.style.display = "";
+
+  renderTicketInputs(numTickets || 1);
+  setModalOpen(true);
+
+  refreshBookingButtons();
+  if (btn) currentRowIndex = bookingButtons.indexOf(btn);
+}
 
   // Expose functions used inline HTML onclick=
   window.openUploadModal = openUploadModal;

@@ -1,4 +1,3 @@
-{# Shared ticket view popup. Used in both Booking History and Ticket Upload  pages to display the user's ticket when "View Ticket" is clicked. #}
 <div id="ticketViewConfig" data-ticket-view-url-template="{{ ticket_view_url_template }}"></div>
 
 <div id="ticketViewModal" class="tu-modal" aria-hidden="true">
@@ -8,15 +7,25 @@
       <button type="button" class="tu-modal-close" onclick="closeTicketViewModal()">✕</button>
     </div>
 
-    <div class="tu-modal-body" id="ticketViewBody">Loading…</div>
+    <div class="tu-modal-body">
+      <div id="ticketViewBody" style="flex:1;">Loading…</div>
+    </div>
 
     <div class="tu-modal-actions">
       <button type="button" class="tu-btn tu-btn--chip" onclick="closeTicketViewModal()">Close</button>
+
+      <div class="tu-ticket-nav">
+        <button type="button" id="ticketPrev" class="tu-arrow-btn" style="display:none;">←</button>
+        <button type="button" id="ticketNext" class="tu-arrow-btn" style="display:none;">→</button>
+      </div>
     </div>
   </div>
 </div>
 
 <script>
+  let _ticketPages = [];
+  let _ticketIdx = 0;
+
   function escapeHtml(str) {
     return String(str)
       .replaceAll("&", "&amp;")
@@ -28,7 +37,7 @@
 
   function getTicketViewUrl(bookingId) {
     const cfg = document.getElementById("ticketViewConfig");
-    const tmpl = cfg?.dataset.ticketViewUrlTemplate;
+    const tmpl = cfg ? cfg.dataset.ticketViewUrlTemplate : "";
     if (!tmpl) return "";
     return tmpl.replace("999999", String(bookingId));
   }
@@ -57,54 +66,179 @@
     if (e.key === "Escape") closeTicketViewModal();
   });
 
+  function _showTicketPage(body) {
+    const entry = _ticketPages[_ticketIdx];
+    const prev = document.getElementById("ticketPrev");
+    const next = document.getElementById("ticketNext");
+    const multi = _ticketPages.length > 1;
+
+    if (prev) prev.style.display = multi ? "" : "none";
+    if (next) next.style.display = multi ? "" : "none";
+
+    const counter = multi
+      ? `<div style="text-align:center;font-size:0.85em;color:#666;margin-bottom:8px;">
+           Ticket ${_ticketIdx + 1} of ${_ticketPages.length}
+         </div>`
+      : "";
+
+    if (entry.type === "image") {
+      body.innerHTML = `
+        ${counter}
+        <div style="display:flex;justify-content:center;">
+          <img src="${entry.url}" alt="Ticket image" style="max-width:100%;height:auto;">
+        </div>
+      `;
+    } else if (entry.type === "pdf") {
+      body.innerHTML = `
+        ${counter}
+        <div style="height:60vh;">
+          <iframe src="${entry.url}" style="width:100%;height:100%;border:0;"></iframe>
+        </div>
+        <div style="margin-top:12px;">
+          <a class="tu-btn tu-btn--primary" href="${entry.url}" target="_blank" rel="noopener">Open PDF</a>
+        </div>
+      `;
+    } else if (entry.type === "iframe") {
+      body.innerHTML = `
+        ${counter}
+        <div style="height:65vh;">
+          <iframe src="${entry.url}" style="width:100%;height:100%;border:0;"></iframe>
+        </div>
+      `;
+    } else {
+      body.innerHTML = `
+        ${counter}
+        <pre style="white-space:pre-wrap;margin:0;">${escapeHtml(entry.text || "")}</pre>
+      `;
+    }
+  }
+
+  async function _fetchAndPushPage(url) {
+    const res = await fetch(url, {
+      headers: { "X-Requested-With": "XMLHttpRequest" }
+    });
+
+    if (!res.ok) return false;
+
+    const ct = (res.headers.get("content-type") || "").toLowerCase();
+
+    if (ct.startsWith("image/")) {
+      const blob = await res.blob();
+      _ticketPages.push({ type: "image", url: URL.createObjectURL(blob) });
+      return true;
+    }
+
+    if (ct.includes("application/pdf")) {
+      const blob = await res.blob();
+      _ticketPages.push({ type: "pdf", url: URL.createObjectURL(blob) });
+      return true;
+    }
+
+    if (ct.includes("application/json")) {
+      const data = await res.json();
+      _ticketPages.push({
+        type: "text",
+        text: data.text || "No ticket content available."
+      });
+      return true;
+    }
+
+    const text = await res.text();
+
+    if (
+      ct.includes("text/html") ||
+      text.trim().startsWith("<!DOCTYPE") ||
+      text.trim().startsWith("<html")
+    ) {
+      _ticketPages.push({ type: "iframe", url: url });
+      return true;
+    }
+
+    _ticketPages.push({ type: "text", text: text });
+    return true;
+  }
+
   async function openTicketViewModal(bookingId) {
     const body = document.getElementById("ticketViewBody");
     if (!body) return;
 
+    _ticketPages = [];
+    _ticketIdx = 0;
     body.textContent = "Loading…";
     setTicketViewModalOpen(true);
 
+    const prev = document.getElementById("ticketPrev");
+    const next = document.getElementById("ticketNext");
+
+    if (prev) {
+      prev.onclick = () => {
+        if (_ticketIdx > 0) {
+          _ticketIdx--;
+          _showTicketPage(body);
+        }
+      };
+    }
+
+    if (next) {
+      next.onclick = () => {
+        if (_ticketIdx < _ticketPages.length - 1) {
+          _ticketIdx++;
+          _showTicketPage(body);
+        }
+      };
+    }
+
     try {
-      const url = getTicketViewUrl(bookingId);
-      const res = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+      let urls = [];
 
-      if (!res.ok) {
-        const msg = await res.text();
-        body.innerHTML = `<pre style="white-space:pre-wrap;margin:0;">${escapeHtml(msg || ("HTTP " + res.status))}</pre>`;
+      try {
+        const listRes = await fetch(`/tickets/${bookingId}/list/`, {
+          headers: { "X-Requested-With": "XMLHttpRequest" }
+        });
+
+        if (listRes.ok) {
+          const contentType = (listRes.headers.get("content-type") || "").toLowerCase();
+          if (contentType.includes("application/json")) {
+          const listData = await listRes.json();
+          const rawTickets = Array.isArray(listData["tickets"]) ? listData["tickets"] : [];
+
+          urls = rawTickets
+              .map(item => {
+                if (typeof item === "string") return item;
+                if (item && typeof item.url === "string") return item.url;
+                return null;
+              })
+              .filter(Boolean);
+              }
+            }
+      } catch (e) {
+        // Ignore list endpoint failure and use fallback below
+      }
+
+        for (const url of urls) {
+          try {
+            await _fetchAndPushPage(url);
+          } catch (e) {
+            console.warn("Skipping bad ticket URL:", url, e);
+          }
+        }
+
+      if (_ticketPages.length === 0) {
+        const fallbackUrl = getTicketViewUrl(bookingId);
+        if (fallbackUrl) {
+          _ticketPages.push({ type: "iframe", url: fallbackUrl });
+        }
+      }
+
+      if (_ticketPages.length === 0) {
+        body.textContent = "No ticket available for this booking.";
         return;
       }
 
-      const ct = (res.headers.get("content-type") || "").toLowerCase();
-
-      if (ct.startsWith("image/")) {
-        const blob = await res.blob();
-        const objUrl = URL.createObjectURL(blob);
-        body.innerHTML = `
-          <div style="display:flex;justify-content:center;">
-            <img src="${objUrl}" alt="Ticket image" style="max-width:100%;height:auto;">
-          </div>
-        `;
-        return;
-      }
-
-      if (ct.includes("application/pdf")) {
-        const blob = await res.blob();
-        const objUrl = URL.createObjectURL(blob);
-        body.innerHTML = `
-          <div style="height:60vh;">
-            <iframe src="${objUrl}" style="width:100%;height:100%;border:0;"></iframe>
-          </div>
-          <div style="margin-top:12px;">
-            <a class="tu-btn tu-btn--primary" href="${objUrl}" target="_blank" rel="noopener">Open PDF</a>
-          </div>
-        `;
-        return;
-      }
-
-      const text = await res.text();
-      body.innerHTML = `<pre style="white-space:pre-wrap;margin:0;">${escapeHtml(text)}</pre>`;
-    } catch (e) {
+      _showTicketPage(body);
+    } catch (err) {
       body.textContent = "Could not load ticket.";
+      console.error("Ticket view modal error:", err);
     }
   }
 </script>

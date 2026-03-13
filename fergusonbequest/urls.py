@@ -72,7 +72,7 @@ urlpatterns = [
     path("staff/discounts/", views.discount_codes_page, name="discount_codes"),
     path("staff/discounts/", views.discount_codes_page, name="discount_codes_page"),
 
- # Ticket upload mechanism
+     # Ticket upload mechanism
     path("ticket-upload/", views.ticket_upload, name="ticket_upload"),
     path("ticket-upload/view-all/", views.ticket_upload_view_all, name="ticket_upload_view_all"),
     path("ticket-upload/send/", views.ticket_upload_send, name="ticket_upload_send"),
@@ -83,4 +83,5 @@ urlpatterns = [
     path("my-ticket/<int:booking_id>/", views.user_ticket_view, name="user_ticket_view"),
     path("ticket-upload/delete/", views.ticket_upload_delete, name="ticket_upload_delete"),
     path("ticket-upload/bulk-delete/", views.ticket_upload_bulk_delete, name="ticket_upload_bulk_delete"),
+    path("tickets/<int:booking_id>/list/", views.ticket_list, name="ticket_list"),
 ]
