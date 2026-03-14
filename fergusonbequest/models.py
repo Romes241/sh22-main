@@ -415,11 +415,21 @@ class AttractionWaitlistEntry(models.Model):
         on_delete=models.CASCADE,
         related_name="attraction_waitlist_entries",
     )
+
     attraction = models.ForeignKey(
         "Attraction",
         on_delete=models.CASCADE,
         related_name="waitlist_entries",
     )
+
+    slot = models.ForeignKey(
+        "VisitSlot",
+        on_delete=models.CASCADE,
+        related_name="waitlist_entries",
+        null=True,
+        blank=True,
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled = models.BooleanField(default=False)
     notified = models.BooleanField(default=False)

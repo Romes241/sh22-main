@@ -119,22 +119,34 @@
               </button>
             </form>
 
-          {% elif user.is_authenticated and is_sold_out %}
-            <div style="margin-top: 4px;">
-              {% if on_waitlist %}
-                <p class="detail-line" style="margin-bottom: 10px; color: #065f46;">You're on this waiting list.</p>
-                <form method="POST" action="{% url 'waiting_listattraction_leave' attraction.pk %}">
-                  {% csrf_token %}
-                  <button class="btn primary" type="submit">Leave Waiting List</button>
-                </form>
-              {% else %}
-                <p class="detail-line" style="margin-bottom: 10px;">This attraction is sold out. Join the waiting list to be notified if spots open.</p>
-                <form method="POST" action="{% url 'waiting_listattraction_join' attraction.pk %}">
-                  {% csrf_token %}
-                  <button class="btn primary" type="submit">Join Waiting List</button>
-                </form>
-              {% endif %}
-            </div>
+            {% elif user.is_authenticated and available_slots %}
+              <div style="margin-top: 4px;">
+                <p class="detail-line" style="margin-bottom: 10px;">
+                  Sold out slots can be joined individually.
+                </p>
+
+                {% for slot in available_slots %}
+                  {% if slot.remaining == 0 %}
+                    <div style="margin-bottom: 12px; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                      <div style="margin-bottom: 8px;">
+                        {{ slot.date|date:"d/m/Y" }} — {{ slot.time|time:"H:i" }}
+                      </div>
+
+                      {% if slot.pk in waitlisted_slot_ids %}
+                        <form method="POST" action="{% url 'waiting_listattraction_leave' slot.pk %}">
+                          {% csrf_token %}
+                          <button class="btn primary" type="submit">Leave Waiting List</button>
+                        </form>
+                      {% else %}
+                        <form method="POST" action="{% url 'waiting_listattraction_join' slot.pk %}">
+                          {% csrf_token %}
+                          <button class="btn primary" type="submit">Join Waiting List</button>
+                        </form>
+                      {% endif %}
+                    </div>
+                  {% endif %}
+                {% endfor %}
+              </div>
 
           {% else %}
             <div class="detail-line">No future slots available for booking.</div>

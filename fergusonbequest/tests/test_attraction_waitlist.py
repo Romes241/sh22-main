@@ -40,23 +40,25 @@ class AttractionWaitlistPersistenceTests(TestCase):
         Pass: entry exists with correct user/attraction. Fail: entry not found.
         """
         self.client.login(username=self.user.username, password="testpass123")
-        
-        url = reverse("waiting_listattraction_join", args=[self.attraction.pk])
+
+        url = reverse("waiting_listattraction_join", args=[self.slot.pk])
         response = self.client.post(url)
-        
+
         # Should redirect
         self.assertEqual(response.status_code, 302)
-        
+
         # Entry should exist in database
         entry = AttractionWaitlistEntry.objects.filter(
             user=self.user,
             attraction=self.attraction,
+            slot=self.slot,
             cancelled=False
         ).first()
-        
+
         self.assertIsNotNone(entry)
         self.assertEqual(entry.user, self.user)
         self.assertEqual(entry.attraction, self.attraction)
+        self.assertEqual(entry.slot, self.slot)
         self.assertFalse(entry.cancelled)
         self.assertFalse(entry.notified)
 
@@ -71,22 +73,24 @@ class AttractionWaitlistPersistenceTests(TestCase):
         # Join waitlist
         entry = AttractionWaitlistEntry.objects.create(
             user=self.user,
-            attraction=self.attraction
+            attraction=self.attraction,
+            slot=self.slot,
         )
-        
+
         # Logout
         self.client.logout()
-        
+
         # Login again
         self.client.login(username=self.user.username, password="testpass123")
-        
+
         # Check entry still exists
         persisted_entry = AttractionWaitlistEntry.objects.filter(
             user=self.user,
             attraction=self.attraction,
+            slot=self.slot,
             cancelled=False
         ).first()
-        
+
         self.assertIsNotNone(persisted_entry)
         self.assertEqual(persisted_entry.id, entry.id)
 
@@ -100,28 +104,30 @@ class AttractionWaitlistPersistenceTests(TestCase):
         """
         entry = AttractionWaitlistEntry.objects.create(
             user=self.user,
-            attraction=self.attraction
+            attraction=self.attraction,
+            slot=self.slot,
         )
-        
+
         self.client.login(username=self.user.username, password="testpass123")
-        
-        url = reverse("waiting_listattraction_leave", args=[self.attraction.pk])
+
+        url = reverse("waiting_listattraction_leave", args=[self.slot.pk])
         response = self.client.post(url)
-        
+
         # Should redirect
         self.assertEqual(response.status_code, 302)
-        
+
         # Entry should still exist but be cancelled
         entry.refresh_from_db()
         self.assertTrue(entry.cancelled)
-        
+
         # Should not show in active queries
         active_entry = AttractionWaitlistEntry.objects.filter(
             user=self.user,
             attraction=self.attraction,
+            slot=self.slot,
             cancelled=False
         ).first()
-        
+
         self.assertIsNone(active_entry)
 
     def test_duplicate_join_prevents_multiple_entries(self):
@@ -133,20 +139,21 @@ class AttractionWaitlistPersistenceTests(TestCase):
         Pass: count of active entries == 1. Fail: multiple entries created.
         """
         self.client.login(username=self.user.username, password="testpass123")
-        
-        url = reverse("waiting_listattraction_join", args=[self.attraction.pk])
-        
+
+        url = reverse("waiting_listattraction_join", args=[self.slot.pk])
+
         # Join twice
         self.client.post(url)
         self.client.post(url)
-        
+
         # Should only have one active entry
         count = AttractionWaitlistEntry.objects.filter(
             user=self.user,
             attraction=self.attraction,
+            slot=self.slot,
             cancelled=False
         ).count()
-        
+
         self.assertEqual(count, 1)
 
 
@@ -170,7 +177,7 @@ class AttractionWaitlistUITests(TestCase):
             capacity=10,
             remaining=5
         )
-        
+
         self.attraction_sold_out = Attraction.objects.create(
             name="Sold Out Museum",
             slug="sold-out-museum",
@@ -192,18 +199,18 @@ class AttractionWaitlistUITests(TestCase):
         Pass: 'Book now' button and slot dropdown present. Fail: waitlist UI shown.
         """
         self.client.login(username=self.user.username, password="testpass123")
-        
+
         url = reverse("attraction", args=[self.attraction_available.pk])
         response = self.client.get(url)
-        
+
         self.assertEqual(response.status_code, 200)
         content = response.content.decode("utf-8")
-        
+
         # Should have booking form
         self.assertIn("Select date", content)
         self.assertIn("time:", content)
         self.assertIn("Book now", content)
-        
+
         # Should NOT have waitlist UI
         self.assertNotIn("Join Waiting List", content)
 
@@ -216,17 +223,17 @@ class AttractionWaitlistUITests(TestCase):
         Pass: 'Join Waiting List' button present, no slot dropdown. Fail: booking UI shown.
         """
         self.client.login(username=self.user.username, password="testpass123")
-        
+
         url = reverse("attraction", args=[self.attraction_sold_out.pk])
         response = self.client.get(url)
-        
+
         self.assertEqual(response.status_code, 200)
         content = response.content.decode("utf-8")
-        
+
         # Should have waitlist UI
         self.assertIn("Join Waiting List", content)
         self.assertIn("sold out", content.lower())
-        
+
         # Should NOT have booking form
         self.assertNotIn("Select date &amp; time:", content)
 
@@ -239,23 +246,23 @@ class AttractionWaitlistUITests(TestCase):
         Pass: leave button present, join button absent. Fail: join button shown.
         """
         self.client.login(username=self.user.username, password="testpass123")
-        
+
         # Join waitlist
         AttractionWaitlistEntry.objects.create(
             user=self.user,
-            attraction=self.attraction_sold_out
+            attraction=self.attraction_sold_out,
+            slot=self.slot_sold_out,
         )
-        
+
         url = reverse("attraction", args=[self.attraction_sold_out.pk])
         response = self.client.get(url)
-        
+
         self.assertEqual(response.status_code, 200)
         content = response.content.decode("utf-8")
-        
+
         # Should have leave button
         self.assertIn("Leave Waiting List", content)
-        self.assertIn("You're on this waiting list", content)
-        
+
         # Should NOT have join button
         self.assertNotIn("Join Waiting List", content)
 
@@ -289,9 +296,9 @@ class AttractionWaitlistAccessTests(TestCase):
         Expected: HTTP 302 redirect to login page.
         Pass: redirects to /login/. Fail: allows access or different redirect.
         """
-        url = reverse("waiting_listattraction_join", args=[self.attraction.pk])
+        url = reverse("waiting_listattraction_join", args=[self.slot.pk])
         response = self.client.post(url)
-        
+
         self.assertEqual(response.status_code, 302)
         self.assertIn("/login/", response["Location"])
 
@@ -306,21 +313,22 @@ class AttractionWaitlistAccessTests(TestCase):
         # Make slot available
         self.slot.remaining = 5
         self.slot.save()
-        
+
         self.client.login(username=self.user.username, password="testpass123")
-        
-        url = reverse("waiting_listattraction_join", args=[self.attraction.pk])
+
+        url = reverse("waiting_listattraction_join", args=[self.slot.pk])
         response = self.client.post(url, follow=True)
-        
+
         # Should not create entry
         entry_count = AttractionWaitlistEntry.objects.filter(
             user=self.user,
             attraction=self.attraction,
+            slot=self.slot,
             cancelled=False
         ).count()
-        
+
         self.assertEqual(entry_count, 0)
-        
+
         # Should show error message
         messages = list(response.context["messages"])
         self.assertTrue(any("still has availability" in str(m) for m in messages))
@@ -347,6 +355,18 @@ class AttractionWaitlistPageTests(TestCase):
             location="Glasgow",
             attraction_type="regular"
         )
+        self.slot1 = VisitSlot.objects.create(
+            attraction=self.attraction1,
+            date=timezone.now().date() + timezone.timedelta(days=5),
+            capacity=10,
+            remaining=0
+        )
+        self.slot2 = VisitSlot.objects.create(
+            attraction=self.attraction2,
+            date=timezone.now().date() + timezone.timedelta(days=6),
+            capacity=10,
+            remaining=0
+        )
 
     def test_waiting_list_page_shows_user_entries(self):
         """Waiting list page should display all user's active waitlist entries.
@@ -359,21 +379,23 @@ class AttractionWaitlistPageTests(TestCase):
         # Create entries
         AttractionWaitlistEntry.objects.create(
             user=self.user,
-            attraction=self.attraction1
+            attraction=self.attraction1,
+            slot=self.slot1,
         )
         AttractionWaitlistEntry.objects.create(
             user=self.user,
-            attraction=self.attraction2
+            attraction=self.attraction2,
+            slot=self.slot2,
         )
-        
+
         self.client.login(username=self.user.username, password="testpass123")
-        
+
         url = reverse("waiting_listattraction")
         response = self.client.get(url)
-        
+
         self.assertEqual(response.status_code, 200)
         content = response.content.decode("utf-8")
-        
+
         self.assertIn("Museum A", content)
         self.assertIn("Museum B", content)
         self.assertIn("Edinburgh", content)
@@ -390,26 +412,28 @@ class AttractionWaitlistPageTests(TestCase):
         # Active entry
         AttractionWaitlistEntry.objects.create(
             user=self.user,
-            attraction=self.attraction1
+            attraction=self.attraction1,
+            slot=self.slot1,
         )
-        
+
         # Cancelled entry
         AttractionWaitlistEntry.objects.create(
             user=self.user,
             attraction=self.attraction2,
+            slot=self.slot2,
             cancelled=True
         )
-        
+
         self.client.login(username=self.user.username, password="testpass123")
-        
+
         url = reverse("waiting_listattraction")
         response = self.client.get(url)
-        
+
         content = response.content.decode("utf-8")
-        
+
         # Should show active entry
         self.assertIn("Museum A", content)
-        
+
         # Should NOT show cancelled entry
         self.assertNotIn("Museum B", content)
 
@@ -422,9 +446,9 @@ class AttractionWaitlistPageTests(TestCase):
         Pass: message present. Fail: message absent or error.
         """
         self.client.login(username=self.user.username, password="testpass123")
-        
+
         url = reverse("waiting_listattraction")
         response = self.client.get(url)
-        
+
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "not on any attraction waiting lists")

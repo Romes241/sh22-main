@@ -173,9 +173,9 @@
 
             {% if a.remaining_total == 0 %}
               <!-- waitlist button -->
-              <a class="btn outline" href="#">
-                Waitlist
-              </a>
+                <a class="btn outline" href="{% url 'attraction' a.id %}">
+                  Waitlist
+                </a>
             {% else %}
               <!-- book button -->
               <a class="btn primary"
