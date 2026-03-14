@@ -229,12 +229,16 @@ if (ticketUploadForm) {
         ? document.querySelector('textarea[name="codes_text"]')
         : document.getElementById("singleCodesText");
 
+      const codesFileInput = document.querySelector('input[name="codes_file"]');
+      const hasCodesFile = mode === "bulk" && codesFileInput && codesFileInput.files && codesFileInput.files.length > 0;
+
       const count = (ta?.value || "")
         .split(/\r?\n/)
         .map(x => x.trim())
         .filter(Boolean).length;
 
-      if (count !== n) {
+      // If a file has been uploaded in bulk mode, let the backend parse and validate it.
+      if (!hasCodesFile && count !== n) {
         e.preventDefault();
         alert(`Please enter exactly ${n} code(s). You have entered ${count}.`);
         return false;
@@ -254,36 +258,7 @@ function openUploadModal() {
   const venueId = venueSelect?.value || "";
 
   if (!venueId) {
-    const deleteModal = document.getElementById("deleteModal");
-    const deleteTitle = document.getElementById("deleteTitle");
-    const deleteModalText = document.getElementById("deleteModalText");
-    const confirmBtn = deleteModal?.querySelector('button[type="submit"]');
-    const cancelBtn = deleteModal?.querySelector('button[type="button"]');
     openAlertModal("No Venue Selected", "Please select a venue first from the dropdown.");
-    return;
-
-    if (deleteTitle) deleteTitle.textContent = "No Venue Selected";
-    if (deleteModalText) {
-      deleteModalText.textContent = "Please select a venue first from the dropdown.";
-      deleteModalText.style.color = "#000";
-    }
-
-    if (confirmBtn) {
-      confirmBtn.textContent = "OK";
-      confirmBtn.style.background = "#002a4c";
-      confirmBtn.style.color = "#fff";
-      confirmBtn.style.marginLeft = "auto";
-      confirmBtn.onclick = function (e) {
-        e.preventDefault();
-        setDeleteModalOpen(false);
-      };
-    }
-
-    if (cancelBtn) {
-      cancelBtn.style.display = "none";
-    }
-
-    setDeleteModalOpen(true);
     return;
   }
 
@@ -298,7 +273,6 @@ function openUploadModal() {
   const ticketedEl = document.getElementById("ticketedCount");
   const totalEl = document.getElementById("ticketTotal");
   const labelEl = document.getElementById("ticketedLabel");
-
   const ticketedWrap = document.getElementById("ticketedInfo");
 
   if (venueId.startsWith("d-")) {
@@ -311,7 +285,10 @@ function openUploadModal() {
   }
 
   updateModalMode("bulk");
-  form.action = form.dataset.venueAction;
+
+  if (form.dataset.venueAction) {
+    form.action = form.dataset.venueAction;
+  }
 
   const venueEl = document.getElementById("modalVenue");
   const bookingIdEl = document.getElementById("modalBookingId");
@@ -325,8 +302,9 @@ function openUploadModal() {
   if (rowKindEl) rowKindEl.value = "b";
   if (nav) nav.style.display = "none";
 
-  const activeType = document.getElementById("ticketType")?.value || "codes";
-  activateTicketType(activeType);
+  // Always reset bulk modal to a supported bulk type
+  activateTicketType("codes");
+
   setModalOpen(true);
 }
 
@@ -436,6 +414,13 @@ async function openTicketViewModal(bookingId) {
 
     const listData = await listRes.json();
     const urls = Array.isArray(listData.tickets) ? listData.tickets : [];
+
+    const ref = listData.booking_reference || "";
+    const refEl = document.getElementById("ticketViewRef");
+
+    if (refEl) {
+      refEl.textContent = `Booking reference: ${ref}`;
+    }
 
     for (const url of urls) {
       await _fetchAndPushPage(url);

@@ -3,7 +3,11 @@
 <div id="ticketViewModal" class="tu-modal" aria-hidden="true">
   <div class="tu-modal-content" role="dialog" aria-modal="true" aria-labelledby="ticketViewTitle">
     <div class="tu-modal-top">
-      <h3 id="ticketViewTitle">Ticket</h3>
+      <div>
+        <h3 id="ticketViewTitle">Ticket</h3>
+        <div id="ticketViewRef" class="ticket-ref"></div>
+      </div>
+
       <button type="button" class="tu-modal-close" onclick="closeTicketViewModal()">✕</button>
     </div>
 
@@ -158,9 +162,14 @@
     return true;
   }
 
-  async function openTicketViewModal(bookingId) {
-    const body = document.getElementById("ticketViewBody");
-    if (!body) return;
+async function openTicketViewModal(bookingId, bookingReference = "") {
+      const body = document.getElementById("ticketViewBody");
+      if (!body) return;
+
+      const refEl = document.getElementById("ticketViewRef");
+      if (refEl) {
+          refEl.textContent = bookingReference ? `Booking Reference: ${bookingReference}` : "";
+      }
 
     _ticketPages = [];
     _ticketIdx = 0;

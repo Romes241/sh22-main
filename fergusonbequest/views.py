@@ -2354,6 +2354,7 @@ def ticket_upload(request):
         qs = Booking.objects.filter(
             attraction=a,
             cancelled=False,
+            slot__date__gte=today,
         ).exclude(id__in=converted_booking_ids)
 
         tu_total = 0
@@ -2380,6 +2381,7 @@ def ticket_upload(request):
             cancelled=False,
             is_accepted=True,
             converted_booking__isnull=False,
+            slot__date__gte=today,
         ).select_related("converted_booking")
 
         tu_total = 0
@@ -2520,6 +2522,9 @@ def ticket_upload(request):
 
     grouped_counts = {}
     for row in raw_rows:
+        if row.get("is_past"):
+            continue
+
         key = row["group_key"]
         grouped_counts.setdefault(key, {"ticketed": 0, "total": 0})
 
@@ -2564,9 +2569,12 @@ def ticket_upload(request):
 
     if venue_id.startswith("a-"):
         attraction_id = venue_id.split("-", 1)[1]
+        today = timezone.now().date()
+
         venue_bookings = Booking.objects.filter(
             attraction_id=attraction_id,
             cancelled=False,
+            slot__date__gte=today,
         ).exclude(id__in=converted_booking_ids)
 
         for b in venue_bookings:
@@ -2583,6 +2591,7 @@ def ticket_upload(request):
             cancelled=False,
             is_accepted=True,
             converted_booking__isnull=False,
+            slot__date__gte=today,
         ).select_related("converted_booking")
 
         for d in venue_draws:
@@ -2632,6 +2641,7 @@ def ticket_list(request, booking_id):
     # If still no booking, or booking is cancelled, return empty
     if not booking or (hasattr(booking, 'cancelled') and booking.cancelled):
         return JsonResponse({"tickets": []})
+    ref = booking.generic_booking_code or f"REF-{booking.id}"
 
     tickets = [
         request.build_absolute_uri(t.file.url)
@@ -2639,12 +2649,10 @@ def ticket_list(request, booking_id):
         if t.file
     ]
 
-    if not tickets:
-        # If there's a code or instructions but no files,
-        # the frontend will use the fallback URL template.
-        return JsonResponse({"tickets": []})
-
-    return JsonResponse({"tickets": tickets})
+    return JsonResponse({
+        "tickets": tickets,
+        "booking_reference": ref
+    })
 
 # Marks a booking as ticket sent from the staff upload screen
 @staff_member_required
@@ -2672,7 +2680,9 @@ def ticket_upload_view_all(request):
 
 # Builds the best available ticket response for a booking
 def _ticket_response_for_booking(booking):
+    ref = booking.generic_booking_code or f"REF-{booking.id}"
     first_ticket = booking.tickets.first()
+
     if first_ticket and first_ticket.file:
         try:
             return FileResponse(
@@ -2684,30 +2694,33 @@ def _ticket_response_for_booking(booking):
             pass
 
     if booking.ticket_type == "qr_individual" and booking.ticket_qr_value:
-        import qrcode
-        from io import BytesIO
-
-        img = qrcode.make(booking.ticket_qr_value)
-        buf = BytesIO()
-        img.save(buf, format="PNG")
-        buf.seek(0)
-        return HttpResponse(buf.getvalue(), content_type="image/png")
-
+        return HttpResponse(
+            "",
+            content_type="text/plain",
+        )
 
     if booking.ticket_type == "instructions" and booking.ticket_instructions:
         return HttpResponse(
-            f"Instructions for booking #{booking.id}:\n\n{booking.ticket_instructions}",
+            f"Instructions:\n{booking.ticket_instructions}",
             content_type="text/plain",
         )
 
     if booking.ticket_type == "box_office":
         return HttpResponse(
-            f"Booking #{booking.id}: Collect tickets at the box office (no digital ticket).",
+            "Collect tickets at the box office (no digital ticket).",
             content_type="text/plain",
         )
 
-    return HttpResponse("No ticket info available for this booking.", status=404)
+    if booking.ticket_type == "codes":
+        return HttpResponse(
+            f"Ticket Code: {booking.ticket_code}",
+            content_type="text/plain",
+        )
 
+    return HttpResponse(
+        "No ticket info available for this booking.",
+        status=404,
+    )
 # Lets staff preview ticket output for either a normal booking or a draw booking
 @staff_member_required
 def ticket_view(request, booking_id):
@@ -2837,7 +2850,10 @@ def venue_distribute_tickets(request):
         if trim_spaces:
             codes = [c.strip() for c in codes]
 
-        codes = [c for c in codes if c]  # remove blanks
+        codes = [c for c in codes if c]
+
+        if codes and codes[0].strip().lower() in {"ticket_code", "code", "codes"}:
+            codes = codes[1:]
 
         if dedupe_codes:
             seen = set()
@@ -2857,8 +2873,9 @@ def venue_distribute_tickets(request):
                 attraction_id=venue_id,
                 cancelled=False,
                 ticket_sent=False,
+                slot__date__gte=timezone.now().date(),
             )
-            .exclude(ticket_code__isnull=False)
+            .exclude(ticket_code__isnull=False).exclude(ticket_code="")
             .select_for_update()
             .order_by("created_at")
         )
@@ -2872,6 +2889,7 @@ def venue_distribute_tickets(request):
         # E-ticket codes (partial allowed)
         if ticket_type == "codes":
             codes = parse_codes()
+
             if not codes:
                 messages.error(request, "No codes provided.")
                 return redirect("ticket_upload")
@@ -2891,6 +2909,7 @@ def venue_distribute_tickets(request):
                 messages.info(request, f"{remaining} booking(s) still need tickets.")
             if extra:
                 messages.info(request, f"{extra} extra code(s) ignored.")
+
             return redirect("ticket_upload")
 
         # PDF + random code (applies to ALL unsent)

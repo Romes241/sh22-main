@@ -228,7 +228,7 @@
           <button
             type="button"
             class="tu-btn tu-btn--primary"
-            onclick="openTicketViewModal('{{ r.id }}')">
+            onclick="openTicketViewModal('{{ r.id }}', '{{ r.booking_reference|escapejs }}')">
             View Ticket
           </button>
 
@@ -322,7 +322,7 @@
               <button
                 type="button"
                 class="tu-btn tu-btn--primary"
-                onclick="openTicketViewModal('{{ r.id }}')">
+                onclick="openTicketViewModal('{{ r.id }}', '{{ r.booking_reference|escapejs }}')">
                 View Ticket
               </button>
 

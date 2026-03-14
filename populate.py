@@ -325,7 +325,7 @@ def populate():
 
             # past bookings already have ticket codes
             if is_past:
-                ticket_type = "code"
+                ticket_type = "codes"
                 ticket_code = f"G{random.randint(100000, 999999)}"
 
             booking = Booking.objects.create(
