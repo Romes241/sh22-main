@@ -56,8 +56,7 @@ urlpatterns = [
     path("admin-dashboard/management/draws/<int:draw_id>/delete/", views.mng_delete_draw, name="mng_delete_draw"),
     path("admin-dashboard/management/attractions/<int:attraction_id>/delete/", views.mng_delete_attraction, name="mng_delete_attraction"),
     path("admin-reports/", views.admin_reports, name="admin_reports"),
-    path("admin-email/", views.admin_email, name = "admin_email"),
-
+    path("admin-email/", views.admin_email, name="admin_email"),
 
     # Admin create/edit
     path("create-attraction/", views.create_attraction, name="create_attraction"),
@@ -72,4 +71,17 @@ urlpatterns = [
     # Discount codes staff page
     path("staff/discounts/", views.discount_codes_page, name="discount_codes"),
     path("staff/discounts/", views.discount_codes_page, name="discount_codes_page"),
+
+     # Ticket upload mechanism
+    path("ticket-upload/", views.ticket_upload, name="ticket_upload"),
+    path("ticket-upload/view-all/", views.ticket_upload_view_all, name="ticket_upload_view_all"),
+    path("ticket-upload/send/", views.ticket_upload_send, name="ticket_upload_send"),
+    path('ticket-upload/venue-distribute/', views.venue_distribute_tickets, name='venue_distribute_tickets'),
+    path("ticket-upload/individual/", views.individual_booking, name="individual_booking"),
+    path("ticket-upload/send/", views.ticket_upload_send, name="ticket_upload_send"),
+    path("ticket-upload/view/<int:booking_id>/", views.ticket_view, name="ticket_view"),
+    path("my-ticket/<int:booking_id>/", views.user_ticket_view, name="user_ticket_view"),
+    path("ticket-upload/delete/", views.ticket_upload_delete, name="ticket_upload_delete"),
+    path("ticket-upload/bulk-delete/", views.ticket_upload_bulk_delete, name="ticket_upload_bulk_delete"),
+    path("tickets/<int:booking_id>/list/", views.ticket_list, name="ticket_list"),
 ]

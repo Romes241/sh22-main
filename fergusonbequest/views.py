@@ -1,13 +1,8 @@
-import calendar
-import csv
-import random
-import datetime
-from operator import itemgetter
+from datetime import datetime
 
 from django import forms
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
@@ -15,22 +10,35 @@ from django.core.mail import send_mail, EmailMultiAlternatives
 from django.db import IntegrityError, transaction
 from django.db.models import Q, F, Sum, Count
 from django.db.models.functions import Coalesce, Least
-from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.template import Template, Context
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
-from django.utils import timezone
 from django.utils.dateparse import parse_date
-from django.views.decorators.http import require_POST, require_http_methods
-from django.core.management.base import BaseCommand
-import logging
-logger = logging.getLogger(__name__)
+from django.utils.text import slugify
 
 from openpyxl import Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.utils import get_column_letter
-
+from django.core.paginator import Paginator
+from django.contrib.admin.views.decorators import staff_member_required
+from operator import itemgetter
+import csv
+import calendar
+import random
+import string
+from io import TextIOWrapper
+from django.http import HttpResponse, FileResponse, HttpResponseForbidden, JsonResponse, HttpResponseNotFound
+from django.utils import timezone
+from django.contrib import messages
+from django.views.decorators.http import require_POST, require_http_methods
+from .forms import (
+    BookingForm,
+    AttractionCreateForm,
+    TicketDrawCreateForm,
+    EmailAuthenticationForm,
+)
+from .forms_suggestions import AttractionSuggestionForm
 from .models import (
     Attraction,
     VisitSlot,
@@ -42,19 +50,11 @@ from .models import (
     AttractionSuggestion,
     AttractionWaitlistEntry,
     DiscountCode,
-    EmailTemplate,
-)
-
-from .forms import (
-    BookingForm,
-    AttractionCreateForm,
-    TicketDrawCreateForm,
-    EmailAuthenticationForm,
+    EmailTemplate, BookingTicket,
 )
 
 from .forms_discount_codes import DiscountCodeForm
 from .forms_suggestions import AttractionSuggestionForm
-
 User = get_user_model()
 
 # Business rule: max 3 bookings per calendar year (regular) and 3 per year (weekly_event) unless overridden elsewhere.
@@ -177,26 +177,26 @@ def assign_next_winner(draw: TicketDraw):
     """
     if getattr(draw, "winner_booking", None):
         winner = draw.winner_booking
-        
+
         if winner.is_accepted:
             return
-            
+
         if winner.cancelled:
             draw.winner_booking = None
             draw.winner_selected_at = None
-            
+
         # Check if winner has exceeded 72 hour deadline
         elif draw.winner_selected_at:
             deadline = draw.winner_selected_at + datetime.timedelta(hours=72)
             if timezone.now() > deadline:
                 winner.cancelled = True
                 winner.save(update_fields=["cancelled"])
-                
+
                 # Restore slot capacity
                 TicketDrawVisitSlot.objects.filter(pk=winner.slot_id).update(
                     remaining=F("remaining") + winner.num_tickets
                 )
-                
+
                 draw.winner_booking = None
                 draw.winner_selected_at = None
             else:
@@ -204,7 +204,9 @@ def assign_next_winner(draw: TicketDraw):
 
     # Get all active entries (not cancelled, not accepted)
     entries = list(
-        TicketDrawBooking.objects.filter(ticket_draw=draw, cancelled=False, is_accepted=False ).select_related("user", "ticket_draw", "slot" )
+        TicketDrawBooking.objects.filter(ticket_draw=draw, cancelled=False, is_accepted=False).select_related("user",
+                                                                                                              "ticket_draw",
+                                                                                                              "slot")
     )
 
     if not entries:
@@ -213,7 +215,7 @@ def assign_next_winner(draw: TicketDraw):
     else:
         draw.winner_booking = random.choice(entries)
         draw.winner_selected_at = timezone.now()
-        
+
         send_draw_booking_email_redraw_winner(draw.winner_booking)
 
     draw.save(update_fields=["winner_booking", "winner_selected_at"])
@@ -603,7 +605,6 @@ def booking_view(request, attraction_pk):
             VisitSlot.objects.filter(pk=slot.pk).update(remaining=F("remaining") - booking.num_tickets)
 
         messages.success(request, "Booking confirmed!")
-        send_attraction_booking_email_confirmation(booking)
         return redirect("booking_history")
 
     except IntegrityError:
@@ -612,41 +613,50 @@ def booking_view(request, attraction_pk):
         )
 
 
+
 @login_required
 def booking_history(request):
+    """Show list of bookings for the logged in user, including both attractions and ticket draws."""
     user = request.user
-    remaining_allowance = calculate_remaining_allowance(user, "regular")
 
-    bookings = Booking.objects.filter(user=user).select_related("slot", "attraction")
-    draw_bookings = TicketDrawBooking.objects.filter(user=user).select_related("slot", "ticket_draw")
+    remaining_allowance = calculate_remaining_allowance(user, 'regular')
 
-    when = request.GET.get("when")  # all|future|past|cancelled
-    status = request.GET.get("status")  # all|active|cancelled
-    venue = request.GET.get("venue")
-    q = request.GET.get("q")
-    start = request.GET.get("start")
-    end = request.GET.get("end")
-    sort = request.GET.get("sort", "created_at")
+    # Base querysets for both types
+    bookings = Booking.objects.filter(user=user).select_related('slot', 'attraction')
+    draw_bookings = TicketDrawBooking.objects.filter(user=user).select_related('slot', 'ticket_draw')
+
+    # Parse GET params for filters
+    when = request.GET.get('when')  # all|future|past|cancelled
+    status = request.GET.get('status')  # all|active|cancelled
+    venue = request.GET.get('venue')
+    q = request.GET.get('q')
+    start = request.GET.get('start')
+    end = request.GET.get('end')
+    sort = request.GET.get('sort', 'created_at')
+    booking_type = (request.GET.get("type") or "").lower()  # attraction|draw|both
 
     today = timezone.now().date()
 
-    if status == "cancelled":
+    # Apply status filters
+    if status == 'cancelled':
         bookings = bookings.filter(cancelled=True)
         draw_bookings = draw_bookings.filter(cancelled=True)
-    elif status == "active":
+    elif status == 'active':
         bookings = bookings.filter(cancelled=False)
         draw_bookings = draw_bookings.filter(cancelled=False)
 
-    if when == "future":
+    # Apply when filters
+    if when == 'future':
         bookings = bookings.filter(slot__date__gte=today)
         draw_bookings = draw_bookings.filter(slot__date__gte=today)
-    elif when == "past":
+    elif when == 'past':
         bookings = bookings.filter(slot__date__lt=today)
         draw_bookings = draw_bookings.filter(slot__date__lt=today)
-    elif when == "cancelled":
+    elif when == 'cancelled':
         bookings = bookings.filter(cancelled=True)
         draw_bookings = draw_bookings.filter(cancelled=True)
 
+    # Venue filter
     if venue:
         if venue.isdigit():
             bookings = bookings.filter(attraction__id=venue)
@@ -655,18 +665,24 @@ def booking_history(request):
             bookings = bookings.filter(attraction__slug__icontains=venue)
             draw_bookings = draw_bookings.filter(ticket_draw__slug__icontains=venue)
 
+    # Apply booking type filter
+    if booking_type == "attraction":
+        draw_bookings = draw_bookings.none()
+    elif booking_type == "draw":
+        bookings = bookings.none()
+
     if q:
         bookings = bookings.filter(
-            Q(attraction__name__icontains=q)
-            | Q(id__icontains=q)
-            | Q(email__icontains=q)
-            | Q(ticket_code__icontains=q)
+            Q(attraction__name__icontains=q) |
+            Q(id__icontains=q) |
+            Q(email__icontains=q) |
+            Q(ticket_code__icontains=q)
         )
         draw_bookings = draw_bookings.filter(
-            Q(ticket_draw__name__icontains=q)
-            | Q(id__icontains=q)
-            | Q(email__icontains=q)
-            | Q(ticket_code__icontains=q)
+            Q(ticket_draw__name__icontains=q) |
+            Q(id__icontains=q) |
+            Q(email__icontains=q) |
+            Q(converted_booking__ticket_code__icontains=q)
         )
 
     sd = parse_date(start) if start else None
@@ -678,48 +694,100 @@ def booking_history(request):
         bookings = bookings.filter(slot__date__lte=ed)
         draw_bookings = draw_bookings.filter(slot__date__lte=ed)
 
+    # Split into past/future and combine
     future_bookings = list(bookings.filter(slot__date__gte=today))
     future_draws = list(draw_bookings.filter(slot__date__gte=today))
+
     past_bookings = list(bookings.filter(slot__date__lt=today))
     past_draws = list(draw_bookings.filter(slot__date__lt=today))
 
+    # Ticket release helpers
+    def apply_ticket_release_flags(obj, *, is_draw: bool):
+        """
+        Ticket visibility rules:
+        - If obj.ticket_visible_at is set: ticket visible when timezone.now() >= ticket_visible_at
+        - Else: visible when days_until_visit <= ticket_release_days
+        """
+        now_dt = timezone.now()
+        today_local = now_dt.date()
+
+        visit_date = getattr(getattr(obj, "slot", None), "date", None)
+
+        # Pull release-days from the related venue/draw if present, else default 0.
+        src = getattr(obj, "ticket_draw", None) if is_draw else getattr(obj, "attraction", None)
+        release_days = int(getattr(src, "ticket_release_days", 0) or 0)
+
+        # Only meaningful if there IS a ticket configured/assigned.
+        has_ticket = bool(
+            getattr(obj, "ticket_type", None)
+            or getattr(obj, "ticket_code", None)
+            or getattr(obj, "ticket_file", None)
+        )
+
+        # Defaults
+        can_view = False
+        days_until = None
+        days_to_release = None
+
+        # Scheduled visibility takes priority
+        visible_at = getattr(obj, "ticket_visible_at", None)
+        if visible_at:
+            can_view = has_ticket and (now_dt >= visible_at)
+            if not can_view:
+                delta = visible_at - now_dt
+                days_to_release = max(0, delta.days)
+
+        # Fallback to "X days before visit"
+        else:
+            if visit_date:
+                days_until = (visit_date - today_local).days
+
+            if has_ticket and days_until is not None:
+                can_view = (days_until <= release_days)
+
+            if days_until is not None:
+                days_to_release = max(0, days_until - release_days)
+
+        obj.ticket_release_days = release_days
+        obj.days_until_visit = days_until
+        obj.days_to_release = days_to_release
+        obj.can_view_ticket = can_view
+
+    # flags + apply the helper
     for b in future_bookings + past_bookings:
         b.booking_type = "attraction"
         b.is_draw = False
+        apply_ticket_release_flags(b, is_draw=False)
+
     for d in future_draws + past_draws:
         d.booking_type = "draw"
         d.is_draw = True
+        apply_ticket_release_flags(d, is_draw=True)
 
+    # Combine and sort
     if sort == "slot_date":
+
         def sort_key(item):
             return (item.slot.date, item.created_at)
+
         reverse_sort = False
+
     else:
+
         def sort_key(item):
             return item.created_at
+
         reverse_sort = True
 
     future_all = sorted(future_bookings + future_draws, key=sort_key, reverse=reverse_sort)
     past_all = sorted(past_bookings + past_draws, key=sort_key, reverse=reverse_sort)
-
-    return render(
-        request,
-        "fergusonbequest/booking_history.html",
-        {
-            "future_bookings": future_all,
-            "past_bookings": past_all,
-            "when": when,
-            "status": status,
-            "venue": venue,
-            "q": q,
-            "start": start,
-            "end": end,
-            "sort": sort,
-            "now": timezone.now(),
-            "remaining_allowance": remaining_allowance,
-            "max_allowance": MAX_ATTRACTIONS_PER_YEAR,
-        },
-    )
+    return render(request, "fergusonbequest/booking_history.html", {
+        "future_bookings": future_all,
+        "past_bookings": past_all,
+        "remaining_allowance": remaining_allowance,
+        "today": today,
+        "user_ticket_url_template": reverse("user_ticket_view", args=[999999]),
+    })
 
 
 @require_POST
@@ -744,8 +812,6 @@ def cancel_booking(request, pk):
             VisitSlot.objects.filter(pk=b.slot.pk).update(
                 remaining=Least(F("remaining") + b.num_tickets, F("capacity"))
             )
-
-            send_attraction_booking_email_cancellation(booking)
 
             current_year = timezone.now().year
             active_yearly_count = Booking.objects.filter(
@@ -860,7 +926,7 @@ def ticket_draw_detail(request, slug):
             return redirect("ticket_draw_detail", slug=slug)
 
         with transaction.atomic():
-            booking = TicketDrawBooking.objects.create(
+            draw_booking = TicketDrawBooking.objects.create(
                 user=request.user,
                 ticket_draw=draw,
                 slot=slot,
@@ -869,10 +935,13 @@ def ticket_draw_detail(request, slug):
                 email=request.user.email,
                 agreed_terms=True,
             )
-            TicketDrawVisitSlot.objects.filter(pk=slot.pk).update(remaining=F("remaining") - num_tickets)
+
+            TicketDrawVisitSlot.objects.filter(pk=slot.pk).update(
+                remaining=F("remaining") - num_tickets
+            )
 
         messages.success(request, "Successfully entered draw!")
-        send_draw_booking_email_confirmation(booking)
+        send_draw_booking_email_confirmation(draw_booking)
         return redirect("draw_waiting_list")
 
     slots = TicketDrawVisitSlot.objects.filter(
@@ -945,8 +1014,6 @@ def cancel_ticket_draw_entry(request, pk):
                 draw.save(update_fields=["winner_booking", "winner_selected_at"])
                 assign_next_winner(draw)
 
-            send_draw_booking_email_cancellation(booking)
-
             messages.success(request, f"Entry for {draw.name} cancelled.")
         else:
             messages.info(request, "This entry was already cancelled.")
@@ -954,39 +1021,73 @@ def cancel_ticket_draw_entry(request, pk):
     return redirect(request.META.get("HTTP_REFERER", "draw_waiting_list"))
 
 
+@transaction.atomic
+def accept_draw_booking(draw_booking):
+    if draw_booking.converted_booking_id:
+        draw_booking.is_accepted = True
+        draw_booking.save(update_fields=["is_accepted"])
+        return draw_booking.converted_booking
+
+    draw = draw_booking.ticket_draw
+    draw_slot = draw_booking.slot
+
+    attraction, _ = Attraction.objects.get_or_create(
+        slug=slugify(draw.name),
+        defaults={
+            "name": draw.name,
+            "location": draw.location,
+            "per_year_limit": draw.per_year_limit,
+            "booking_open": draw.booking_open,
+            "booking_close": draw.booking_close,
+        },
+    )
+
+    visit_slot, _ = VisitSlot.objects.get_or_create(
+        attraction=attraction,
+        date=draw_slot.date,
+        time=draw_slot.time,
+        defaults={
+            "capacity": draw_slot.capacity,
+            "remaining": max(draw_slot.remaining, 0),
+        },
+    )
+
+    booking = Booking.objects.create(
+        user=draw_booking.user,
+        attraction=attraction,
+        slot=visit_slot,
+        full_name=draw_booking.full_name,
+        email=draw_booking.email,
+        num_tickets=draw_booking.num_tickets,
+        agreed_terms=True,
+        cancelled=False,
+    )
+
+    draw_booking.is_accepted = True
+    draw_booking.converted_booking = booking
+    draw_booking.save(update_fields=["is_accepted", "converted_booking"])
+
+    return booking
 
 @login_required
+@require_POST
 def accept_draw_win(request, pk):
-    booking = get_object_or_404(TicketDrawBooking, pk=pk, user=request.user)
-    draw = booking.ticket_draw
+    draw_booking = get_object_or_404(TicketDrawBooking, pk=pk, user=request.user)
+    draw = draw_booking.ticket_draw
 
-    # Verify the winner
-    if getattr(draw, "winner_booking_id", None) != booking.id:
+    if draw.winner_booking_id != draw_booking.id:
         messages.error(request, "You are not the current winner of this draw.")
         return redirect("booking_history")
-    
-    # Check if already accepted
-    if booking.is_accepted:
+
+    if draw_booking.is_accepted and draw_booking.converted_booking_id:
         messages.info(request, "You have already accepted these tickets.")
         return redirect("booking_history")
-    
-    # Check if within deadline (72 hours from when winner was selected)
-    if draw.winner_selected_at:
-        deadline = draw.winner_selected_at + datetime.timedelta(hours=72)
-        if timezone.now() > deadline:
-            messages.error(request, "Sorry, the acceptance deadline has passed. These tickets will be offered to someone else.")
-            return redirect("booking_history")
-    
-    booking.is_accepted = True
-    booking.ticket_sent = True
-    booking.save(update_fields=["is_accepted", "ticket_sent"])
-    
-    #send ticket right after accepting
-    send_draw_booking_email_ticket_distribution(booking)
-    
-    messages.success(request, f"Congratulations! You have accepted the tickets for {draw.name}.")
-    return redirect("booking_history")
 
+    with transaction.atomic():
+        accept_draw_booking(draw_booking)
+
+    messages.success(request, f"You have accepted your tickets for {draw.name}.")
+    return redirect("booking_history")
 
 
 @login_required
@@ -997,7 +1098,7 @@ def decline_draw_win(request, pk):
     if getattr(draw, "winner_booking_id", None) != booking.id:
         messages.error(request, "Invalid request.")
         return redirect("draw_waiting_list")
-    
+
     if booking.is_accepted:
         messages.error(request, "You have already accepted these tickets and cannot decline them now.")
         return redirect("booking_history")
@@ -1006,20 +1107,20 @@ def decline_draw_win(request, pk):
         if not booking.cancelled:
             booking.cancelled = True
             booking.save(update_fields=["cancelled"])
-            
-            TicketDrawVisitSlot.objects.filter(pk=booking.slot_id).update(remaining=F("remaining") + booking.num_tickets)
+
+            TicketDrawVisitSlot.objects.filter(pk=booking.slot_id).update(
+                remaining=F("remaining") + booking.num_tickets)
             # Send decline email
             send_draw_booking_email_cancellation(booking)
-        
+
         draw.winner_booking = None
         draw.winner_selected_at = None
         draw.save(update_fields=["winner_booking", "winner_selected_at"])
-        
+
         assign_next_winner(draw)
-    
+
     messages.info(request, f"You have declined the tickets for {draw.name}. They will be offered to someone else.")
     return redirect("draw_waiting_list")
-
 
 # -----------------------------
 # Waiting list for attractions
@@ -1036,7 +1137,8 @@ def waiting_listattraction(request):
         .order_by("-created_at")
     )
 
-    return render(request, "fergusonbequest/waiting_listattraction.html", {"attraction_waitlist_entries": attraction_waitlist_entries})
+    return render(request, "fergusonbequest/waiting_listattraction.html",
+                  {"attraction_waitlist_entries": attraction_waitlist_entries})
 
 
 @require_POST
@@ -1323,9 +1425,6 @@ def run_draw(request, draw_id):
     winner_name = winner.full_name or (winner.user.get_username() if winner.user else "Winner")
 
     messages.success(request, f"Winner selected: {winner_name}")
-
-    send_draw_booking_email_winner(winner)
-
     return redirect(f"{reverse('admin_management')}?tab=draws")
 
 
@@ -1455,10 +1554,28 @@ def admin_reports(request):
 
     sort = request.GET.get("sort", "newest")
 
-    draw_qs = TicketDrawBooking.objects.select_related("user", "ticket_draw", "slot")
-    attraction_qs = Booking.objects.select_related("user", "attraction", "slot")
-
     today = timezone.localdate()
+
+    def get_ticket_reference(booking):
+        if not booking:
+            return ""
+        return (
+                (getattr(booking, "generic_booking_code", None) or "").strip()
+                or f"REF-{booking.id}"
+        )
+
+    # exclude converted draw bookings so they don't appear twice
+    converted_booking_ids = TicketDrawBooking.objects.filter(
+        converted_booking__isnull=False
+    ).values_list("converted_booking_id", flat=True)
+
+    draw_qs = TicketDrawBooking.objects.select_related(
+        "user", "ticket_draw", "slot", "converted_booking"
+    )
+
+    attraction_qs = Booking.objects.select_related(
+        "user", "attraction", "slot"
+    ).exclude(id__in=converted_booking_ids)
 
     def apply_filters(qs_in, is_draw=True):
         qs_out = qs_in
@@ -1468,7 +1585,7 @@ def admin_reports(request):
         if surname:
             qs_out = qs_out.filter(user__last_name__icontains=surname)
         if guid:
-            qs_out = qs_out.filter(user__username__icontains=guid)
+            qs_out = qs_out.filter(user__profile__staff_guid__icontains=guid)
         if email:
             qs_out = qs_out.filter(user__email__icontains=email)
         if start:
@@ -1477,8 +1594,17 @@ def admin_reports(request):
             qs_out = qs_out.filter(slot__date__lte=end)
 
         if ticket_code:
-            qs_out = qs_out.filter(ticket_code__icontains=ticket_code)
-        
+            if is_draw:
+                qs_out = qs_out.filter(
+                    Q(converted_booking__ticket_code__icontains=ticket_code)
+                    | Q(converted_booking__generic_booking_code__icontains=ticket_code)
+                )
+            else:
+                qs_out = qs_out.filter(
+                    Q(ticket_code__icontains=ticket_code)
+                    | Q(generic_booking_code__icontains=ticket_code)
+                )
+
         if min_tickets and min_tickets.isdigit():
             qs_out = qs_out.filter(num_tickets__gte=int(min_tickets))
         if max_tickets and max_tickets.isdigit():
@@ -1514,17 +1640,26 @@ def admin_reports(request):
                 | Q(user__email__icontains=q)
                 | Q(slot__date__icontains=q)
                 | Q(slot__time__icontains=q)
-                | Q(ticket_code__icontains=q)
                 | Q(num_tickets__icontains=q)
             )
+
             if is_draw:
+                common_filters |= (
+                    Q(converted_booking__ticket_code__icontains=q)
+                    | Q(converted_booking__generic_booking_code__icontains=q)
+                )
                 qs_out = qs_out.filter(common_filters | Q(ticket_draw__name__icontains=q))
             else:
+                common_filters |= (
+                    Q(ticket_code__icontains=q)
+                    | Q(generic_booking_code__icontains=q)
+                )
                 qs_out = qs_out.filter(common_filters | Q(attraction__name__icontains=q))
 
         return qs_out
 
     combined = []
+
     if booking_type in ["all", "draw"]:
         for b in apply_filters(draw_qs, True):
             if b.cancelled:
@@ -1541,11 +1676,11 @@ def admin_reports(request):
                     "name": b.ticket_draw.name,
                     "first_name": b.user.first_name if b.user else "",
                     "last_name": b.user.last_name if b.user else "",
-                    "guid": b.user.username if b.user else "",
+                    "guid": getattr(b.user.profile, "staff_guid", "") if b.user and hasattr(b.user, "profile") else "",
                     "email": b.user.email if b.user else (b.email or ""),
                     "date": b.slot.date,
                     "time": b.slot.time,
-                    "ticket_code": b.ticket_code,
+                    "ticket_code": get_ticket_reference(b.converted_booking),
                     "num_tickets": b.num_tickets,
                     "status_text": status_text,
                 }
@@ -1567,11 +1702,11 @@ def admin_reports(request):
                     "name": b.attraction.name,
                     "first_name": b.user.first_name if b.user else "",
                     "last_name": b.user.last_name if b.user else "",
-                    "guid": b.user.username if b.user else "",
+                    "guid": getattr(b.user.profile, "staff_guid", "") if b.user and hasattr(b.user, "profile") else "",
                     "email": b.user.email if b.user else (b.email or ""),
                     "date": b.slot.date,
                     "time": b.slot.time,
-                    "ticket_code": b.ticket_code,
+                    "ticket_code": get_ticket_reference(b),
                     "num_tickets": b.num_tickets,
                     "status_text": status_text,
                 }
@@ -1600,13 +1735,26 @@ def admin_reports(request):
 
     export_type = request.GET.get("export")
     if export_type:
-        headers = ["Type", "Attraction/Draw", "Forename", "Surname", "GUID", "Email", "Date", "Time", "Ticket Code", "Tickets", "Status"]
+        headers = [
+            "Type",
+            "Attraction/Draw",
+            "Forename",
+            "Surname",
+            "GUID",
+            "Email",
+            "Date",
+            "Time",
+            "Ticket Reference",
+            "Tickets",
+            "Status",
+        ]
 
         if export_type == "csv":
             response = HttpResponse(content_type="text/csv")
             response["Content-Disposition"] = 'attachment; filename="reports.csv"'
             writer = csv.writer(response)
             writer.writerow(headers)
+
             for b in combined:
                 writer.writerow(
                     [
@@ -1631,6 +1779,7 @@ def admin_reports(request):
             ws.title = "Reports"
 
             ws.append(headers)
+
             for b in combined:
                 ws.append(
                     [
@@ -1727,12 +1876,12 @@ def admin_reports(request):
         },
     )
 
+
 # -----------------------------
 # Emails (admin)
 # -----------------------------
 @staff_member_required
 def admin_email(request):
-
     email_types = EmailTemplate.TYPE_CHOICES
 
     selected_type = request.GET.get("email_type")
@@ -1796,22 +1945,23 @@ def admin_email(request):
                 except Exception:
                     pass
             messages.success(request, f"Custom email sent to {count} selected user(s).")
-            
-        
+
+
         elif "set_default" in request.POST:
             EmailTemplate.objects.filter(type=selected_template.type).update(is_default=False)
             selected_template.is_default = True
             selected_template.save()
-            messages.success(request, f"'{selected_template.name}' is now the default template for {selected_template.get_type_display()}")
+            messages.success(request,
+                             f"'{selected_template.name}' is now the default template for {selected_template.get_type_display()}")
 
         # DELETE
         elif "delete" in request.POST:
             was_default = selected_template.is_default
             template_name = selected_template.name
             template_type = selected_template.type
-            
+
             selected_template.delete()
-            
+
             # If we deleted the default, set another template as default if available
             if was_default:
                 next_template = EmailTemplate.objects.filter(type=template_type).first()
@@ -1823,14 +1973,13 @@ def admin_email(request):
                     messages.success(request, "Template deleted. No templates remain for this type.")
             else:
                 messages.success(request, "Template deleted")
-                
+
             return redirect(request.path + f"?email_type={selected_type}")
-            
 
     # CREATE NEW
     if request.method == "POST" and "create" in request.POST:
         is_first = not EmailTemplate.objects.filter(type=selected_type).exists()
-        
+
         new_template = EmailTemplate.objects.create(
             name="New Template",
             type=selected_type,
@@ -1838,7 +1987,7 @@ def admin_email(request):
             body="",
             is_default=is_first  # First template becomes default automatically
         )
-        
+
         messages.success(request, "Template created" + (" and set as default" if is_first else ""))
         return redirect(request.path + f"?email_type={selected_type}&template_id={new_template.id}")
 
@@ -1852,8 +2001,8 @@ def admin_email(request):
 
     return render(request, "fergusonbequest/admin_email.html", context)
 
-def send_template_email(template_type, recipient, context_dict):
 
+def send_template_email(template_type, recipient, context_dict):
     template = EmailTemplate.objects.filter(type=template_type).first()
 
     if not template:
@@ -1890,6 +2039,7 @@ def send_attraction_booking_email_confirmation(booking):
         context,
     )
 
+
 def send_draw_booking_email_confirmation(draw_booking):
     context = get_email_context(draw_booking=draw_booking)
     send_template_email(
@@ -1897,6 +2047,7 @@ def send_draw_booking_email_confirmation(draw_booking):
         draw_booking.user.email,
         context,
     )
+
 
 # Cancellation
 def send_attraction_booking_email_cancellation(booking):
@@ -1907,6 +2058,7 @@ def send_attraction_booking_email_cancellation(booking):
         context,
     )
 
+
 def send_draw_booking_email_cancellation(draw_booking):
     context = get_email_context(draw_booking=draw_booking)
     send_template_email(
@@ -1914,6 +2066,7 @@ def send_draw_booking_email_cancellation(draw_booking):
         draw_booking.user.email,
         context,
     )
+
 
 # Ticket Distribution (send after deadline date)
 def send_attraction_booking_email_ticket_distribution(booking):
@@ -1924,6 +2077,7 @@ def send_attraction_booking_email_ticket_distribution(booking):
         context,
     )
 
+
 # sent after accepting the ticket
 def send_draw_booking_email_ticket_distribution(draw_booking):
     context = get_email_context(draw_booking=draw_booking)
@@ -1933,16 +2087,18 @@ def send_draw_booking_email_ticket_distribution(draw_booking):
         context,
     )
 
+
 # Ticket Draw Winner (Accept or Decline, 3 day deadline)
 def send_draw_booking_email_winner(draw_booking):
     deadline = timezone.now() + datetime.timedelta(hours=72)
 
-    context = get_email_context(draw_booking=draw_booking, winner_deadline = deadline)
+    context = get_email_context(draw_booking=draw_booking, winner_deadline=deadline)
     send_template_email(
         "draw_winner",
         draw_booking.user.email,
         context,
     )
+
 
 # Attraction List Reallocation
 def send_attraction_booking_email_ticket_reallocaton(booking):
@@ -1953,18 +2109,20 @@ def send_attraction_booking_email_ticket_reallocaton(booking):
         context,
     )
 
+
 # Ticket Draw Redraw Winner
 def send_draw_booking_email_redraw_winner(draw_booking):
     deadline = timezone.now() + datetime.timedelta(hours=72)
 
-    context = get_email_context(draw_booking=draw_booking, winner_deadline = deadline)
+    context = get_email_context(draw_booking=draw_booking, winner_deadline=deadline)
     send_template_email(
         "draw_reallocation",
         draw_booking.user.email,
         context,
     )
 
-#Reminder (1 day before)
+
+# Reminder (1 day before)
 def send_attraction_booking_email_reminder(booking):
     context = get_email_context(booking=booking)
     send_template_email(
@@ -1972,6 +2130,7 @@ def send_attraction_booking_email_reminder(booking):
         booking.user.email,
         context,
     )
+
 
 def send_draw_booking_email_reminder(draw_booking):
     context = get_email_context(draw_booking=draw_booking)
@@ -1981,6 +2140,7 @@ def send_draw_booking_email_reminder(draw_booking):
         context,
     )
 
+
 def send_announcement_email(user):
     context = get_email_context(user=user)
     send_template_email(
@@ -1988,7 +2148,8 @@ def send_announcement_email(user):
         user.email,
         context,
     )
-    
+
+
 def send_custom_email(user):
     context = get_email_context(user=user)
     send_template_email(
@@ -1996,13 +2157,9 @@ def send_custom_email(user):
         user.email,
         context,
     )
-    
-
-
 
 
 def get_email_context(booking=None, draw_booking=None, user=None, **kwargs):
-
     try:
         from django.contrib.sites.models import Site
         current_site = Site.objects.get_current()
@@ -2054,15 +2211,14 @@ def get_email_context(booking=None, draw_booking=None, user=None, **kwargs):
         })
 
     if booking:
-        
+
         slot = booking.slot if hasattr(booking, 'slot') else None
-        
-        
+
         visit_time = ""
         visit_date = ""
         visit_day = ""
         visit_datetime = ""
-        
+
         if slot:
             if hasattr(slot, 'time') and slot.time:
                 visit_time = slot.time.strftime("%H:%M")
@@ -2071,43 +2227,38 @@ def get_email_context(booking=None, draw_booking=None, user=None, **kwargs):
                 visit_day = slot.date.strftime("%A")
             if visit_date and visit_time:
                 visit_datetime = f"{visit_date} at {visit_time}"
-        
+
         context.update({
-            
+
             "booking_type": "attraction",
             "booking_id": booking.id,
             "booking_created_date": booking.created_at.strftime("%d/%m/%Y %H:%M") if booking.created_at else "",
             "booking_status": "Cancelled" if booking.cancelled else "Confirmed",
             "booking_num_tickets": booking.num_tickets,
-            
-            
+
             "attraction_id": booking.attraction.id if booking.attraction else "",
             "attraction_name": booking.attraction.name if booking.attraction else "",
             "attraction_location": booking.attraction.location if booking.attraction else "",
             "attraction_description": booking.attraction.description if booking.attraction else "",
-            
-            
+
             "visit_date": visit_date,
             "visit_day": visit_day,
             "visit_time": visit_time,
             "visit_datetime": visit_datetime,
-            
-            
+
             "cancel_link": f"{domain}/booking/{booking.id}/cancel/",
             "view_booking_link": f"{domain}/booking/history/#booking-{booking.id}",
         })
-    
-    
+
     if draw_booking:
-        
+
         slot = draw_booking.slot if hasattr(draw_booking, 'slot') else None
-        
-        
+
         visit_time = ""
         visit_date = ""
         visit_day = ""
         visit_datetime = ""
-        
+
         if slot:
             if hasattr(slot, 'time') and slot.time:
                 visit_time = slot.time.strftime("%H:%M")
@@ -2116,28 +2267,26 @@ def get_email_context(booking=None, draw_booking=None, user=None, **kwargs):
                 visit_day = slot.date.strftime("%A")
             if visit_date and visit_time:
                 visit_datetime = f"{visit_date} at {visit_time}"
-        
+
         context.update({
-            
+
             "booking_type": "draw",
             "booking_id": draw_booking.id,
-            "booking_created_date": draw_booking.created_at.strftime("%d/%m/%Y %H:%M") if draw_booking.created_at else "",
+            "booking_created_date": draw_booking.created_at.strftime(
+                "%d/%m/%Y %H:%M") if draw_booking.created_at else "",
             "booking_status": "Cancelled" if draw_booking.cancelled else "Entered",
             "booking_num_tickets": draw_booking.num_tickets,
-            
-            
+
             "draw_id": draw_booking.ticket_draw.id if draw_booking.ticket_draw else "",
             "draw_name": draw_booking.ticket_draw.name if draw_booking.ticket_draw else "",
             "draw_location": draw_booking.ticket_draw.location if draw_booking.ticket_draw else "",
             "draw_description": draw_booking.ticket_draw.description if draw_booking.ticket_draw else "",
-            
-            
+
             "visit_date": visit_date,
             "visit_day": visit_day,
             "visit_time": visit_time,
             "visit_datetime": visit_datetime,
-            
-            
+
             "cancel_link": f"{domain}/ticket-draw/{draw_booking.id}/cancel/",
             "view_booking_link": f"{domain}/booking/history/#booking-{draw_booking.id}",
             "accept_link": f"{domain}/draw-waiting-list/accept/{draw_booking.id}",
@@ -2151,3 +2300,1113 @@ def get_email_context(booking=None, draw_booking=None, user=None, **kwargs):
         context["winner_deadline_days"] = 3
 
     return context
+
+# Ticket management views and helpers used by staff to upload files, assign codes, preview ticket output, and delete ticket data
+# Covers both normal bookings and accepted draw bookings across individual and bulk actions
+# -----------------------------
+# Ticket Upload Mechanism
+# -----------------------------
+# Builds the staff ticket upload page with filtering, grouping, counts, and pagination for bookings and draw entries
+@staff_member_required
+def ticket_upload(request):
+    q = (request.GET.get("q") or "").strip()
+    venue_id = (request.GET.get("venue") or "").strip()
+    sort = (request.GET.get("sort") or "date_desc").strip()
+    kind = (request.GET.get("kind") or "").strip()
+    show_all = request.GET.get("show_all") == "1"
+    today = timezone.localdate()
+
+    converted_booking_ids = TicketDrawBooking.objects.filter(
+        converted_booking__isnull=False
+    ).values_list("converted_booking_id", flat=True)
+
+    def get_booking_reference(booking):
+        if not booking:
+            return "—"
+        return (
+            (getattr(booking, "generic_booking_code", None) or "").strip()
+            or f"REF-{booking.id}"
+        )
+
+    def is_ticketed(obj):
+        if not obj:
+            return False
+        return bool(
+            obj.ticket_sent
+            or getattr(obj, "ticket_file", None)
+            or getattr(obj, "ticket_qr_value", "")
+            or getattr(obj, "generic_booking_code", "")
+            or getattr(obj, "ticket_instructions", "")
+            or obj.ticket_type in {
+                "box_office",
+                "codes",
+                "pdf_template",
+                "pdf_template_random",
+                "qr_individual",
+                "instructions",
+                "booking_code",
+            }
+        )
+
+    venues = []
+
+    for a in Attraction.objects.order_by("name"):
+        qs = Booking.objects.filter(
+            attraction=a,
+            cancelled=False,
+            slot__date__gte=today,
+        ).exclude(id__in=converted_booking_ids)
+
+        tu_total = 0
+        tu_ticketed = 0
+
+        for b in qs:
+            n = getattr(b, "num_tickets", 1) or 1
+            tu_total += n
+
+            if is_ticketed(b):
+                tu_ticketed += n
+
+        venues.append({
+            "id": f"a-{a.id}",
+            "name": a.name,
+            "kind": "attraction",
+            "tu_ticketed": tu_ticketed,
+            "tu_total": tu_total,
+        })
+
+    for d in TicketDraw.objects.order_by("name"):
+        qs = TicketDrawBooking.objects.filter(
+            ticket_draw=d,
+            cancelled=False,
+            is_accepted=True,
+            converted_booking__isnull=False,
+            slot__date__gte=today,
+        ).select_related("converted_booking")
+
+        tu_total = 0
+        tu_ticketed = 0
+
+        for entry in qs:
+            n = getattr(entry, "num_tickets", 1) or 1
+            tu_total += n
+
+            if is_ticketed(entry.converted_booking):
+                tu_ticketed += n
+
+        venues.append({
+            "id": f"d-{d.id}",
+            "name": f"{d.name} (Draw)",
+            "kind": "draw",
+            "tu_ticketed": tu_ticketed,
+            "tu_total": tu_total,
+        })
+
+    attraction_qs = (
+        Booking.objects
+        .select_related("user", "slot", "attraction")
+        .filter(cancelled=False)
+        .exclude(id__in=converted_booking_ids)
+    )
+
+    draw_qs = (
+        TicketDrawBooking.objects
+        .select_related(
+            "user",
+            "ticket_draw",
+            "slot",
+            "converted_booking",
+            "converted_booking__user",
+            "converted_booking__slot",
+            "converted_booking__attraction",
+        )
+        .filter(
+            cancelled=False,
+            is_accepted=True,
+            converted_booking__isnull=False,
+        )
+    )
+
+    if q:
+        attraction_qs = attraction_qs.filter(
+            Q(attraction__name__icontains=q)
+            | Q(user__first_name__icontains=q)
+            | Q(user__last_name__icontains=q)
+            | Q(full_name__icontains=q)
+            | Q(email__icontains=q)
+            | Q(id__icontains=q)
+            | Q(ticket_code__icontains=q)
+            | Q(generic_booking_code__icontains=q)
+        )
+
+        draw_qs = draw_qs.filter(
+            Q(ticket_draw__name__icontains=q)
+            | Q(user__first_name__icontains=q)
+            | Q(user__last_name__icontains=q)
+            | Q(full_name__icontains=q)
+            | Q(email__icontains=q)
+            | Q(id__icontains=q)
+            | Q(converted_booking__ticket_code__icontains=q)
+            | Q(converted_booking__generic_booking_code__icontains=q)
+        )
+
+    if venue_id:
+        if venue_id.startswith("a-"):
+            attraction_id = venue_id.split("-", 1)[1]
+            attraction_qs = attraction_qs.filter(attraction_id=attraction_id)
+            draw_qs = draw_qs.none()
+        elif venue_id.startswith("d-"):
+            draw_id = venue_id.split("-", 1)[1]
+            draw_qs = draw_qs.filter(ticket_draw_id=draw_id)
+            attraction_qs = attraction_qs.none()
+
+    if kind == "draw":
+        attraction_qs = attraction_qs.none()
+    elif kind == "attraction":
+        draw_qs = draw_qs.none()
+
+    raw_rows = []
+
+    for b in attraction_qs:
+        ticketed = is_ticketed(b)
+
+        raw_rows.append({
+            "group_key": f"a-{b.attraction_id}",
+            "row_id": b.id,
+            "id": b.id,
+            "row_kind": "b",
+            "venue_name": b.attraction.name if b.attraction else "",
+            "first_name": b.user.first_name if b.user else (b.full_name.split(" ")[0] if b.full_name else ""),
+            "last_name": b.user.last_name if b.user else (" ".join(b.full_name.split(" ")[1:]) if b.full_name and " " in b.full_name else ""),
+            "guid": b.user.profile.staff_guid if b.user and hasattr(b.user, "profile") else "",
+            "booking_date": b.slot.date.strftime("%d/%m/%Y") if b.slot and b.slot.date else "",
+            "booking_reference": get_booking_reference(b),
+            "sort_date": b.slot.date if b.slot else None,
+            "sort_time": b.slot.time if b.slot else None,
+            "ticket_sent": ticketed,
+            "ticket_type": b.ticket_type if b.ticket_type else "—",
+            "ticket_code": b.ticket_code,
+            "ticket_file_url": b.ticket_file.url if getattr(b, "ticket_file", None) else "",
+            "num_tickets": b.num_tickets if hasattr(b, "num_tickets") else 1,
+            "is_draw": False,
+            "is_past": bool(b.slot and b.slot.date < today),
+        })
+
+    for d in draw_qs:
+        b = d.converted_booking
+        ticketed = is_ticketed(b)
+
+        raw_rows.append({
+            "group_key": f"d-{d.ticket_draw_id}",
+            "row_id": d.id,
+            "id": d.id,
+            "row_kind": "d",
+            "venue_name": f"{d.ticket_draw.name} (Draw)" if d.ticket_draw else "",
+            "first_name": d.user.first_name if d.user else "",
+            "last_name": d.user.last_name if d.user else "",
+            "guid": d.user.profile.staff_guid if d.user and hasattr(d.user, "profile") else "",
+            "booking_date": d.slot.date.strftime("%d/%m/%Y") if d.slot and d.slot.date else "",
+            "booking_reference": get_booking_reference(b),
+            "sort_date": d.slot.date if d.slot else None,
+            "sort_time": d.slot.time if d.slot else None,
+            "ticket_sent": ticketed,
+            "ticket_type": b.ticket_type if b and b.ticket_type else "—",
+            "ticket_code": b.ticket_code if b else "",
+            "ticket_file_url": b.ticket_file.url if b and getattr(b, "ticket_file", None) else "",
+            "num_tickets": d.num_tickets if hasattr(d, "num_tickets") else (
+                b.num_tickets if b and hasattr(b, "num_tickets") else 1
+            ),
+            "is_draw": True,
+            "is_past": bool(d.slot and d.slot.date < today),
+        })
+
+    grouped_counts = {}
+    for row in raw_rows:
+        if row.get("is_past"):
+            continue
+
+        key = row["group_key"]
+        grouped_counts.setdefault(key, {"ticketed": 0, "total": 0})
+
+        tickets_for_row = row.get("num_tickets", 1) or 1
+        grouped_counts[key]["total"] += tickets_for_row
+
+        if row["ticket_sent"]:
+            grouped_counts[key]["ticketed"] += tickets_for_row
+
+    all_rows = []
+    for row in raw_rows:
+        if kind == "ticketed" and not row["ticket_sent"]:
+            continue
+        if kind == "unticketed" and row["ticket_sent"]:
+            continue
+
+        counts = grouped_counts.get(row["group_key"], {"ticketed": 0, "total": 0})
+        row["ticketed_count"] = counts["ticketed"]
+        row["total_count"] = counts["total"]
+        all_rows.append(row)
+
+    if sort == "date_asc":
+        all_rows.sort(key=lambda r: (r["sort_date"] or "", r["sort_time"] or ""))
+    elif sort == "surname":
+        all_rows.sort(key=lambda r: (r["last_name"] or "", r["first_name"] or ""))
+    elif sort == "venue":
+        all_rows.sort(key=lambda r: (r["venue_name"] or "", r["sort_date"] or ""))
+    else:
+        all_rows.sort(key=lambda r: (r["sort_date"] or "", r["sort_time"] or ""), reverse=True)
+
+    paginator = Paginator(all_rows, 10)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    paged_rows = list(page_obj.object_list)
+    rows = paged_rows
+    draw_rows = []
+    empty_rows = [] if show_all else [None] * max(0, 10 - len(paged_rows))
+
+    venue_ticketed = 0
+    venue_total = 0
+
+    if venue_id.startswith("a-"):
+        attraction_id = venue_id.split("-", 1)[1]
+        today = timezone.now().date()
+
+        venue_bookings = Booking.objects.filter(
+            attraction_id=attraction_id,
+            cancelled=False,
+            slot__date__gte=today,
+        ).exclude(id__in=converted_booking_ids)
+
+        for b in venue_bookings:
+            tickets_for_booking = getattr(b, "num_tickets", 1) or 1
+            venue_total += tickets_for_booking
+
+            if is_ticketed(b):
+                venue_ticketed += tickets_for_booking
+
+    elif venue_id.startswith("d-"):
+        draw_id = venue_id.split("-", 1)[1]
+        venue_draws = TicketDrawBooking.objects.filter(
+            ticket_draw_id=draw_id,
+            cancelled=False,
+            is_accepted=True,
+            converted_booking__isnull=False,
+            slot__date__gte=today,
+        ).select_related("converted_booking")
+
+        for d in venue_draws:
+            tickets_for_booking = getattr(d, "num_tickets", 1) or 1
+            venue_total += tickets_for_booking
+
+            if is_ticketed(d.converted_booking):
+                venue_ticketed += tickets_for_booking
+
+    return render(
+        request,
+        "fergusonbequest/ticket_upload.html",
+        {
+            "venues": venues,
+            "rows": rows,
+            "draw_rows": draw_rows,
+            "empty_rows": empty_rows,
+            "page_obj": page_obj,
+            "tickets": page_obj.object_list,
+            "q": q,
+            "venue_id": venue_id,
+            "sort": sort,
+            "kind": kind,
+            "show_all": show_all,
+            "ticket_view_url_template": reverse("ticket_view", args=[999999]),
+            "venue_ticketed": venue_ticketed,
+            "venue_total": venue_total,
+        },
+    )
+
+# Returns all uploaded ticket file URLs for a booking or accepted draw booking as JSON
+@login_required
+def ticket_list(request, booking_id):
+    """
+    Returns a list of ticket URLs for a specific booking.
+    Supports both standard Bookings and TicketDrawBookings.
+    """
+    # Attempt to find a standard Booking first
+    booking = Booking.objects.filter(id=booking_id).first()
+
+    # otherwise , check if the ID belongs to a TicketDrawBooking
+    if not booking:
+        draw_entry = TicketDrawBooking.objects.filter(id=booking_id).select_related("converted_booking").first()
+        if draw_entry:
+            # Only use the converted booking if the winner has accepted
+            booking = draw_entry.converted_booking
+    # If still no booking, or booking is cancelled, return empty
+    if not booking or (hasattr(booking, 'cancelled') and booking.cancelled):
+        return JsonResponse({"tickets": []})
+    ref = booking.generic_booking_code or f"REF-{booking.id}"
+
+    tickets = [
+        request.build_absolute_uri(t.file.url)
+        for t in booking.tickets.all()
+        if t.file
+    ]
+
+    return JsonResponse({
+        "tickets": tickets,
+        "booking_reference": ref
+    })
+
+# Marks a booking as ticket sent from the staff upload screen
+@staff_member_required
+@require_http_methods(["POST"])
+def ticket_upload_send(request):
+    booking_id = request.POST.get("row_id")
+    booking = get_object_or_404(Booking, id=booking_id)
+
+    if not booking.ticket_type:
+        messages.error(request, "No ticket configured for this booking.")
+        return redirect("ticket_upload")
+
+    booking.ticket_sent = True
+    booking.ticket_sent_at = timezone.now()
+    booking.save(update_fields=["ticket_sent", "ticket_sent_at"])
+
+    messages.success(request, f"Ticket marked as sent for booking #{booking.id}.")
+    return redirect("ticket_upload")
+
+# Redirects back to the main ticket upload page when viewing all rows
+@staff_member_required
+@require_http_methods(["POST"])
+def ticket_upload_view_all(request):
+    return redirect("ticket_upload")
+
+# Builds the best available ticket response for a booking
+def _ticket_response_for_booking(booking):
+    ref = booking.generic_booking_code or f"REF-{booking.id}"
+    first_ticket = booking.tickets.first()
+
+    if first_ticket and first_ticket.file:
+        try:
+            return FileResponse(
+                first_ticket.file.open("rb"),
+                as_attachment=True,
+                filename=first_ticket.file.name.split("/")[-1],
+            )
+        except Exception:
+            pass
+
+    if booking.ticket_type == "qr_individual" and booking.ticket_qr_value:
+        return HttpResponse(
+            "",
+            content_type="text/plain",
+        )
+
+    if booking.ticket_type == "instructions" and booking.ticket_instructions:
+        return HttpResponse(
+            f"Instructions:\n{booking.ticket_instructions}",
+            content_type="text/plain",
+        )
+
+    if booking.ticket_type == "box_office":
+        return HttpResponse(
+            "Collect tickets at the box office (no digital ticket).",
+            content_type="text/plain",
+        )
+
+    if booking.ticket_type == "codes":
+        return HttpResponse(
+            f"Ticket Code: {booking.ticket_code}",
+            content_type="text/plain",
+        )
+
+    return HttpResponse(
+        "No ticket info available for this booking.",
+        status=404,
+    )
+# Lets staff preview ticket output for either a normal booking or a draw booking
+@staff_member_required
+def ticket_view(request, booking_id):
+    # First try a normal booking
+    booking = Booking.objects.filter(id=booking_id).first()
+    if booking:
+        return _ticket_response_for_booking(booking)
+
+    # Then try a draw booking
+    draw_booking = (
+        TicketDrawBooking.objects
+        .select_related("converted_booking")
+        .filter(id=booking_id)
+        .first()
+    )
+
+    if draw_booking:
+        if draw_booking.converted_booking:
+            return _ticket_response_for_booking(draw_booking.converted_booking)
+
+        return HttpResponse("No ticket info available for this booking.", status=404)
+
+    return HttpResponse("Ticket not found.", status=404)
+
+# Lets a logged-in user view their own ticket, while staff can view any ticket
+@login_required
+def user_ticket_view(request, booking_id):
+
+    booking = Booking.objects.filter(id=booking_id, cancelled=False).first()
+
+    if booking:
+        if booking.user_id != request.user.id and not request.user.is_staff:
+            return HttpResponseForbidden("Not allowed.")
+        return _ticket_response_for_booking(booking)
+
+    # If not a normal booking try a draw booking
+    draw_booking = TicketDrawBooking.objects.filter(id=booking_id, cancelled=False).first()
+
+    if draw_booking:
+        if draw_booking.user_id != request.user.id and not request.user.is_staff:
+            return HttpResponseForbidden("Not allowed.")
+
+        # Convert draw booking into something the ticket viewer understands
+        class TempBooking:
+            pass
+
+        temp = TempBooking()
+        temp.id = draw_booking.id
+        temp.ticket_file = getattr(draw_booking, "ticket_file", None)
+        temp.ticket_type = getattr(draw_booking, "ticket_type", None)
+        temp.ticket_code = getattr(draw_booking, "ticket_code", None)
+        temp.ticket_qr_value = getattr(draw_booking, "ticket_qr_value", None)
+        temp.ticket_instructions = getattr(draw_booking, "ticket_instructions", None)
+        temp.generic_booking_code = getattr(draw_booking, "generic_booking_code", None)
+
+        return _ticket_response_for_booking(temp)
+
+    return HttpResponse("Ticket not found.", status=404)
+
+
+# Applies a shared ticket assignment action to multiple bookings and marks them as sent
+def _bulk_assign(request, bookings, *, apply_fn, label):
+    """
+    apply_fn(booking, idx) should set fields on booking and return update_fields list.
+    """
+    total = len(bookings)
+    assigned = 0
+    now = timezone.now()
+
+    for idx, b in enumerate(bookings):
+        update_fields = apply_fn(b, idx)
+
+        b.ticket_sent = True
+        b.ticket_sent_at = now
+
+        if "ticket_sent" not in update_fields:
+            update_fields.append("ticket_sent")
+        if "ticket_sent_at" not in update_fields:
+            update_fields.append("ticket_sent_at")
+
+        b.save(update_fields=update_fields)
+        assigned += 1
+
+    messages.success(request, f"{label}: assigned {assigned} of {total}.")
+    return assigned
+
+# Distributes tickets in bulk to all unsent bookings for a selected venue using the chosen ticket method
+@staff_member_required
+@require_POST
+def venue_distribute_tickets(request):
+    venue_id = (request.POST.get("venue_id") or "").strip()
+    ticket_type = (request.POST.get("ticket_type") or "").strip()
+
+    if venue_id.startswith("a-"):
+        venue_id = venue_id.split("-", 1)[1]
+
+    try:
+        venue_id = int(venue_id)
+    except ValueError:
+        messages.error(request, "Invalid venue selected.")
+        return redirect("ticket_upload")
+
+    # Inputs
+    codes_file = request.FILES.get("codes_file")
+    codes_text = request.POST.get("codes_text")
+    trim_spaces = bool(request.POST.get("trim_spaces"))
+    dedupe_codes = bool(request.POST.get("dedupe_codes"))
+
+    if not venue_id:
+        messages.error(request, "No venue selected.")
+        return redirect("/ticket-upload/?open_upload=1")
+
+    if not ticket_type:
+        messages.error(request, "No ticket type selected.")
+        return redirect("ticket_upload")
+
+    def parse_codes():
+        codes = []
+
+        if codes_file:
+            wrapper = TextIOWrapper(codes_file, encoding="utf-8")
+            for line in wrapper:
+                codes.append(line.rstrip("\n"))
+        elif codes_text:
+            codes = codes_text.splitlines()
+
+        if trim_spaces:
+            codes = [c.strip() for c in codes]
+
+        codes = [c for c in codes if c]
+
+        if codes and codes[0].strip().lower() in {"ticket_code", "code", "codes"}:
+            codes = codes[1:]
+
+        if dedupe_codes:
+            seen = set()
+            unique = []
+            for c in codes:
+                if c not in seen:
+                    unique.append(c)
+                    seen.add(c)
+            codes = unique
+
+        return codes
+
+    with transaction.atomic():
+        # lock only unsent bookings for this venue
+        bookings = list(
+            Booking.objects.filter(
+                attraction_id=venue_id,
+                cancelled=False,
+                ticket_sent=False,
+                slot__date__gte=timezone.now().date(),
+            )
+            .exclude(ticket_code__isnull=False).exclude(ticket_code="")
+            .select_for_update()
+            .order_by("created_at")
+        )
+
+        if not bookings:
+            messages.info(request, "No unsent bookings found for this venue.")
+            return redirect("ticket_upload")
+
+        total_needed = sum(max(1, b.num_tickets or 1) for b in bookings)
+
+        # E-ticket codes (partial allowed)
+        if ticket_type == "codes":
+            codes = parse_codes()
+
+            if not codes:
+                messages.error(request, "No codes provided.")
+                return redirect("ticket_upload")
+
+            to_assign = min(len(codes), total_needed)
+            extra = max(0, len(codes) - to_assign)
+
+            def apply_fn(b, idx):
+                b.ticket_type = "codes"
+                b.ticket_code = codes[idx]
+                return ["ticket_type", "ticket_code"]
+
+            _bulk_assign(request, bookings[:to_assign], apply_fn=apply_fn, label="E-ticket codes")
+
+            remaining = total_needed - to_assign
+            if remaining:
+                messages.info(request, f"{remaining} booking(s) still need tickets.")
+            if extra:
+                messages.info(request, f"{extra} extra code(s) ignored.")
+
+            return redirect("ticket_upload")
+
+        # PDF + random code (applies to ALL unsent)
+        if ticket_type == "pdf_template_random":
+            pdf = request.FILES.get("ticket_pdf")
+            if not pdf:
+                messages.error(request, "Please upload a PDF.")
+                return redirect("ticket_upload")
+
+            used = set(
+                Booking.objects.filter(ticket_code__isnull=False)
+                .exclude(ticket_code="")
+                .values_list("ticket_code", flat=True)
+            )
+
+            def generate_random_code():
+                while True:
+                    c = "FB-" + "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
+                    if c not in used:
+                        used.add(c)
+                        return c
+
+            def apply_fn(b, idx):
+                b.ticket_type = "pdf_template_random"
+                b.ticket_code = generate_random_code()
+                BookingTicket.objects.create(booking=b, file=pdf)
+                return ["ticket_type", "ticket_code"]
+
+            _bulk_assign(request, bookings, apply_fn=apply_fn, label="PDF + random code")
+            return redirect("ticket_upload")
+
+        # QR individual files (partial allowed)
+        if ticket_type == "qr_individual":
+            files = request.FILES.getlist("qr_files")
+            if not files:
+                messages.error(request, "Please upload at least one QR file.")
+                return redirect("ticket_upload")
+
+            to_assign = min(len(files), total_needed)
+            extra = max(0, len(files) - to_assign)
+
+            def apply_fn(b, idx):
+                b.ticket_type = "qr_individual"
+                b.ticket_code = ""
+                BookingTicket.objects.create(booking=b, file=files[idx])
+                return ["ticket_type", "ticket_code"]
+
+            _bulk_assign(request, bookings[:to_assign], apply_fn=apply_fn, label="QR tickets")
+
+            remaining = total_needed - to_assign
+            if remaining:
+                messages.info(request, f"{remaining} booking(s) still need tickets.")
+            if extra:
+                messages.info(request, f"{extra} extra file(s) ignored.")
+            return redirect("ticket_upload")
+
+        # Instructions (applies to ALL unsent)
+        if ticket_type == "instructions":
+            instructions = (request.POST.get("instructions") or "").strip()
+            if not instructions:
+                messages.error(request, "Please enter instructions.")
+                return redirect("ticket_upload")
+
+            def apply_fn(b, idx):
+                b.ticket_type = "instructions"
+                b.ticket_code = instructions
+                return ["ticket_type", "ticket_code"]
+
+            _bulk_assign(request, bookings, apply_fn=apply_fn, label="Instructions")
+            return redirect("ticket_upload")
+
+        # Box office (applies to ALL unsent)
+        if ticket_type == "box_office":
+            def apply_fn(b, idx):
+                b.ticket_type = "box_office"
+                b.ticket_code = ""
+                return ["ticket_type", "ticket_code"]
+
+            _bulk_assign(request, bookings, apply_fn=apply_fn, label="Box office collection")
+            return redirect("ticket_upload")
+
+        # fallback
+        messages.error(request, "Unsupported ticket type.")
+        return redirect("ticket_upload")
+
+# Assigns or uploads ticket data for a single booking or accepted draw booking
+@staff_member_required
+@require_POST
+def individual_booking(request):
+    booking_id = (request.POST.get("booking_id") or "").strip()
+    ticket_type = (request.POST.get("ticket_type") or "").strip()
+    row_kind = request.POST.get("row_kind", "b")
+
+    if not booking_id:
+        messages.error(request, "Missing booking id.")
+        return redirect("ticket_upload")
+
+    if not ticket_type:
+        messages.error(request, "No ticket type selected.")
+        return redirect("ticket_upload")
+
+    # Resolve the correct booking object
+    if row_kind == "d":
+        draw_booking = get_object_or_404(TicketDrawBooking, id=booking_id, cancelled=False)
+
+        if not draw_booking.converted_booking:
+            messages.error(request, "This draw entry has not been accepted yet.")
+            return redirect("ticket_upload")
+
+        booking = draw_booking.converted_booking
+    else:
+        booking_id = request.POST.get("booking_id")
+
+        booking = Booking.objects.filter(id=booking_id, cancelled=False).first()
+
+        if not booking:
+            booking = TicketDrawBooking.objects.filter(id=booking_id, cancelled=False).first()
+
+        if not booking:
+            return HttpResponseNotFound("Booking not found")
+
+    template_pdf = request.FILES.get("ticket_file")
+    codes_file = request.FILES.get("codes_file")
+    codes_text = request.POST.get("codes_text")
+    template_files = request.FILES.getlist("ticket_files")
+    qr_files_individual = request.FILES.getlist("qr_files_individual")
+    requested_num_tickets = int(request.POST.get("num_tickets") or getattr(booking, "num_tickets", 1) or 1)
+    requested_num_tickets = max(1, requested_num_tickets)
+
+    trim_spaces = bool(request.POST.get("trim_spaces"))
+    dedupe_codes = bool(request.POST.get("dedupe_codes"))
+
+    now = timezone.now()
+
+    ticket_visible_at_raw = request.POST.get("ticket_visible_at")
+    ticket_visible_at = None
+
+    if ticket_visible_at_raw:
+        from django.utils.dateparse import parse_datetime
+        dt = parse_datetime(ticket_visible_at_raw)
+        if dt:
+            ticket_visible_at = timezone.make_aware(dt, timezone.get_current_timezone())
+
+    # Booking code (generic)
+    if ticket_type == "booking_code":
+        code = (request.POST.get("booking_code") or "").strip()
+        if not code:
+            messages.error(request, "Please enter a booking code.")
+            return redirect("ticket_upload")
+
+        booking.ticket_type = "booking_code"
+        booking.generic_booking_code = code
+        booking.ticket_visible_at = ticket_visible_at
+        booking.ticket_code = ""
+        booking.ticket_sent = True
+        booking.ticket_sent_at = now
+        booking.save(update_fields=[
+            "ticket_type", "generic_booking_code", "ticket_visible_at",
+            "ticket_code", "ticket_sent", "ticket_sent_at"
+        ])
+
+        messages.success(request, f"Booking code set for booking #{booking.id}.")
+        return redirect("ticket_upload")
+
+    # Staff-card instructions
+    if ticket_type == "instructions":
+        text = (request.POST.get("instructions") or "").strip()
+        if not text:
+            messages.error(request, "Please enter instructions.")
+            return redirect("ticket_upload")
+
+        booking.ticket_type = "instructions"
+        booking.ticket_instructions = text
+        booking.ticket_code = ""
+        booking.ticket_sent = True
+        booking.ticket_sent_at = now
+        booking.save(update_fields=[
+            "ticket_type", "ticket_instructions", "ticket_code",
+            "ticket_sent", "ticket_sent_at"
+        ])
+
+        messages.success(request, f"Instructions set for booking #{booking.id}.")
+        return redirect("ticket_upload")
+
+    if ticket_type == "qr_individual":
+        files = qr_files_individual or ([] if not request.FILES.get("qr_file") else [request.FILES.get("qr_file")])
+
+        if not files:
+            messages.error(request, "Please upload at least one QR ticket file.")
+            return redirect("ticket_upload")
+
+        if len(files) != requested_num_tickets:
+            messages.error(
+                request,
+                f"This booking requires {requested_num_tickets} ticket(s). "
+                f"You uploaded {len(files)} file(s). Please upload exactly {requested_num_tickets}."
+            )
+            return redirect("ticket_upload")
+
+        booking.ticket_type = "qr_individual"
+        booking.ticket_code = ""
+        booking.ticket_qr_value = ""
+        booking.ticket_visible_at = ticket_visible_at
+        booking.ticket_sent = True
+        booking.ticket_sent_at = now
+        booking.save(update_fields=[
+            "ticket_type", "ticket_code", "ticket_qr_value",
+            "ticket_visible_at", "ticket_sent", "ticket_sent_at"
+        ])
+
+        booking.tickets.all().delete()
+        for f in files:
+            BookingTicket.objects.create(booking=booking, file=f)
+
+        messages.success(request, f"{len(files)} QR ticket(s) uploaded for booking #{booking.id}.")
+        return redirect("ticket_upload")
+
+    # Box office
+    if ticket_type == "box_office":
+        booking.ticket_type = "box_office"
+        booking.ticket_code = ""
+        booking.ticket_sent = True
+        booking.ticket_sent_at = now
+        booking.save(update_fields=[
+            "ticket_type", "ticket_code", "ticket_sent", "ticket_sent_at"
+        ])
+
+        messages.success(request, f"Box office set for booking #{booking.id}.")
+        return redirect("ticket_upload")
+
+    # E-ticket codes (one per ticket)
+    if ticket_type == "codes":
+        codes = []
+
+        # Individual modal textarea
+        single_codes_text = (request.POST.get("single_codes_text") or "").strip()
+        if single_codes_text:
+            lines = single_codes_text.splitlines()
+            codes = [l.strip() for l in lines if l.strip()]
+
+        # Fallbacks for older inputs / bulk-style input
+        elif codes_file:
+            wrapper = TextIOWrapper(codes_file, encoding="utf-8")
+            lines = [line.strip() for line in wrapper if line.strip()]
+            codes = lines
+
+        elif codes_text:
+            lines = codes_text.splitlines()
+            if trim_spaces:
+                lines = [l.strip() for l in lines]
+            lines = [l for l in lines if l]
+
+            if dedupe_codes:
+                seen = set()
+                uniq = []
+                for l in lines:
+                    if l not in seen:
+                        uniq.append(l)
+                        seen.add(l)
+                lines = uniq
+
+            codes = lines
+
+        if not codes:
+            messages.error(request, "Please provide at least one code.")
+            return redirect("ticket_upload")
+
+        if len(codes) != requested_num_tickets:
+            messages.error(
+                request,
+                f"This booking requires {requested_num_tickets} ticket(s). "
+                f"You entered {len(codes)} code(s). Please enter exactly {requested_num_tickets}."
+            )
+            return redirect("ticket_upload")
+
+        booking.ticket_type = "codes"
+        booking.ticket_code = "\n".join(codes)
+        booking.ticket_visible_at = ticket_visible_at
+        booking.ticket_sent = True
+        booking.ticket_sent_at = now
+
+        # Clear fields from other ticket modes
+        booking.ticket_instructions = ""
+        booking.generic_booking_code = ""
+        booking.ticket_qr_value = ""
+        # Remove uploaded file tickets if switching from file-based mode
+        booking.tickets.all().delete()
+        booking.save(update_fields=[
+            "ticket_type",
+            "ticket_code",
+            "ticket_visible_at",
+            "ticket_sent",
+            "ticket_sent_at",
+            "ticket_instructions",
+            "generic_booking_code",
+            "ticket_qr_value",
+        ])
+
+        messages.success(request, f"{len(codes)} code(s) assigned for booking #{booking.id}.")
+        return redirect("ticket_upload")
+
+    # PDF template or template + random code
+    if ticket_type in {"pdf_template", "pdf_template_random"}:
+        files = template_files or ([] if not template_pdf else [template_pdf])
+
+        if not files:
+            messages.error(request, "Please upload at least one PDF/file.")
+            return redirect("ticket_upload")
+
+        if len(files) != requested_num_tickets:
+            messages.error(
+                request,
+                f"This booking requires {requested_num_tickets} ticket(s). "
+                f"You uploaded {len(files)} file(s). Please upload exactly {requested_num_tickets}."
+            )
+            return redirect("ticket_upload")
+
+        booking.ticket_type = ticket_type
+        booking.ticket_visible_at = ticket_visible_at
+
+        if ticket_type == "pdf_template_random":
+            booking.ticket_code = "FB-" + "".join(
+                random.choices(string.ascii_uppercase + string.digits, k=8)
+            )
+        else:
+            booking.ticket_code = ""
+
+        booking.ticket_sent = True
+        booking.ticket_sent_at = now
+        booking.save(update_fields=[
+            "ticket_type", "ticket_code", "ticket_visible_at",
+            "ticket_sent", "ticket_sent_at"
+        ])
+
+        booking.tickets.all().delete()
+        for f in files:
+            BookingTicket.objects.create(booking=booking, file=f)
+
+        messages.success(request, f"{len(files)} file ticket(s) assigned for booking #{booking.id}.")
+        return redirect("ticket_upload")
+
+# Clears irrelevant ticket fields so a booking stays consistent with its selected ticket type
+def normalize_ticket_fields(booking):
+    """
+    Ensure only relevant ticket fields are populated for the chosen ticket_type.
+    Call before booking.save() if you want to enforce consistency.
+    """
+    if booking.ticket_type == "box_office":
+        booking.ticket_code = ""
+        booking.ticket_qr_value = ""
+        booking.ticket_instructions = ""
+
+    elif booking.ticket_type == "codes":
+        booking.ticket_qr_value = ""
+        booking.ticket_instructions = ""
+
+    elif booking.ticket_type in {"pdf_template", "pdf_template_random"}:
+        if booking.ticket_type == "pdf_template":
+            booking.ticket_code = ""
+        booking.ticket_qr_value = ""
+        booking.ticket_instructions = ""
+
+    elif booking.ticket_type == "qr_individual":
+        booking.ticket_code = ""
+        booking.ticket_instructions = ""
+
+    elif booking.ticket_type == "instructions":
+        booking.ticket_code = ""
+        booking.ticket_qr_value = ""
+
+    elif booking.ticket_type == "booking_code":
+        booking.ticket_code = ""
+        booking.ticket_qr_value = ""
+        booking.ticket_instructions = ""
+
+# Removes ticket data and files from a single booking or draw-linked booking
+@staff_member_required
+@require_POST
+def ticket_upload_delete(request):
+    row_id = request.POST.get("row_id")
+    row_kind = (request.POST.get("row_kind") or "b").strip().lower()
+
+    if row_kind == "d":
+        draw_booking = get_object_or_404(TicketDrawBooking, id=row_id)
+
+        if not draw_booking.converted_booking:
+            messages.error(request, "Draw booking has no ticket yet.")
+            return redirect("ticket_upload")
+
+        obj = draw_booking.converted_booking
+    else:
+        obj = get_object_or_404(Booking, id=row_id)
+
+    obj.tickets.all().delete()
+    obj.ticket_type = None
+    obj.ticket_code = None
+    obj.ticket_sent = False
+    obj.ticket_sent_at = None
+    obj.ticket_qr_value = ""
+    obj.ticket_instructions = ""
+    obj.generic_booking_code = ""
+
+    obj.save()
+
+    messages.success(request, f"Ticket removed for booking #{obj.id}.")
+    return redirect("ticket_upload")
+
+# Removes ticket data in bulk for selected booking and draw rows from the upload screen
+@staff_member_required
+@require_POST
+def ticket_upload_bulk_delete(request):
+    ids = request.POST.getlist("selected_ids")
+    if not ids:
+        messages.error(request, "No rows selected.")
+        return redirect("ticket_upload")
+
+    booking_ids = []
+    draw_ids = []
+
+    for v in ids:
+        try:
+            kind, pk = v.split(":", 1)
+            if kind == "d":
+                draw_ids.append(pk)
+            else:
+                booking_ids.append(pk)
+        except ValueError:
+            booking_ids.append(v)
+
+    removed = 0
+    missing = 0
+
+    for obj in Booking.objects.filter(id__in=booking_ids):
+        has_ticket = (
+            obj.tickets.exists()
+            or obj.ticket_type
+            or obj.ticket_code
+            or obj.ticket_sent
+            or getattr(obj, "ticket_qr_value", "")
+            or getattr(obj, "ticket_instructions", "")
+            or getattr(obj, "generic_booking_code", "")
+        )
+
+        if not has_ticket:
+            missing += 1
+            continue
+
+        obj.tickets.all().delete()
+        obj.ticket_type = None
+        obj.ticket_code = None
+        obj.ticket_sent = False
+        obj.ticket_sent_at = None
+        obj.ticket_qr_value = ""
+        obj.ticket_instructions = ""
+        obj.generic_booking_code = ""
+        obj.save()
+
+        removed += 1
+
+    for draw_obj in TicketDrawBooking.objects.filter(id__in=draw_ids).select_related("converted_booking"):
+        obj = draw_obj.converted_booking
+
+        if not obj:
+            missing += 1
+            continue
+
+        has_ticket = (
+            obj.tickets.exists()
+            or obj.ticket_type
+            or obj.ticket_code
+            or obj.ticket_sent
+            or getattr(obj, "ticket_qr_value", "")
+            or getattr(obj, "ticket_instructions", "")
+            or getattr(obj, "generic_booking_code", "")
+        )
+
+        if not has_ticket:
+            missing += 1
+            continue
+
+        obj.tickets.all().delete()
+        obj.ticket_type = None
+        obj.ticket_code = None
+        obj.ticket_sent = False
+        obj.ticket_sent_at = None
+        obj.ticket_qr_value = ""
+        obj.ticket_instructions = ""
+        obj.generic_booking_code = ""
+        obj.save()
+
+        removed += 1
+
+    if removed:
+        messages.success(request, f"Removed tickets for {removed} row(s).")
+    if missing:
+        messages.error(request, f"{missing} selected row(s) had no ticket to delete.")
+
+    return redirect("ticket_upload")
+
+User = get_user_model()

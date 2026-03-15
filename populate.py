@@ -4,7 +4,55 @@ import django
 import random
 import datetime
 from datetime import time, timedelta
+from django.utils.text import slugify
 from django.utils import timezone
+
+def convert_draw_entry_to_booking(draw_entry):
+    draw = draw_entry.ticket_draw
+    draw_slot = draw_entry.slot
+
+    # create attraction for draw if it doesn't exist
+    attraction, _ = Attraction.objects.get_or_create(
+        slug=slugify(draw.name),
+        defaults={
+            "name": draw.name,
+            "location": draw.location,
+            "image": "",
+            "per_year_limit": getattr(draw, "per_year_limit", 3),
+            "booking_open": draw.booking_open,
+            "booking_close": draw.booking_close,
+            "attraction_type": "weekly_event",
+        },
+    )
+
+    # create visit slot
+    visit_slot, _ = VisitSlot.objects.get_or_create(
+        attraction=attraction,
+        date=draw_slot.date,
+        time=draw_slot.time,
+        defaults={
+            "capacity": draw_slot.capacity,
+            "remaining": 0,
+        },
+    )
+
+    # create booking from draw entry
+    booking = Booking.objects.create(
+        user=draw_entry.user,
+        attraction=attraction,
+        slot=visit_slot,
+        full_name=draw_entry.full_name,
+        email=draw_entry.email,
+        num_tickets=draw_entry.num_tickets,
+        agreed_terms=True,
+        cancelled=False,
+    )
+
+    draw_entry.is_accepted = True
+    draw_entry.converted_booking = booking
+    draw_entry.save(update_fields=["is_accepted", "converted_booking"])
+
+    return booking
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
@@ -21,17 +69,63 @@ from fergusonbequest.models import (
     Booking,
     TicketDrawBooking,
 )
-
 User = get_user_model()
+from django.utils import timezone
+from fergusonbequest.models import Profile
 
+
+# Fixed surname mapping
+LAST_NAME_MAP = {
+    "alice":"Smith",
+    "bob":"Brown",
+    "charlie":"Wilson",
+    "david":"Taylor",
+    "emma":"Anderson",
+    "frank":"White",
+    "grace":"Harris",
+    "harry":"Clark",
+    "dana":"Lewis",
+    "jack":"Walker",
+    "katie":"Hall",
+    "liam":"Allen",
+    "mason":"Young",
+    "nina":"King",
+    "owen":"Scott",
+    "paul":"Green",
+    "quinn":"Adams",
+    "ruby":"Baker",
+    "sam":"Nelson",
+    "taylor":"Hill",
+    "victor":"Carter",
+    "will":"Turner",
+    "xavier":"Phillips",
+    "yasmin":"Parker",
+    "zara":"Evans",
+}
 
 def create_user(username: str):
-    u, _ = User.objects.get_or_create(
+    first = username.capitalize()
+    last = LAST_NAME_MAP.get(username.lower(), "Staff")
+
+    u, created = User.objects.get_or_create(
         username=username,
-        defaults={"email": f"{username}@test.com"},
+        defaults={
+            "email": f"{username}@test.com",
+        },
     )
+
+    u.first_name = first
+    u.last_name = last
     u.set_password("password123")
     u.save()
+
+    # ensure profile exists
+    profile, _ = Profile.objects.get_or_create(user=u)
+
+    # set staff fake guid
+    profile.staff_guid = f"G{random.randint(100000, 999999)}"
+    profile.save()
+
     return u
 
 
@@ -52,7 +146,15 @@ def populate():
     TicketDraw.objects.all().delete()
 
     # create normal users
-    for name in ["alice", "bob", "charlie", "david", "emma"]:
+    usernames = [
+        "alice", "bob", "charlie", "david", "emma",
+        "frank", "grace", "harry", "dana", "jack",
+        "katie", "liam", "mason", "nina", "owen",
+        "paul", "quinn", "ruby", "sam", "taylor",
+        "victor", "will", "xavier", "yasmin", "zara"
+    ]
+
+    for name in usernames:
         create_user(name)
 
     participants = get_participants()
@@ -198,28 +300,27 @@ def populate():
 
     # create bookings
     for user in participants:
+
+        # split slots into past and future
         past_slots = [s for s in created_slots if s.date < today and s.remaining > 0]
         future_slots = [s for s in created_slots if s.date >= today and s.remaining > 0]
 
         chosen_slots = []
 
-        # make sure theres one past and one future booking
+        # give each user multiple future bookings
+        # these appear in the ticket upload page
+        random.shuffle(future_slots)
+
+        for slot in future_slots[:2]:
+            chosen_slots.append(slot)
+
+        # also include one past booking so the UI
+        # shows "Past booking"
         if past_slots:
             chosen_slots.append(random.choice(past_slots))
-        if future_slots:
-            chosen_slots.append(random.choice(future_slots))
-
-        # if we only got 1 (or 0) top up from anything available
-        if len(chosen_slots) < 2:
-            any_slots = [s for s in created_slots if s.remaining > 0]
-            random.shuffle(any_slots)
-            for s in any_slots:
-                if len(chosen_slots) >= 2:
-                    break
-                if s not in chosen_slots:
-                    chosen_slots.append(s)
-
+        # create bookings
         for slot in chosen_slots:
+
             if slot.remaining <= 0:
                 continue
 
@@ -229,8 +330,16 @@ def populate():
 
             is_past = slot.date < today
 
-            # past shouldn't randomly be cancelled
+            # past bookings should never be cancelled
             is_cancelled = False if is_past else random.choice([False, False, False, True])
+
+            ticket_type = None
+            ticket_code = None
+
+            # past bookings already have ticket codes
+            if is_past:
+                ticket_type = "codes"
+                ticket_code = f"G{random.randint(100000, 999999)}"
 
             booking = Booking.objects.create(
                 user=user,
@@ -241,27 +350,36 @@ def populate():
                 num_tickets=tickets,
                 agreed_terms=True,
                 cancelled=is_cancelled,
+                ticket_type=ticket_type,
+                ticket_code=ticket_code,
             )
 
+            # realistic booking creation dates
             if is_past:
+
                 past_dt = datetime.datetime.combine(
                     slot.date - timedelta(days=random.randint(3, 14)),
                     datetime.time(12, 0),
                 )
+
                 booking.created_at = timezone.make_aware(past_dt)
+
             else:
+                # booked recently for future visit
                 booking.created_at = timezone.now() - timedelta(days=random.randint(0, 5))
 
             booking.save(update_fields=["created_at"])
 
-            # only consume capacity if it's actually active
+            # reduce slot capacity if booking active
             if not booking.cancelled:
                 slot.remaining -= tickets
                 slot.save(update_fields=["remaining"])
 
     # draw entries
+    entries = []
+
     for user in participants:
-        TicketDrawBooking.objects.create(
+        entry = TicketDrawBooking.objects.create(
             ticket_draw=zoo_draw,
             slot=random.choice(zoo_slots),
             user=user,
@@ -272,9 +390,15 @@ def populate():
             cancelled=False,
             is_accepted=False,
         )
+        entries.append(entry)
 
-    # make bob winner but pending
+    alice = User.objects.filter(username="alice").first()
     bob = User.objects.filter(username="bob").first()
+
+
+    alice_entry = TicketDrawBooking.objects.filter(ticket_draw=zoo_draw, user=alice).first()
+    bob_entry = TicketDrawBooking.objects.filter(ticket_draw=zoo_draw, user=bob).first()
+
     if bob:
         entry = TicketDrawBooking.objects.filter(ticket_draw=zoo_draw, user=bob).first()
         if entry:
@@ -287,6 +411,29 @@ def populate():
     print("Login as bob, to test the draw acceptance.")
     print("email: bob@test.com, password: password123")
 
+    # Ensure Alice and Bob are on different slots
+    if alice_entry and bob_entry:
+        if alice_entry.slot == bob_entry.slot and len(zoo_slots) > 1:
+            other_slot = [s for s in zoo_slots if s != alice_entry.slot][0]
+            bob_entry.slot = other_slot
+            bob_entry.save(update_fields=["slot"])
+
+    # Close draw
+    zoo_draw.booking_close = timezone.now() - timedelta(days=2)
+
+    # Bob is the current winner but still pending
+    if bob_entry:
+        zoo_draw.winner_booking = bob_entry
+        zoo_draw.winner_selected_at = timezone.now() - timedelta(days=1)
+        zoo_draw.save(update_fields=["booking_close", "winner_booking", "winner_selected_at"])
+
+    # Alice has already accepted
+    if alice_entry:
+        convert_draw_entry_to_booking(alice_entry)
+
+    print("Populate complete.")
+    print("Login as bob, to test the draw acceptance.")
+    print("email: bob@test.com, password: password123")
 
 if __name__ == "__main__":
     populate()

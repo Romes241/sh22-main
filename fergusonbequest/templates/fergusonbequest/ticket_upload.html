@@ -1,0 +1,663 @@
+{% extends 'fergusonbequest/base.html' %}
+{% load static %}
+
+{% block title %}Ticket Upload - Ferguson Bequest{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'fergusonbequest/css/ticket_upload.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="tu-wrap">
+
+  <h1 class="tu-h1">Ticket Upload</h1>
+<!-- Search and Venue filter bar -->
+<form class="tu-bar" method="get" action="{% url 'ticket_upload' %}">
+  <div class="tu-bar-left">
+    <input
+      class="tu-input"
+      type="text"
+      name="q"
+      value="{{ q|default:'' }}"
+      placeholder="Search"
+      aria-label="Search"
+    >
+    <button class="tu-btn tu-btn--chip" type="submit">Search</button>
+
+    <div class="tu-select-chip">
+      <span class="tu-chip-label">Venue</span>
+      <select name="venue" aria-label="Venue">
+        <option value=""></option>
+        {% for v in venues %}
+        <option value="{{ v.id }}"
+                data-ticketed="{{ v.tu_ticketed }}"
+                data-total="{{ v.tu_total }}"
+                {% if venue_id == v.id|stringformat:"s" %}selected{% endif %}>
+          {{ v.name }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="tu-bar-right">
+    <button id="advanced-filters-btn" class="tu-btn tu-btn--chip" type="button">
+      Advanced filters
+    </button>
+
+    <a class="tu-btn tu-btn--chip tu-btn--clear" href="{% url 'ticket_upload' %}">Clear</a>
+  </div>
+</form>
+<!-- Advanced Filters Modal -->
+<div id="advanced-filters-modal" class="tu-advanced-modal" aria-hidden="true">
+  <div class="tu-advanced-modal__backdrop"></div>
+
+  <div class="tu-advanced-modal__panel" role="dialog" aria-modal="true" aria-labelledby="advancedFiltersTitle">
+    <form method="get" action="{% url 'ticket_upload' %}" class="tu-advanced-form">
+      <h3 id="advancedFiltersTitle">Advanced filters</h3>
+
+      <div class="tu-advanced-row">
+        <label for="id_type">Type</label>
+        <select id="id_type" name="kind">
+          <option value="">All</option>
+          <option value="attraction" {% if kind == 'attraction' %}selected{% endif %}>Attractions Only</option>
+          <option value="draw" {% if kind == 'draw' %}selected{% endif %}>Draws Only</option>
+        </select>
+      </div>
+
+      <div class="tu-advanced-row">
+        <label for="id_start">Start date</label>
+        <input id="id_start" name="start" type="date" value="{{ start|default:'' }}">
+      </div>
+
+      <div class="tu-advanced-row">
+        <label for="id_end">End date</label>
+        <input id="id_end" name="end" type="date" value="{{ end|default:'' }}">
+      </div>
+
+      <div class="tu-advanced-row">
+        <label for="id_q">Search</label>
+        <input id="id_q" name="q" type="search" value="{{ q|default:'' }}">
+      </div>
+
+      <div class="tu-advanced-row">
+        <label for="id_venue_adv">Venue</label>
+        <select id="id_venue_adv" name="venue">
+          <option value=""></option>
+          {% for v in venues %}
+            <option value="{{ v.id }}" {% if venue_id == v.id|stringformat:"s" %}selected{% endif %}>
+              {{ v.name }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="tu-advanced-row">
+        <label for="id_sort">Sort by</label>
+        <select id="id_sort" name="sort">
+          <option value="date_desc" {% if sort == "date_desc" %}selected{% endif %}>Date (newest)</option>
+          <option value="date_asc" {% if sort == "date_asc" %}selected{% endif %}>Date (oldest)</option>
+          <option value="surname" {% if sort == "surname" %}selected{% endif %}>Surname</option>
+          <option value="venue" {% if sort == "venue" %}selected{% endif %}>Venue Name</option>
+        </select>
+      </div>
+
+      {% if show_all %}
+        <input type="hidden" name="all" value="1">
+      {% endif %}
+
+      <div class="tu-advanced-actions">
+        <button type="submit" class="tu-btn tu-btn--chip">Apply filters</button>
+        <a class="tu-btn tu-btn--clear" href="{% url 'ticket_upload' %}{% if show_all %}?all=1{% endif %}">Reset</a>
+        <button type="button" id="advanced-filters-close" class="tu-btn tu-btn--chip">Close</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+    <aside class="tu-side">
+    {% if show_all %}
+    <a class="tu-btn tu-btn--side"
+       href="{% url 'ticket_upload' %}?q={{ q|urlencode }}&venue={{ venue_id|urlencode }}&sort={{ sort|urlencode }}">
+       Show less
+    </a>
+    {% else %}
+    <a class="tu-btn tu-btn--side"
+       href="{% url 'ticket_upload' %}?q={{ q|urlencode }}&venue={{ venue_id|urlencode }}&sort={{ sort|urlencode }}&show_all=1">
+       Manage Tickets
+    </a>
+    {% endif %}
+
+      <button class="tu-btn tu-btn--side" type="button" onclick="openUploadModal()">
+        Venue Distribute Tickets
+      </button>
+    </aside>
+
+  <div class="tu-main">
+ <div class="tu-card">
+
+  {% if show_all %}
+    <!-- Bulk delete form (only in Manage Tickets mode) -->
+    <form method="post" action="{% url 'ticket_upload_bulk_delete' %}" id="bulkDeleteForm">
+      {% csrf_token %}
+
+  {% endif %}
+<div class="tu-table-wrap">
+  <div class="tu-table">
+  <div class="tu-table-body {% if show_all %}is-all{% endif %}">
+    <div class="tu-row tu-row--head">
+      {% if show_all %}
+        <div class="tu-cell" style="width:44px;"></div>
+      {% endif %}
+
+        <div class="tu-cell">Venue Name</div>
+        <div class="tu-cell">Forename</div>
+        <div class="tu-cell">Surname</div>
+        <div class="tu-cell">GUID</div>
+        <div class="tu-cell">Booking Date</div>
+        <div class="tu-cell">Booking Ref</div>
+        <div class="tu-cell">Tickets</div>
+        {% if show_all %}
+          <div class="tu-cell">Ticket Type</div>
+          <div class="tu-cell">Action</div>
+        {% else %}
+          <div class="tu-cell"></div>
+        {% endif %}
+    </div>
+
+    {% if rows %}
+{% for r in rows %}
+  <div class="tu-row">
+
+    {% if show_all %}
+      <div class="tu-cell" style="width:44px;">
+        <input type="checkbox"
+               class="rowChk"
+               name="selected_ids"
+               value="b:{{ r.id }}"
+               aria-label="Select booking {{ r.id }}">
+      </div>
+    {% endif %}
+
+    <div class="tu-cell tu-venue">{{ r.venue_name }}</div>
+    <div class="tu-cell">{{ r.first_name }}</div>
+    <div class="tu-cell">{{ r.last_name }}</div>
+    <div class="tu-cell">{{ r.guid }}</div>
+    <div class="tu-cell">{{ r.booking_date }}</div>
+    <div class="tu-cell">{{ r.booking_reference }}</div>
+    <div class="tu-cell">{{ r.num_tickets|default:"1" }}</div>
+
+    {% if show_all %}
+      <div class="tu-cell">
+        {% if r.ticket_type and r.ticket_type != "—" %}
+          {{ r.ticket_type }}
+        {% else %}
+          —
+        {% endif %}
+      </div>
+
+      <div class="tu-cell tu-action tu-action--wide">
+        {% if r.ticket_sent %}
+          {# ticket exists — delete via checkbox only #}
+        {% elif r.is_past %}
+          <span class="tu-past">Past booking</span>
+        {% else %}
+          <button
+            type="button"
+            class="tu-btn tu-btn--primary"
+            onclick="openIndividualTicketModal(
+              '{{ r.id }}',
+              '{{ r.venue_name|escapejs }}',
+              '{{ r.first_name|escapejs }}',
+              '{{ r.last_name|escapejs }}',
+              '{{ r.guid|escapejs }}',
+              'b',
+              '{{ r.ticketed_count|default:"0" }}',
+              '{{ r.total_count|default:"0" }}',
+              '{{ r.num_tickets|default:"1" }}',
+              this
+            )">
+            Assign ticket
+          </button>
+        {% endif %}
+      </div>
+
+    {% else %}
+      <div class="tu-cell tu-action">
+        {% if r.ticket_sent %}
+          <button
+            type="button"
+            class="tu-btn tu-btn--primary"
+            onclick="openTicketViewModal('{{ r.id }}', '{{ r.booking_reference|escapejs }}')">
+            View Ticket
+          </button>
+
+        {% elif r.is_past %}
+          <span class="tu-past">Past booking</span>
+
+        {% else %}
+          <button
+            type="button"
+            class="tu-btn tu-btn--primary"
+            onclick="openIndividualTicketModal(
+              '{{ r.id }}',
+              '{{ r.venue_name|escapejs }}',
+              '',
+              '',
+              '',
+              'b',
+              '{{ r.ticketed_count }}',
+              '{{ r.total_count }}',
+              '{{ r.num_tickets }}',
+              this
+            )">
+            Assign ticket
+          </button>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+{% endfor %}
+{% if draw_rows %}
+  {% for r in draw_rows %}
+    <div class="tu-row">
+      {% if show_all %}
+        <div class="tu-cell" style="width:44px;">
+          <input type="checkbox"
+                 class="rowChk"
+                 name="selected_ids"
+                 value="d:{{ r.id }}"
+                 aria-label="Select draw booking {{ r.id }}">
+        </div>
+      {% endif %}
+
+      <div class="tu-cell tu-venue">
+        {{ r.venue_name }} <span style="opacity:.6;">(Draw)</span>
+      </div>
+        <div class="tu-cell">{{ r.first_name }}</div>
+        <div class="tu-cell">{{ r.last_name }}</div>
+        <div class="tu-cell">{{ r.guid }}</div>
+        <div class="tu-cell">{{ r.booking_date }}</div>
+        <div class="tu-cell">{{ r.booking_reference }}</div>
+        <div class="tu-cell">{{ r.num_tickets|default:"1" }}</div>
+
+        {% if show_all %}
+          <div class="tu-cell">
+            {% if r.ticket_type and r.ticket_type != "—" %}
+              {{ r.ticket_type }}
+            {% else %}
+              —
+            {% endif %}
+          </div>
+
+          <div class="tu-cell tu-action tu-action--wide">
+            {% if r.ticket_sent %}
+              {# ticket exists — delete via checkbox only #}
+            {% elif r.is_past %}
+              <span class="tu-past">Past booking</span>
+            {% else %}
+              <button
+                type="button"
+                class="tu-btn tu-btn--primary"
+                onclick="openIndividualTicketModal(
+                  '{{ r.id }}',
+                  '{{ r.venue_name|escapejs }}',
+                  '',
+                  '',
+                  '',
+                  '{{ r.row_kind|default:"d" }}',
+                  '{{ r.ticketed_count|default:"0" }}',
+                  '{{ r.total_count|default:"0" }}',
+                  '{{ r.num_tickets|default:"0" }}',
+                  this
+                )">
+                Assign ticket
+              </button>
+            {% endif %}
+          </div>
+
+        {% else %}
+          <div class="tu-cell tu-action">
+            {% if r.ticket_sent %}
+              <button
+                type="button"
+                class="tu-btn tu-btn--primary"
+                onclick="openTicketViewModal('{{ r.id }}', '{{ r.booking_reference|escapejs }}')">
+                View Ticket
+              </button>
+
+            {% elif r.is_past %}
+              <span class="tu-past">Past booking</span>
+
+            {% else %}
+              <button
+                type="button"
+                class="tu-btn tu-btn--primary"
+                onclick="openIndividualTicketModal(
+                  '{{ r.id }}',
+                  '{{ r.venue_name|escapejs }}',
+                  '',
+                  '',
+                  '',
+                  '{{ r.row_kind|default:"d" }}',
+                  '{{ r.ticketed_count }}',
+                  '{{ r.total_count }}',
+                  '{{ r.num_tickets }}',
+                  this
+                )">
+                Assign ticket
+              </button>
+            {% endif %}
+          </div>
+        {% endif %}
+    </div>
+  {% endfor %}
+{% endif %}
+
+      {% for _ in empty_rows %}
+        <div class="tu-row tu-row--blank">
+          {% if show_all %}
+            <div class="tu-cell" style="width:44px;"></div>
+          {% endif %}
+          <div class="tu-cell">&nbsp;</div>
+            <div class="tu-cell"></div>
+            <div class="tu-cell"></div>
+            <div class="tu-cell"></div>
+            <div class="tu-cell"></div>
+            <div class="tu-cell"></div>
+            <div class="tu-cell"></div>
+
+          {% if show_all %}
+            <div class="tu-cell"></div>
+            <div class="tu-cell"></div>
+          {% else %}
+            <div class="tu-cell"></div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="tu-empty">No tickets found.</div>
+    {% endif %}
+  </div>
+
+  {% if show_all %}
+    </form>
+          <div class="tu-bulk-bar">
+        <button type="submit" form="bulkDeleteForm" class="tu-btn tu-btn--danger">
+          Delete selected
+        </button>
+
+        <label class="tu-check" style="margin:0;">
+          <input type="checkbox" id="selectAllBookings">
+          Select all
+        </label>
+
+        <div class="tu-hint" id="selectedCountHint" style="margin-left:auto;">
+          0 selected
+        </div>
+      </div>
+  {% endif %}
+</div>
+<!-- Pagination Controls -->
+<!-- Pagination Controls -->
+<div class="tu-pagination">
+
+  <div class="tu-pagination-info">
+    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+  </div>
+
+  <div class="tu-pagination-controls">
+
+    {% if page_obj.has_previous %}
+      <a class="tu-pagination-btn"
+         href="?q={{ q|urlencode }}&venue={{ venue_id|urlencode }}&sort={{ sort|urlencode }}&kind={{ kind|urlencode }}{% if show_all %}&all=1{% endif %}&page={{ page_obj.previous_page_number }}">
+        ← Previous
+      </a>
+    {% else %}
+      <span class="tu-pagination-btn tu-pagination-disabled">← Previous</span>
+    {% endif %}
+
+    <div class="tu-pagination-pages">
+
+      {% for num in page_obj.paginator.page_range %}
+
+        {% if num == page_obj.number %}
+          <span class="tu-pagination-page tu-pagination-current">
+            {{ num }}
+          </span>
+
+        {% elif num >= page_obj.number|add:-2 and num <= page_obj.number|add:2 %}
+          <a class="tu-pagination-page"
+             href="?q={{ q|urlencode }}&venue={{ venue_id|urlencode }}&sort={{ sort|urlencode }}&kind={{ kind|urlencode }}{% if show_all %}&all=1{% endif %}&page={{ num }}">
+            {{ num }}
+          </a>
+
+        {% endif %}
+
+      {% endfor %}
+
+    </div>
+
+    {% if page_obj.has_next %}
+      <a class="tu-pagination-btn"
+         href="?q={{ q|urlencode }}&venue={{ venue_id|urlencode }}&sort={{ sort|urlencode }}&kind={{ kind|urlencode }}{% if show_all %}&all=1{% endif %}&page={{ page_obj.next_page_number }}">
+        Next →
+      </a>
+    {% else %}
+      <span class="tu-pagination-btn tu-pagination-disabled">Next →</span>
+    {% endif %}
+
+  </div>
+
+</div>
+
+<!-- upload / config modal -->
+
+<div id="uploadModal" class="tu-modal" aria-hidden="true">
+  <div class="tu-modal-content" role="dialog" aria-modal="true" aria-labelledby="tuModalTitle">
+    <div class="tu-modal-top">
+      <h3 id="tuModalTitle">Upload / Configure Tickets</h3>
+      <button type="button" class="tu-modal-close" onclick="closeUploadModal()">✕</button>
+    </div>
+
+    <form id="ticketUploadForm"
+          method="post"
+          action="{% url 'venue_distribute_tickets' %}"
+          data-venue-action="{% url 'venue_distribute_tickets' %}"
+          data-individual-action="{% url 'individual_booking' %}"
+          enctype="multipart/form-data">
+      {% csrf_token %}
+      <input type="hidden" name="row_kind" id="modalRowKind" value="b">
+      <input type="hidden" name="venue_id" id="modalVenue">
+      <input type="hidden" name="booking_id" id="modalBookingId">
+      <input type="hidden" name="num_tickets" id="modalNumTickets" value="0">
+
+      <div class="tu-modal-grid">
+        <div class="tu-modal-nav" role="tablist" aria-label="Ticket assignment methods">
+          <button type="button" class="tu-type is-active" data-type="codes">Ticket codes</button>
+          <button type="button" class="tu-type" data-type="pdf_template_random">PDF tickets</button>
+          <button type="button" class="tu-type" data-type="qr_individual">QR ticket files</button>
+          <button type="button" class="tu-type" data-type="booking_code">Booking code</button>
+          <button type="button" class="tu-type" data-type="instructions">Entry instructions</button>
+          <button type="button" class="tu-type" data-type="box_office">Box office collection</button>
+        </div>
+
+        <div class="tu-modal-panel">
+          <div class="tu-field">
+            <label class="tu-label">Venue</label>
+            <div class="tu-pill" id="modalVenueName">—</div>
+          </div>
+
+          <input type="hidden" name="ticket_type" id="ticketType" value="codes">
+
+          <div class="tu-type-panel" data-panel="codes">
+            <div class="tu-bulk-only">
+              <div class="tu-field">
+                <label class="tu-label">Upload ticket codes file</label>
+                <input class="tu-input-file" type="file" name="codes_file" accept=".csv,.txt">
+                <div class="tu-hint">Upload a .csv or .txt file with one ticket code per line.</div>
+              </div>
+
+              <div class="tu-or">OR</div>
+
+              <div class="tu-field">
+                <label class="tu-label">Paste ticket codes</label>
+                <textarea
+                  class="tu-textarea"
+                  name="codes_text"
+                  id="bulkCodesText"
+                  rows="8"
+                  placeholder="CODE-12345&#10;CODE-67890&#10;CODE-ABCDE"></textarea>
+
+                <div id="tuCodeCount" class="tu-hint">Codes entered: 0</div>
+                <div id="bulkCodeCountHint" class="tu-hint"></div>
+              </div>
+            </div>
+
+            <div class="tu-individual-only">
+              <div class="tu-field">
+                <label class="tu-label">Ticket code(s)</label>
+                <textarea
+                  class="tu-textarea"
+                  name="single_codes_text"
+                  id="singleCodesText"
+                  rows="6"
+                  placeholder="CODE-12345&#10;CODE-67890&#10;CODE-ABCDE"></textarea>
+
+                <div id="singleCodeCountHint" class="tu-hint"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tu-type-panel" data-panel="pdfs">
+            <div class="tu-field">
+              <label class="tu-label">Upload PDF ticket file(s)</label>
+              <input id="ticketFilesInput" class="tu-input-file" type="file" name="ticket_files" multiple>
+                <div id="pdfUploadStatusHint" class="tu-hint">0 / 0 files selected (Required: 0)</div>
+            </div>
+          </div>
+
+          <div class="tu-type-panel" data-panel="qr">
+            <div class="tu-bulk-only">
+              <div class="tu-field">
+                <label class="tu-label">Upload QR ticket files</label>
+                    <input id="qrFilesBulk" class="tu-input-file" type="file" name="qr_files" multiple accept=".png,.jpg,.jpeg,.pdf">
+                  <div id="qrBulkUploadStatusHint" class="tu-hint">0 / 0 files selected (Required: 0)</div>
+              </div>
+            </div>
+
+            <div class="tu-individual-only">
+                <div class="tu-field">
+                  <label class="tu-label">Upload QR ticket files for this booking</label>
+                  <input id="qrFilesIndividual" class="tu-input-file" type="file" name="qr_files_individual" multiple>
+                  <div id="qrIndividualUploadStatusHint" class="tu-hint">0 / 0 files selected (Required: 0)</div>
+                </div>
+            </div>
+          </div>
+
+          <div class="tu-type-panel" data-panel="booking_code">
+            <div class="tu-field">
+              <label class="tu-label">Booking code</label>
+              <input class="tu-input" type="text" name="booking_code" placeholder="e.g. UOG-12345">
+              <div class="tu-hint">Enter the booking code guests will use.</div>
+            </div>
+          </div>
+
+          <div class="tu-type-panel" data-panel="instructions">
+            <div class="tu-field">
+              <label class="tu-label">Entry instructions</label>
+              <textarea class="tu-textarea" name="instructions" rows="6" placeholder="Add instructions for entry..."></textarea>
+              <div class="tu-hint">Use this when no ticket file needs to be uploaded.</div>
+            </div>
+          </div>
+
+          <div class="tu-type-panel" data-panel="box_office">
+            <div class="tu-field">
+              <label class="tu-label">Box office collection details</label>
+              <div class="tu-hint">Tickets will be collected at the venue box office using guest details.</div>
+              <textarea class="tu-textarea" name="box_office_notes" rows="4" placeholder="Optional notes..."></textarea>
+            </div>
+          </div>
+
+
+          <!-- Dynamic per-ticket upload slots (rendered by JS based on num_tickets) -->
+          <div id="ticketUploadInputs" style="margin-top:10px;"></div>
+
+              <div class="tu-field" style="margin-top:10px;">
+                  <label class="tu-label">Make visible to user at (optional)</label>
+                  <input class="tu-input" type="datetime-local" name="ticket_visible_at">
+                  <div class="tu-hint">Leave blank to use the automatic release rule.</div>
+                </div>
+
+              <div class="tu-modal-actions">
+                    <div class="tu-hint" id="ticketedInfo">
+                      <span id="ticketedLabel">Ticketed for specific attraction</span>:
+                      <span id="ticketedCount">{{ venue_ticketed }}</span> /
+                      <span id="ticketTotal">{{ venue_total }}</span>
+                    </div>
+
+                  <div class="tu-action-buttons">
+                      <div id="bookingNav">
+                          <button type="button" id="prevBookingBtn" class="tu-arrow-btn">←</button>
+                          <button type="button" id="nextBookingBtn" class="tu-arrow-btn">→</button>
+                      </div>
+                    <button class="tu-btn tu-btn--primary" type="submit">Save / Upload</button>
+                    <button class="tu-btn tu-btn--chip" type="button" onclick="closeUploadModal()">Cancel</button>
+                  </div>
+              </div>
+        </div>
+      </div>
+    </form>
+
+  </div>
+</div>
+
+<!-- Delete modal  -->
+<div id="deleteModal" class="tu-modal" aria-hidden="true">
+  <div class="tu-modal-content tu-modal-content--sm" role="dialog" aria-modal="true" aria-labelledby="deleteTitle">
+    <div class="tu-modal-top">
+      <h3 id="deleteTitle">Delete ticket</h3>
+      <button type="button" class="tu-modal-close" onclick="closeDeleteModal()">✕</button>
+    </div>
+
+    <div class="tu-modal-body">
+      <p id="deleteModalText" class="tu-hint" style="font-size:16px;">
+        Are you sure you want to delete this ticket?
+      </p>
+
+      <form id="deleteSingleForm" method="post" action="{% url 'ticket_upload_delete' %}">
+        {% csrf_token %}
+          <input type="hidden" name="row_id" id="deleteRowId">
+          <input type="hidden" name="row_kind" id="deleteRowKind" value="b">
+            <div class="tu-modal-actions">
+                <button type="submit" class="tu-btn tu-btn--danger">confirm</button>
+                <button type="button" class="tu-btn tu-btn--chip" onclick="closeDeleteModal()">Cancel</button>
+            </div>
+      </form>
+    </div>
+  </div>
+</div>
+<!-- venue select modal  -->
+<div id="alertModal" class="tu-modal" aria-hidden="true">
+  <div class="tu-modal-content tu-modal-content--sm" role="dialog" aria-modal="true" aria-labelledby="alertTitle">
+    <div class="tu-modal-top">
+      <h3 id="alertTitle">Notice</h3>
+      <button type="button" class="tu-modal-close" onclick="closeAlertModal()">✕</button>
+    </div>
+
+    <div class="tu-modal-body">
+      <p id="alertModalText" class="tu-hint" style="font-size:16px; color:#000;">
+        Message goes here.
+      </p>
+
+      <div class="tu-modal-actions" style="justify-content:flex-end;">
+        <button type="button" class="tu-btn tu-btn--chip" onclick="closeAlertModal()">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Ticket View modal -->
+  {% include "fergusonbequest/_ticket_popup.html" with ticket_view_url_template=ticket_view_url_template %}
+  <script src="{% static 'fergusonbequest/js/ticket_upload.js' %}"></script>
+  {% endblock %}
