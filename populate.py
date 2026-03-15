@@ -2,9 +2,10 @@ import os
 import sys
 import django
 import random
-from datetime import time, timedelta
 import datetime
+from datetime import time, timedelta
 from django.utils.text import slugify
+from django.utils import timezone
 
 def convert_draw_entry_to_booking(draw_entry):
     draw = draw_entry.ticket_draw
@@ -169,6 +170,9 @@ def populate():
         name="Edinburgh Zoo",
         location="Edinburgh",
         image="fergusonbequest/img/edinburgh_zoo.jpg",
+        description="A large zoo with a wide range of animals and family-friendly attractions.",
+        duration_minutes=180,
+        contact_email="info@edinburghzoo.org.uk",
         per_year_limit=3,
         booking_open=dt(-12),
         booking_close=dt(5),
@@ -179,6 +183,9 @@ def populate():
         name="Blair Drummond Safari Park",
         location="Stirling",
         image="fergusonbequest/img/blair_drumond.jpg",
+        description="A family safari park with animal exhibits, adventure play areas, and outdoor activities.",
+        duration_minutes=180,
+        contact_email="info@blairdrummond.com",
         per_year_limit=5,
         booking_open=dt(-8),
         booking_close=dt(10),
@@ -189,6 +196,9 @@ def populate():
         name="Glasgow Clan Ice Hockey",
         location="Glasgow",
         image="fergusonbequest/img/glasgow_clan.jpg",
+        description="Live ice hockey matches in Glasgow with an exciting arena atmosphere.",
+        duration_minutes=150,
+        contact_email="info@clanihc.com",
         per_year_limit=10,
         booking_open=dt(-4),
         booking_close=dt(14),
@@ -199,6 +209,9 @@ def populate():
         name="Ghostbusters Screening",
         location="Glasgow",
         image="fergusonbequest/img/ghostbusters.jpg",
+        description="A special screening event for Ghostbusters with a cinema-style viewing experience.",
+        duration_minutes=120,
+        contact_email="events@glasgowcinema.co.uk",
         per_year_limit=2,
         booking_open=dt(2),
         booking_close=dt(20),
@@ -382,8 +395,21 @@ def populate():
     alice = User.objects.filter(username="alice").first()
     bob = User.objects.filter(username="bob").first()
 
+
     alice_entry = TicketDrawBooking.objects.filter(ticket_draw=zoo_draw, user=alice).first()
     bob_entry = TicketDrawBooking.objects.filter(ticket_draw=zoo_draw, user=bob).first()
+
+    if bob:
+        entry = TicketDrawBooking.objects.filter(ticket_draw=zoo_draw, user=bob).first()
+        if entry:
+            zoo_draw.booking_close = timezone.now() - timedelta(days=2)
+            zoo_draw.winner_booking = entry
+            zoo_draw.winner_selected_at = timezone.now() - timedelta(days=1)
+            zoo_draw.save(update_fields=["booking_close", "winner_booking", "winner_selected_at"])
+
+    print("Populate complete.")
+    print("Login as bob, to test the draw acceptance.")
+    print("email: bob@test.com, password: password123")
 
     # Ensure Alice and Bob are on different slots
     if alice_entry and bob_entry:
