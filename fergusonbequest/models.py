@@ -76,17 +76,6 @@ class Attraction(models.Model):
         """
         return sum(s.remaining for s in self.slots.all())
 
-    cancel_deadline = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="Users can cancel their booking until this date/time. Leave empty for 'no cancellation allowed'."
-    )
-
-    def can_cancel_booking(self):
-        if not self.cancel_deadline:
-            return False
-        return timezone.now() <= self.cancel_deadline
-
 class TicketDraw(models.Model):
     name = models.CharField(max_length=120)
     # short URL-safe identifier (e.g. "edinburgh-zoo")
@@ -218,6 +207,17 @@ class Booking(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled = models.BooleanField(default=False)
     ticket_code = models.CharField(max_length=100, blank=True, null=True)
+
+    cancel_deadline = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Users can cancel their booking until this date/time. Leave empty for 'no cancellation allowed'."
+    )
+
+    def can_cancel_booking(self):
+        if not self.cancel_deadline:
+            return False
+        return timezone.now() <= self.cancel_deadline
 
     TICKET_TYPE_CHOICES = [
         ("codes", "E-ticket codes"),

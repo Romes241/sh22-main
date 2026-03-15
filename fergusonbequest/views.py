@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django import forms
 from django.conf import settings
@@ -571,6 +571,16 @@ def booking_view(request, attraction_pk):
     booking.attraction = attraction_obj
     booking.full_name = f"{user.first_name} {user.last_name}".strip()
     booking.email = user.email
+
+    visit_datetime = datetime.combine(booking.slot.date, datetime.min.time())
+    
+    # Make it timezone-aware if needed
+    if timezone.is_aware(timezone.now()):
+        import pytz
+        visit_datetime = timezone.make_aware(visit_datetime)
+    
+    # Set cancellation deadline to 3 days before the visit
+    booking.cancel_deadline = visit_datetime - timedelta(days=3)
 
     if booking.slot.attraction_id != attraction_obj.id:
         return redirect_to_history_with("Invalid slot selected for this attraction.")
