@@ -1,0 +1,885 @@
+/* Ticket Upload */
+.fb-container {
+  max-width: 95% !important;
+  padding: 0 !important;
+}
+
+.tu-wrap{
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 28px 48px 40px;
+}
+
+.tu-card{
+  margin: 18px auto 0;
+  background: #fff;
+  border-radius: 26px;
+  padding: 22px 22px 18px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+}
+.tu-h1{
+  font-size: 44px;
+  font-weight: 800;
+  margin: 0 0 18px;
+}
+
+.tu-bar{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  background:#fff;
+  border:2px solid #ddd;
+  border-radius:18px;
+  padding:16px 18px;
+  margin-bottom:18px;
+}
+
+.tu-bar-left{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.tu-bar-right{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* input */
+.tu-input{
+  height: 40px;
+  width: 280px;
+  max-width: 100%;
+  padding: 0 14px;
+  border: 2px solid #b9c6e3;
+  border-radius: 10px;
+  outline: none;
+}
+
+.tu-input:focus{
+  border-color: #002a4c;
+}
+
+.tu-btn{
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.tu-btn--chip{
+  background: #002a4c;
+  color: #fff;
+  font-size: 0.95rem;
+  padding: 10px 16px;
+}
+
+.tu-btn--primary{
+  background: #002a4c;
+  color: #fff;
+  font-size: 0.95rem;
+  padding: 10px 16px;
+}
+
+.tu-btn--primary:hover,
+.tu-btn--chip:hover{
+  background: #001f38;
+}
+
+/* Clear button */
+.tu-btn--clear{
+  background: #fff;
+  color: #002a4c;
+  border: 2px solid #002a4c;
+}
+
+.tu-btn--clear:hover{
+  background: #f2f6fb;
+}
+
+/* ===== Venue select ===== */
+.tu-select-chip{
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tu-chip-label{
+  font-weight: 800;
+  color: #1a1a1a;
+}
+
+.tu-select-chip select{
+  height: 40px;
+  border-radius: 999px;
+  border: 0;
+  padding: 0 14px;
+  background: #002a4c;
+  color: #fff;
+  font-weight: 800;
+  width: 160px;
+  max-width: 160px;
+}
+
+.tu-select-chip select:focus{
+  outline: 2px solid #2d7ff9;
+  outline-offset: 2px;
+}
+
+/* Sort group */
+.tu-sort{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tu-sort-label{
+  font-weight: 800;
+  color: #1a1a1a;
+}
+
+.tu-sort select{
+  height: 40px;
+  border-radius: 999px;
+  border: 0;
+  padding: 0 14px;
+  background: #002a4c;
+  color: #fff;
+  font-weight: 800;
+  min-width: 170px;
+}
+
+.tu-sort select:hover{
+  background: #001f38;
+}
+
+/* Main layout */
+.tu-main{
+  display: block;
+}
+
+.tu-top-actions{
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.tu-btn--top{
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  border-radius: 999px;
+}
+
+/* Left card (table panel) */
+.tu-card{
+  border-radius: 20px;
+  padding: 0;
+  background: #fff;
+  border: 2px solid #ddd;
+  overflow-x: auto;
+}
+
+/* Right card (buttons panel) */
+.tu-side{
+  border-radius: 20px;
+  padding: 16px;
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  align-items: center;
+}
+
+/* Side buttons */
+.tu-btn--side{
+  background: #002a4c;
+  color: #fff;
+  font-weight: 800;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.tu-btn--side:hover{
+  background: #001f38;
+}
+
+/* Table container */
+.tu-table-body{
+  width: 100%;
+}
+
+/* HEADER ROW */
+.tu-row--head{
+  display: grid;
+  background: #f8f9fa;
+  font-weight: 900;
+  color: #1a1a1a;
+  border-bottom: 2px solid #ddd;
+}
+
+/* data rows */
+.tu-row{
+  display: grid;
+  border-bottom: 1px solid #e6e6e6;
+}
+
+.tu-row:last-child{
+  border-bottom: 0;
+}
+
+.tu-cell{
+  padding: 14px 14px;
+  border-right: 1px solid #e6e6e6;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.tu-row--head .tu-cell{
+  padding: 16px 14px;
+  line-height: 1.2;
+
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.tu-cell:last-child{
+  border-right: 0;
+}
+
+.tu-venue{
+  font-weight: 800;
+  white-space: normal;
+  line-height: 1.2;
+}
+
+.tu-action{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Send Ticket button */
+.tu-action .tu-btn{
+  padding: 10px 14px;
+  font-size: 0.92rem;
+}
+
+/* empty state */
+.tu-empty{
+  padding: 22px;
+  text-align: center;
+  color: #666;
+}
+
+/* Table action buttons (Send / View) */
+.tu-btn--primary{
+  background-color: whitesmoke;
+  color: black;
+  font-size: 0.92rem;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-weight: 800;
+  min-width: 120px;
+  justify-content: center;
+}
+
+/* Table past buttons */
+.tu-past{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.92rem;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-weight: 800;
+  min-width: 120px;
+  background: #eee;
+  color: #777;
+  line-height: 1;
+  box-sizing: border-box;
+}
+
+.tu-btn--primary:hover{
+  background: snow;
+}
+
+/* ===== Popup Ticket Upload (Modal) ===== */
+.tu-modal{
+  display: none; /* shown via JS */
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 18px;
+}
+
+.tu-modal.is-open {
+  display: flex;
+}
+
+/* small helpers used in modal */
+.tu-or{
+  margin: 10px 0;
+  font-weight: 700;
+  color: #666;
+}
+
+.tu-check{
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 0.95rem;
+}
+
+.tu-modal-content{
+  width: min(900px, 96vw);
+  background: #fff;
+  border-radius: 18px;
+  border: 2px solid #ddd;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+  padding: 18px;
+}
+
+.tu-modal-top{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.tu-modal-top h3{
+  margin: 0;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.tu-modal-close{
+  border: 0;
+  background: transparent;
+  font-size: 22px;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 10px;
+}
+
+.tu-modal-close:hover{
+  background: #f2f2f2;
+}
+
+/* Modal layout */
+.tu-modal-grid{
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 16px;
+}
+
+/* Ticket type list */
+.tu-modal-nav{
+  border-right: 1px solid #eee;
+  padding-right: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+
+.tu-type{
+  width: 100%;
+  text-align: left;
+  border: 2px solid #ddd;
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.tu-type.is-active{
+  border-color: #002a4c;
+  background: #f2f6fb;
+}
+
+/* Right panel */
+.tu-modal-panel{
+  padding-left: 4px;
+}
+
+.tu-field{
+  margin-bottom: 12px;
+}
+
+.tu-label{
+  display: block;
+  font-weight: 900;
+  margin-bottom: 6px;
+  color: #1a1a1a;
+}
+
+.tu-hint{
+  margin-top: 6px;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.tu-pill{
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #f2f6fb;
+  border: 1px solid #d9e3f5;
+  font-weight: 800;
+  color: #002a4c;
+}
+
+.tu-input-file{
+  width: 100%;
+}
+
+.tu-textarea{
+  width: 100%;
+  border: 2px solid #b9c6e3;
+  border-radius: 12px;
+  padding: 10px 12px;
+  resize: vertical;
+}
+
+.tu-type-panel{
+  display: none;
+}
+
+.tu-type-panel.is-active{
+  display: block;
+}
+
+
+.tu-modal-actions{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:16px;
+  margin-top:16px;
+}
+
+.tu-count-info{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  text-align:left;
+}
+
+.tu-action-buttons{
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  align-items:center;
+}
+
+#bookingNav {
+  display: flex;
+  gap: 6px;
+}
+
+.tu-arrow-btn {
+  background: #eef2fb;
+  border: 1px solid #ccd6f5;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.tu-arrow-btn:hover {
+  background: #dde6ff;
+}
+
+/* ticket modal nav */
+.tu-ticket-nav{
+  margin-left:auto;
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+.tu-modal input[type="file"]{
+  width:100%;
+  border-radius:6px;
+  border:1px solid #c5cedf;
+  padding:8px;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 980px){
+  .tu-main{
+    grid-template-columns: 1fr;
+  }
+  .tu-side{
+    order: -1;
+  }
+}
+
+
+/* Normal view: checkbox | venue | forename | surname | guid | date | Booking Ref | tickets | action */
+.tu-table-body .tu-row,
+.tu-table-body .tu-row--head {
+  display: grid;
+  grid-template-columns: 2.2fr 1fr 1fr 0.9fr 1.2fr 0.8fr 0.6fr 1.1fr;
+}
+
+/* Manage Tickets mode: checkbox | venue | forename | surname | guid | date | booking ref | tickets | ticket type | action */
+.tu-table-body.is-all .tu-row,
+.tu-table-body.is-all .tu-row--head {
+  grid-template-columns:44px 2.2fr 1fr 1fr 0.9fr 1.2fr 0.8fr 0.6fr 1fr 1.2fr;
+}
+
+.tu-table-body.is-all .tu-cell.tu-action{
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.tu-table-body.is-all .tu-action{
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.tu-table-body.is-all .tu-row--head .tu-cell{
+  align-items: center;
+}
+
+/* Delete button */
+.tu-btn--danger{
+  background: #a12222;
+  color: #fff;
+}
+.tu-btn--danger:hover{
+  background: #7f1a1a;
+}
+
+/* Disabled state */
+.tu-btn--danger:disabled {
+  background: #d4d4d4;
+  color: #999;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.tu-btn--danger:disabled:hover {
+  background: #d4d4d4;
+}
+
+/* Bulk actions bar at bottom */
+.tu-bulk-bar{
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 16px;
+  border-top: 1px solid #e6e6e6;
+  background: #fff;
+  border-radius: 0 0 18px 18px;
+}
+
+/*  "0 selected" to the right */
+.tu-bulk-bar #selectedCountHint{
+  margin-left: auto;
+  color: #666;
+  font-weight: 500;
+}
+
+#ticketViewBody {
+  max-height: 60vh;
+  overflow: auto;
+  font-size: 16px;
+}
+
+@media (max-width: 760px){
+  .tu-bar{
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .tu-bar-left,
+  .tu-bar-right{
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .tu-modal-grid{
+    grid-template-columns: 1fr;
+  }
+
+  .tu-modal-nav{
+    border-right: 0;
+    padding-right: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+.tu-cell {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+  .tu-table-wrap {
+    overflow-x: auto; /* Enable horizontal scroll */
+  }
+
+  /* table becomes scrollable on small screens */
+  .tu-card{
+    overflow-x: auto;
+  }
+  .tu-row--head,
+  .tu-row{
+    min-width: 760px;
+  }
+}
+
+/* Advanced filters modal */
+.tu-advanced-modal{
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.tu-advanced-modal.is-open{
+  display: flex;
+}
+
+.tu-advanced-modal__backdrop{
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.tu-advanced-modal__panel{
+  position: relative;
+  z-index: 1;
+  width: min(520px, 92vw);
+  background: #fff;
+  border: 2px solid #ddd;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+}
+
+.tu-advanced-form h3{
+  margin: 0 0 18px;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.tu-advanced-row{
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.tu-advanced-row label{
+  font-weight: 700;
+}
+
+.tu-advanced-row input,
+.tu-advanced-row select{
+  height: 40px;
+  border: 2px solid #c5cedf;
+  border-radius: 10px;
+  padding: 0 12px;
+  font: inherit;
+}
+
+.tu-advanced-actions{
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+/* make table responsive */
+.tu-table-wrap{
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* table fills container */
+.tu-table{
+  width:100%;
+  table-layout:fixed;
+}
+
+/* prevent columns from stretching */
+.tu-cell{
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+/* pagination */
+.tu-pagination {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  margin-top: 24px;
+  padding: 20px 24px;
+
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+
+  gap: 16px;
+}
+
+/* text above buttons */
+.tu-pagination-info {
+  font-size: 0.9rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+/* button container */
+.tu-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* previous / next buttons */
+.tu-pagination-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  padding: 8px 16px;
+
+  background: #f1f5f9;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+
+  color: #475569;
+  font-weight: 600;
+  font-size: 0.9rem;
+
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tu-pagination-btn:hover {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
+/* page numbers */
+.tu-pagination-pages {
+  display: flex;
+  gap: 6px;
+}
+
+.tu-pagination-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  min-width: 36px;
+  height: 36px;
+
+  border-radius: 8px;
+  border: 1px solid transparent;
+
+  font-weight: 600;
+  text-decoration: none;
+
+  color: #475569;
+}
+
+.tu-pagination-page:hover {
+  background: #f1f5f9;
+}
+
+.tu-pagination-current {
+  background: #003865;
+  color: white;
+}
+
+.tu-pagination-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* page text */
+.tu-page-info {
+  font-weight: 600;
+  font-size: 16px;
+  color: #333;
+}
+
+
+.tu-page-btn:hover {
+  background: #13407a;
+}
+
+.tu-page-btn:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 640px) {
+  .tu-pagination {
+    gap: 12px;
+    padding-top: 16px;
+  }
+
+  .tu-page-btn {
+    min-width: 72px;
+    height: 40px;
+    padding: 0 14px;
+    font-size: 14px;
+  }
+
+  .tu-page-info {
+    font-size: 14px;
+  }
+}
+
+.tu-page-btn {
+  background: white;
+  color: black;
+  padding: 10px 18px;
+  border-radius: 6px;
+  border-color: white;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 90px;
+  transition: background 0.2s ease;
+}
+
+.tu-page-btn:hover {
+  background: whitesmoke;
+}

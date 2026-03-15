@@ -3,6 +3,8 @@ from django.utils import timezone
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db.models import Q
+from django.db import IntegrityError
+import uuid
 
 # Create your models here.
 YEAR_LIMIT_DEFAULT = 3
@@ -196,7 +198,6 @@ class Booking(models.Model):
     attraction = models.ForeignKey("Attraction", on_delete=models.CASCADE)
     slot = models.ForeignKey("VisitSlot", on_delete=models.PROTECT)
 
-    # Data for history
     full_name = models.CharField(max_length=120)
     email = models.EmailField()
 
@@ -216,8 +217,32 @@ class Booking(models.Model):
     agreed_terms = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled = models.BooleanField(default=False)
-    ticket_code = models.CharField(max_length=16, unique=True, null=True, blank=True)
+    ticket_code = models.CharField(max_length=100, blank=True, null=True)
+
+    TICKET_TYPE_CHOICES = [
+        ("codes", "E-ticket codes"),
+        ("pdf_template", "PDF template"),
+        ("pdf_template_random", "PDF template + random code"),
+        ("pdf_individual", "Individual PDF tickets"),
+        ("qr_individual", "Individual QR tickets"),
+        ("booking_code", "Generic booking code"),
+        ("instructions", "Staff-card instructions"),
+        ("box_office", "Box office collection"),
+    ]
+    ticket_type = models.CharField(max_length=50, choices=TICKET_TYPE_CHOICES, blank=True, null=True)
+
     ticket_sent = models.BooleanField(default=False)
+    ticket_sent_at = models.DateTimeField(null=True, blank=True)
+    ticket_instructions = models.TextField(blank=True, null=True)
+    generic_booking_code = models.CharField(max_length=100, blank=True, null=True)
+    ticket_qr_value = models.TextField(blank=True, null=True)
+    ticket_visible_at = models.DateTimeField(null=True, blank=True)
+
+    ticket_release_days = models.PositiveSmallIntegerField(
+        default=1,
+        validators=[MinValueValidator(0), MaxValueValidator(30)],
+        help_text="How many days before the visit date the ticket becomes visible to the user."
+    )
 
     class Meta:
         ordering = ("-created_at",)
@@ -237,33 +262,72 @@ class Booking(models.Model):
         return self.created_at.year
 
     def save(self, *args, **kwargs):
-        if not self.ticket_code:
-            import uuid
+        if self.ticket_type == "pdf_template_random" and not self.ticket_code:
             base = "FB-" + uuid.uuid4().hex[:8].upper()
             tries = 0
+
             while tries < 5:
                 if not Booking.objects.filter(ticket_code=base).exists():
                     self.ticket_code = base
                     break
                 base = "FB-" + uuid.uuid4().hex[:8].upper()
                 tries += 1
+
         super().save(*args, **kwargs)
 
+    @property
+    def uploaded_ticket_count(self):
+        return self.tickets.count()
+
+    @property
+    def needs_more_tickets(self):
+        return self.uploaded_ticket_count < self.num_tickets
+
+class BookingTicket(models.Model):
+    booking = models.ForeignKey(
+        Booking,
+        related_name="tickets",
+        on_delete=models.CASCADE
+    )
+    file = models.FileField(upload_to="tickets/")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ("sort_order", "id")
+
+    def __str__(self):
+        return f"Booking #{self.booking_id} Ticket #{self.id}"
+
 class TicketDrawBooking(models.Model):
-    """One reservation. (Using name/email for now; can swap to auth.User later.)"""
+    """A draw entry / winner record. Real tickets live on Booking."""
     ticket_draw = models.ForeignKey('TicketDraw', on_delete=models.CASCADE)
     slot = models.ForeignKey(TicketDrawVisitSlot, on_delete=models.PROTECT)
     full_name = models.CharField(max_length=120)
     email = models.EmailField()
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
-                              blank=True, related_name='ticket_draw_bookings')
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ticket_draw_bookings',
+    )
     num_tickets = models.PositiveIntegerField(default=1)
     agreed_terms = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled = models.BooleanField(default=False)
-    ticket_code = models.CharField(max_length=16, unique=True, null=True, blank=True)
+
+    # draw state only
     is_accepted = models.BooleanField(default=False)
-    ticket_sent = models.BooleanField(default=False)
+
+    # once accepted, create a normal Booking and store it here
+    converted_booking = models.OneToOneField(
+        'Booking',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='source_draw_booking',
+    )
 
     class Meta:
         ordering = ('-created_at',)
@@ -275,20 +339,6 @@ class TicketDrawBooking(models.Model):
     @property
     def year(self):
         return self.created_at.year
-    
-    def save(self, *args, **kwargs):
-        if not self.ticket_code:
-            import uuid
-            base = 'FB-' + uuid.uuid4().hex[:8].upper()
-            from django.db import IntegrityError
-            tries = 0
-            while tries < 5:
-                if not TicketDrawBooking.objects.filter(ticket_code=base).exists():
-                    self.ticket_code = base
-                    break
-                base = 'FB-' + uuid.uuid4().hex[:8].upper()
-                tries += 1
-        super().save(*args, **kwargs)
 
 class Profile(models.Model):
     """User profile to extend default User model."""
@@ -349,7 +399,7 @@ class AttractionSuggestion(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.status})"
-    
+
 class EmailTemplate(models.Model):
     TYPE_CHOICES = [
         # Confirmation
@@ -407,7 +457,6 @@ class EmailTemplate(models.Model):
 
     def __str__(self):
         return f"{self.get_type_display()} – {self.name}"
-
 
 class AttractionWaitlistEntry(models.Model):
     user = models.ForeignKey(
