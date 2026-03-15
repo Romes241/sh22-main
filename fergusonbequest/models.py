@@ -438,9 +438,9 @@ class AttractionWaitlistEntry(models.Model):
         ordering = ("-created_at",)
         constraints = [
             models.UniqueConstraint(
-                fields=["user", "attraction"],
+                fields=["user", "slot"],
                 condition=Q(cancelled=False),
-                name="unique_active_attraction_waitlist",
+                name="unique_active_slot_waitlist",
             )
         ]
 

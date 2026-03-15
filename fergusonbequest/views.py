@@ -432,6 +432,17 @@ def attractions_view(request):
 
     locations = Attraction.objects.values_list("location", flat=True).distinct().order_by("location")
 
+    for a in attractions:
+        future_slots = list(
+            VisitSlot.objects.filter(
+                attraction=a,
+                date__gte=today,
+            ).order_by("date", "time")
+        )
+
+        a.sold_out_slots = [s for s in future_slots if s.remaining == 0]
+        a.sold_out_slot_count = len(a.sold_out_slots)
+
     return render(
         request,
         "fergusonbequest/attractions.html",
@@ -1068,10 +1079,13 @@ def waiting_listattraction(request):
 
 @require_POST
 @login_required
-def waiting_listattraction_join(request, pk):
-    slot = get_object_or_404(VisitSlot.objects.select_related("attraction"),pk=pk)
+def waiting_listattraction_join(request, pk=None):
+    slot_id = request.POST.get("slot") or pk
+    slot = get_object_or_404(
+        VisitSlot.objects.select_related("attraction"),
+        pk=slot_id
+    )
     attraction_obj = slot.attraction
-
     if slot.remaining > 0:
         messages.error(
             request,
@@ -1101,8 +1115,7 @@ def waiting_listattraction_join(request, pk):
             f"You joined the waiting list for {attraction_obj.name} on {slot.date} at {slot.time}."
         )
 
-    return redirect(request.META.get("HTTP_REFERER", "waiting_listattraction"))
-
+    return redirect("waiting_listattraction")
 
 @require_POST
 @login_required
