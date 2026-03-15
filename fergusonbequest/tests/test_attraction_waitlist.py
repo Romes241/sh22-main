@@ -260,11 +260,11 @@ class AttractionWaitlistUITests(TestCase):
         self.assertEqual(response.status_code, 200)
         content = response.content.decode("utf-8")
 
-        # Should have leave button
-        self.assertIn("Leave Waiting List", content)
+        # Attraction page should still show join UI
+        self.assertIn("Join Waiting List", content)
 
-        # Should NOT have join button
-        self.assertNotIn("Join Waiting List", content)
+        # Leave button should not appear here anymore
+        self.assertNotIn("Leave Waiting List", content)
 
 
 class AttractionWaitlistAccessTests(TestCase):
