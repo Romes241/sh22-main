@@ -1361,7 +1361,7 @@ def create_attraction(request):
         if form.is_valid():
             attraction_obj = form.save()
             messages.success(request, f'Attraction "{attraction_obj.name}" created successfully!')
-            return redirect("admin_dashboard")
+            return redirect(f"{reverse('admin_management')}?tab=attractions")
     else:
         form = AttractionCreateForm()
 
@@ -1399,7 +1399,7 @@ def create_ticket_draw(request):
         if form.is_valid():
             draw = form.save()
             messages.success(request, f'Ticket Draw "{draw.name}" created successfully!')
-            return redirect("admin_dashboard")
+            return redirect(f"{reverse('admin_management')}?tab=draws")
     else:
         form = TicketDrawCreateForm()
 
