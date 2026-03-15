@@ -1,0 +1,66 @@
+{% extends "fergusonbequest/base.html" %}
+{% load static %}
+
+{% block title %}Edit {{ code.code }} – Discount Codes{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'fergusonbequest/css/discount_codes.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="dc-page dc-page--narrow">
+
+  <div class="dc-header">
+    <div>
+      <h1 class="dc-title">Edit Discount Code</h1>
+      <p class="dc-subtitle">Updating <strong>{{ code.code }}</strong></p>
+    </div>
+    <a href="{% url 'discount_codes' %}" class="fb-btn fb-btn--primary">← Back to Discounts</a>
+  </div>
+
+  <section class="dc-panel">
+    <form method="post" novalidate class="dc-form">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="fb-message fb-message--error">{{ form.non_field_errors }}</div>
+      {% endif %}
+      <div class="dc-form__grid">
+        <div class="dc-form__field">
+          <label for="{{ form.title.id_for_label }}">Title</label>
+          {{ form.title }}
+          {% for err in form.title.errors %}<span class="dc-form__error">{{ err }}</span>{% endfor %}
+        </div>
+        <div class="dc-form__field">
+          <label for="{{ form.code.id_for_label }}">Code</label>
+          {{ form.code }}
+          {% for err in form.code.errors %}<span class="dc-form__error">{{ err }}</span>{% endfor %}
+        </div>
+        <div class="dc-form__field dc-form__field--full">
+          <label for="{{ form.description.id_for_label }}">Description</label>
+          {{ form.description }}
+          {% for err in form.description.errors %}<span class="dc-form__error">{{ err }}</span>{% endfor %}
+        </div>
+        <div class="dc-form__field">
+          <label for="{{ form.valid_from.id_for_label }}">Valid From</label>
+          {{ form.valid_from }}
+          {% for err in form.valid_from.errors %}<span class="dc-form__error">{{ err }}</span>{% endfor %}
+        </div>
+        <div class="dc-form__field">
+          <label for="{{ form.valid_until.id_for_label }}">Valid Until</label>
+          {{ form.valid_until }}
+          {% for err in form.valid_until.errors %}<span class="dc-form__error">{{ err }}</span>{% endfor %}
+        </div>
+        <div class="dc-form__field dc-form__field--check">
+          {{ form.is_active }}
+          <label for="{{ form.is_active.id_for_label }}">Active (visible to staff)</label>
+        </div>
+      </div>
+      <div class="dc-form__actions">
+        <button type="submit" class="fb-btn fb-btn--primary">Save Changes</button>
+        <a href="{% url 'discount_codes' %}" class="dc-cancel-link">Cancel</a>
+      </div>
+    </form>
+  </section>
+
+</div>
+{% endblock %}

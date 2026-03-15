@@ -68,17 +68,21 @@ urlpatterns = [
     path("suggestions/", views.create_attraction_suggestion, name="create_attraction_suggestion"),
     path("admin-export/suggestions.xlsx", views.export_suggestions_excel, name="export_suggestions_excel"),
 
-    # Discount codes staff page
+    # Discount codes - admin management
     path("staff/discounts/", views.discount_codes_page, name="discount_codes"),
-    path("staff/discounts/", views.discount_codes_page, name="discount_codes_page"),
+    path("staff/discounts/<int:pk>/edit/", views.discount_code_edit, name="discount_code_edit"),
+    path("staff/discounts/<int:pk>/toggle/", views.discount_code_toggle, name="discount_code_toggle"),
+    path("staff/discounts/<int:pk>/delete/", views.discount_code_delete, name="discount_code_delete"),
 
-     # Ticket upload mechanism
+    # Discount codes - user-facing page
+    path("discounts/", views.user_discount_codes, name="user_discount_codes"),
+
+    # Ticket upload mechanism
     path("ticket-upload/", views.ticket_upload, name="ticket_upload"),
     path("ticket-upload/view-all/", views.ticket_upload_view_all, name="ticket_upload_view_all"),
     path("ticket-upload/send/", views.ticket_upload_send, name="ticket_upload_send"),
     path('ticket-upload/venue-distribute/', views.venue_distribute_tickets, name='venue_distribute_tickets'),
     path("ticket-upload/individual/", views.individual_booking, name="individual_booking"),
-    path("ticket-upload/send/", views.ticket_upload_send, name="ticket_upload_send"),
     path("ticket-upload/view/<int:booking_id>/", views.ticket_view, name="ticket_view"),
     path("my-ticket/<int:booking_id>/", views.user_ticket_view, name="user_ticket_view"),
     path("ticket-upload/delete/", views.ticket_upload_delete, name="ticket_upload_delete"),

@@ -1416,36 +1416,85 @@ def export_suggestions_excel(request):
 @staff_member_required
 @require_http_methods(["GET", "POST"])
 def discount_codes_page(request):
+    """Admin page: create new discount codes and manage all existing ones."""
     now = timezone.now()
 
     if request.method == "POST":
         form = DiscountCodeForm(request.POST)
         if form.is_valid():
             form.save()
-            messages.success(request, "Discount code created.")
+            messages.success(request, "Discount code created successfully.")
             return redirect("discount_codes")
         messages.error(request, "Please fix the errors below.")
     else:
         form = DiscountCodeForm()
 
     all_discounts = DiscountCode.objects.all().order_by("-created_at")
-
-    active_discounts = all_discounts.filter(
-        is_active=True,
-        valid_from__lte=now,
-        valid_until__gte=now,
-    )
+    now = timezone.now()
 
     return render(
         request,
         "fergusonbequest/discount_codes.html",
         {
             "form": form,
-            "active_discounts": active_discounts,
             "all_discounts": all_discounts,
             "now": now,
         },
     )
+
+
+@staff_member_required
+def discount_code_edit(request, pk):
+    """Admin: edit an existing discount code."""
+    code = get_object_or_404(DiscountCode, pk=pk)
+    if request.method == "POST":
+        form = DiscountCodeForm(request.POST, instance=code)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Discount code '{code.code}' updated.")
+            return redirect("discount_codes")
+        messages.error(request, "Please fix the errors below.")
+    else:
+        form = DiscountCodeForm(instance=code)
+    return render(request, "fergusonbequest/discount_code_edit.html", {"form": form, "code": code})
+
+
+@staff_member_required
+@require_POST
+def discount_code_toggle(request, pk):
+    """Admin: toggle is_active on a discount code."""
+    code = get_object_or_404(DiscountCode, pk=pk)
+    code.is_active = not code.is_active
+    code.save(update_fields=["is_active"])
+    state = "shown" if code.is_active else "hidden"
+    messages.success(request, f"Discount code '{code.code}' is now {state}.")
+    return redirect("discount_codes")
+
+
+@staff_member_required
+@require_POST
+def discount_code_delete(request, pk):
+    """Admin: permanently delete a discount code."""
+    code = get_object_or_404(DiscountCode, pk=pk)
+    title = code.code
+    code.delete()
+    messages.success(request, f"Discount code '{title}' deleted.")
+    return redirect("discount_codes")
+
+
+@login_required
+def user_discount_codes(request):
+    """Page showing currently active discount codes to logged-in users."""
+    now = timezone.now()
+    active_codes = DiscountCode.objects.filter(
+        is_active=True,
+        valid_from__lte=now,
+        valid_until__gte=now,
+    ).order_by("valid_until")
+    return render(request, "fergusonbequest/user_discount_codes.html", {
+        "active_codes": active_codes,
+        "now": now,
+    })
 
 # -----------------------------
 # Staff / Admin dashboard + management
