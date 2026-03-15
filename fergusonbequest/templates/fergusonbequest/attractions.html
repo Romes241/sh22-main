@@ -98,37 +98,6 @@
 
 
 </form>
-<script>
-  // javascript to auto submit the filters
-  (function () {
-    const form = document.querySelector(".controls");
-    if (!form) return;
-
-    const searchInput = form.querySelector('input[name="q"]');
-    const dateInput = form.querySelector('input[name="date"]');
-    const selects = form.querySelectorAll("select");
-
-    // Auto-submit on dropdown change
-    selects.forEach(sel => {
-      sel.addEventListener("change", () => form.submit());
-    });
-
-    // Auto-submit on date change
-    if (dateInput) {
-      dateInput.addEventListener("change", () => form.submit());
-    }
-
-    // Debounced search submit
-    let t = null;
-    if (searchInput) {
-      searchInput.addEventListener("input", () => {
-        clearTimeout(t);
-        t = setTimeout(() => form.submit(), 350);
-      });
-    }
-  })();
-</script>
-
   <!-- Cards grid-->
   <div class="cards-grid">
 
@@ -171,27 +140,130 @@
               View Details
             </a>
 
-            {% if a.remaining_total == 0 %}
-              <!-- waitlist button -->
-              <a class="btn outline" href="#">
-                Waitlist
-              </a>
-            {% else %}
-              <!-- book button -->
-              <a class="btn primary"
-                 href="{% url 'attraction_book' attraction_pk=a.id %}">
-                Book now
-              </a>
-            {% endif %}
+              {% if a.remaining_total == 0 %}
+                {% if a.sold_out_slot_count == 1 %}
 
+                  <form method="POST"
+                        action="{% url 'waiting_listattraction_join' a.sold_out_slots.0.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn outline">Join Waitlist</button>
+                  </form>
+
+                {% elif a.sold_out_slot_count > 1 %}
+
+                  <button type="button"
+                          class="btn outline"
+                          onclick="openWaitlistModal('{{ a.id }}')">
+                    Join Waitlist
+                  </button>
+
+                {% else %}
+
+                  <a class="btn outline" href="{% url 'attraction' a.id %}">
+                    Join Waitlist
+                  </a>
+
+                {% endif %}
+              {% else %}
+
+                <a class="btn primary"
+                   href="{% url 'attraction_book' attraction_pk=a.id %}">
+                  Book now
+                </a>
+
+              {% endif %}
+
+            </div>
           </div>
         </div>
 
-      </div>
+        <!-- waitlist modal -->
+        {% if a.remaining_total == 0 and a.sold_out_slot_count > 1 %}
+        <div id="waitlist-modal-{{ a.id }}" class="waitlist-modal" style="display:none;">
+
+          <div class="waitlist-modal-backdrop"
+               onclick="closeWaitlistModal('{{ a.id }}')"></div>
+
+          <div class="waitlist-modal-content">
+
+            <div class="waitlist-modal-header">
+              <h3>Choose a slot for {{ a.name }}</h3>
+              <button class="waitlist-modal-close"
+                      onclick="closeWaitlistModal('{{ a.id }}')">
+                ×
+              </button>
+            </div>
+
+            <div class="waitlist-modal-body">
+
+              {% for slot in a.sold_out_slots %}
+
+              <div class="waitlist-slot-row">
+
+                <div class="waitlist-slot-time">
+                  {{ slot.date|date:"d/m/Y" }} — {{ slot.time|time:"H:i" }}
+                </div>
+
+                <form method="POST"
+                      action="{% url 'waiting_listattraction_join' slot.pk %}">
+                  {% csrf_token %}
+                  <button class="btn outline">Join Waitlist</button>
+                </form>
+
+              </div>
+
+              {% endfor %}
+
+            </div>
+
+          </div>
+        </div>
+        {% endif %}
     {% empty %}
       <p class="empty">No attractions match your search.</p>
     {% endfor %}
 
   </div>
 </div>
+<script>
+  // Opens and closes the quick waiting list popup for an attraction
+  function openWaitlistModal(attractionId) {
+    const modal = document.getElementById("waitlist-modal-" + attractionId);
+    if (modal) modal.style.display = "block";
+  }
+
+  function closeWaitlistModal(attractionId) {
+    const modal = document.getElementById("waitlist-modal-" + attractionId);
+    if (modal) modal.style.display = "none";
+  }
+
+  // javascript to auto submit the filters
+  (function () {
+    const form = document.querySelector(".controls");
+    if (!form) return;
+
+    const searchInput = form.querySelector('input[name="q"]');
+    const dateInput = form.querySelector('input[name="date"]');
+    const selects = form.querySelectorAll("select");
+
+    // Auto-submit on dropdown change
+    selects.forEach(sel => {
+      sel.addEventListener("change", () => form.submit());
+    });
+
+    // Auto-submit on date change
+    if (dateInput) {
+      dateInput.addEventListener("change", () => form.submit());
+    }
+
+    // Debounced search submit
+    let t = null;
+    if (searchInput) {
+      searchInput.addEventListener("input", () => {
+        clearTimeout(t);
+        t = setTimeout(() => form.submit(), 350);
+      });
+    }
+  })();
+</script>
 {% endblock %}

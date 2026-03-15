@@ -464,11 +464,21 @@ class AttractionWaitlistEntry(models.Model):
         on_delete=models.CASCADE,
         related_name="attraction_waitlist_entries",
     )
+
     attraction = models.ForeignKey(
         "Attraction",
         on_delete=models.CASCADE,
         related_name="waitlist_entries",
     )
+
+    slot = models.ForeignKey(
+        "VisitSlot",
+        on_delete=models.CASCADE,
+        related_name="waitlist_entries",
+        null=True,
+        blank=True,
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled = models.BooleanField(default=False)
     notified = models.BooleanField(default=False)
@@ -477,9 +487,9 @@ class AttractionWaitlistEntry(models.Model):
         ordering = ("-created_at",)
         constraints = [
             models.UniqueConstraint(
-                fields=["user", "attraction"],
+                fields=["user", "slot"],
                 condition=Q(cancelled=False),
-                name="unique_active_attraction_waitlist",
+                name="unique_active_slot_waitlist",
             )
         ]
 

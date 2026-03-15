@@ -434,6 +434,17 @@ def attractions_view(request):
 
     locations = Attraction.objects.values_list("location", flat=True).distinct().order_by("location")
 
+    for a in attractions:
+        future_slots = list(
+            VisitSlot.objects.filter(
+                attraction=a,
+                date__gte=today,
+            ).order_by("date", "time")
+        )
+
+        a.sold_out_slots = [s for s in future_slots if s.remaining == 0]
+        a.sold_out_slot_count = len(a.sold_out_slots)
+
     return render(
         request,
         "fergusonbequest/attractions.html",
@@ -458,21 +469,27 @@ def attraction(request, pk):
         attraction=attraction_obj,
         date__gte=timezone.now().date(),
     ).order_by("date", "time")
+
     bookable_slots = available_slots.filter(remaining__gt=0)
     has_bookable_slots = bookable_slots.exists()
+    is_sold_out = available_slots.exists() and not has_bookable_slots
 
     remaining_allowance = 0
-    if request.user.is_authenticated:
-        remaining_allowance = calculate_remaining_allowance(request.user, attraction_obj.attraction_type)
+    waitlisted_slot_ids = set()
 
-    is_sold_out = attraction_obj.remaining_total == 0
-    on_waitlist = False
-    if request.user.is_authenticated and is_sold_out:
-        on_waitlist = AttractionWaitlistEntry.objects.filter(
-            user=request.user,
-            attraction=attraction_obj,
-            cancelled=False,
-        ).exists()
+    if request.user.is_authenticated:
+        remaining_allowance = calculate_remaining_allowance(
+            request.user,
+            attraction_obj.attraction_type
+        )
+
+        waitlisted_slot_ids = set(
+            AttractionWaitlistEntry.objects.filter(
+                user=request.user,
+                cancelled=False,
+                slot__in=available_slots,
+            ).values_list("slot_id", flat=True)
+        )
 
     return render(
         request,
@@ -484,7 +501,7 @@ def attraction(request, pk):
             "has_bookable_slots": has_bookable_slots,
             "remaining_allowance": remaining_allowance,
             "is_sold_out": is_sold_out,
-            "on_waitlist": on_waitlist,
+            "waitlisted_slot_ids": waitlisted_slot_ids,
         },
     )
 
@@ -792,6 +809,8 @@ def booking_history(request):
 
 @require_POST
 @login_required
+@require_POST
+@login_required
 def cancel_booking(request, pk):
     """Cancel a future booking and restore slot capacity."""
     booking = get_object_or_404(Booking, pk=pk)
@@ -802,8 +821,10 @@ def cancel_booking(request, pk):
     if booking.slot.date < timezone.now().date():
         return redirect("booking_history")
 
+    reassigned_booking = None
+
     with transaction.atomic():
-        b = Booking.objects.select_for_update().get(pk=booking.pk)
+        b = Booking.objects.select_for_update().select_related("slot", "attraction", "user").get(pk=booking.pk)
 
         if not b.cancelled:
             b.cancelled = True
@@ -813,16 +834,31 @@ def cancel_booking(request, pk):
                 remaining=Least(F("remaining") + b.num_tickets, F("capacity"))
             )
 
+            # reload the slot after increment
+            slot = VisitSlot.objects.select_for_update().get(pk=b.slot.pk)
+
+            # Only try reassignment for attraction bookings
+            reassigned_booking = reassign_cancelled_attraction_booking(slot, b.attraction)
+
+            send_attraction_booking_email_cancellation(b)
+
             current_year = timezone.now().year
             active_yearly_count = Booking.objects.filter(
                 user=b.user, cancelled=False, created_at__year=current_year
             ).count()
             remaining = max(0, MAX_ATTRACTIONS_PER_YEAR - active_yearly_count)
 
-            messages.success(
-                request,
-                f"Booking cancelled. You now have {remaining}/{MAX_ATTRACTIONS_PER_YEAR} bookings remaining for this year.",
-            )
+            if reassigned_booking:
+                messages.success(
+                    request,
+                    f"Booking cancelled. The freed slot was reassigned to a user on the waiting list. "
+                    f"You now have {remaining}/{MAX_ATTRACTIONS_PER_YEAR} bookings remaining for this year.",
+                )
+            else:
+                messages.success(
+                    request,
+                    f"Booking cancelled. You now have {remaining}/{MAX_ATTRACTIONS_PER_YEAR} bookings remaining for this year.",
+                )
 
     return redirect("booking_history")
 
@@ -1133,62 +1169,148 @@ def waiting_listattraction(request):
     attraction_waitlist_entries = (
         AttractionWaitlistEntry.objects
         .filter(user=user, cancelled=False)
-        .select_related("attraction")
+        .select_related("attraction", "slot")
         .order_by("-created_at")
     )
 
-    return render(request, "fergusonbequest/waiting_listattraction.html",
-                  {"attraction_waitlist_entries": attraction_waitlist_entries})
+    return render(
+        request,
+        "fergusonbequest/waiting_listattraction.html",
+        {"attraction_waitlist_entries": attraction_waitlist_entries},
+    )
 
 
 @require_POST
 @login_required
-def waiting_listattraction_join(request, pk):
-    attraction_obj = get_object_or_404(Attraction, pk=pk)
-
-    if attraction_obj.remaining_total > 0:
-        messages.error(request, f"{attraction_obj.name} still has availability. Please book directly.")
+def waiting_listattraction_join(request, pk=None):
+    slot_id = request.POST.get("slot") or pk
+    slot = get_object_or_404(
+        VisitSlot.objects.select_related("attraction"),
+        pk=slot_id
+    )
+    attraction_obj = slot.attraction
+    if slot.remaining > 0:
+        messages.error(
+            request,
+            f"{attraction_obj.name} still has availability for this slot. Please book directly."
+        )
         return redirect("attraction", pk=attraction_obj.pk)
 
     existing = AttractionWaitlistEntry.objects.filter(
         user=request.user,
-        attraction=attraction_obj,
+        slot=slot,
         cancelled=False,
     ).first()
 
     if existing:
-        messages.info(request, f"You're already on the waiting list for {attraction_obj.name}.")
+        messages.info(
+            request,
+            f"You're already on the waiting list for {attraction_obj.name} on {slot.date} at {slot.time}."
+        )
     else:
         AttractionWaitlistEntry.objects.create(
             user=request.user,
             attraction=attraction_obj,
+            slot=slot,
         )
-        messages.success(request, f"You joined the waiting list for {attraction_obj.name}.")
+        messages.success(
+            request,
+            f"You joined the waiting list for {attraction_obj.name} on {slot.date} at {slot.time}."
+        )
 
-    return redirect(request.META.get("HTTP_REFERER", "waiting_listattraction"))
-
+    return redirect("waiting_listattraction")
 
 @require_POST
 @login_required
 def waiting_listattraction_leave(request, pk):
-    attraction_obj = get_object_or_404(Attraction, pk=pk)
+    slot = get_object_or_404(
+        VisitSlot.objects.select_related("attraction"),
+        pk=pk
+    )
+    attraction_obj = slot.attraction
 
     entry = AttractionWaitlistEntry.objects.filter(
         user=request.user,
-        attraction=attraction_obj,
+        slot=slot,
         cancelled=False,
     ).first()
 
     if entry:
         entry.cancelled = True
         entry.save(update_fields=["cancelled"])
-        messages.success(request, f"You left the waiting list for {attraction_obj.name}.")
+        messages.success(
+            request,
+            f"You left the waiting list for {attraction_obj.name} on {slot.date} at {slot.time}."
+        )
     else:
-        messages.info(request, f"You were not on the waiting list for {attraction_obj.name}.")
+        messages.info(
+            request,
+            f"You were not on the waiting list for {attraction_obj.name} on {slot.date} at {slot.time}."
+        )
 
     return redirect(request.META.get("HTTP_REFERER", "waiting_listattraction"))
 
 
+def reassign_cancelled_attraction_booking(slot, attraction_obj):
+    """
+    Reassign a newly freed attraction slot to the next eligible user
+    on the waiting list for that exact slot.
+    """
+    waitlist_entries = (
+        AttractionWaitlistEntry.objects
+        .select_related("user")
+        .filter(
+            slot=slot,
+            cancelled=False,
+        )
+        .order_by("created_at")
+    )
+
+    for entry in waitlist_entries:
+        user = entry.user
+
+        # check yearly booking limit
+        remaining_allowance = calculate_remaining_allowance(user, "regular")
+        if remaining_allowance <= 0:
+            continue
+
+        # prevent duplicate active booking for same slot
+        already_booked = Booking.objects.filter(
+            user=user,
+            slot=slot,
+            cancelled=False,
+        ).exists()
+        if already_booked:
+            entry.cancelled = True
+            entry.save(update_fields=["cancelled"])
+            continue
+
+        # ensure slot is still available
+        slot.refresh_from_db()
+        if slot.remaining < 1:
+            return None
+
+        new_booking = Booking.objects.create(
+            user=user,
+            attraction=attraction_obj,
+            slot=slot,
+            num_tickets=1,
+            full_name=f"{user.first_name} {user.last_name}".strip(),
+            email=user.email,
+            agreed_terms=True,
+        )
+
+        VisitSlot.objects.filter(pk=slot.pk).update(
+            remaining=F("remaining") - 1
+        )
+
+        entry.cancelled = True
+        entry.save(update_fields=["cancelled"])
+
+        send_attraction_booking_email_ticket_reallocaton(new_booking)
+        return new_booking
+
+    return None
 # -----------------------------
 # Suggestions (user) + export (staff)
 # -----------------------------
