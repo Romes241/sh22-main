@@ -15,7 +15,7 @@ def send_attraction_ticket():
     # send tickets 3 days before the users attraction
     now = timezone.now()
 
-    eligible_bookings = Booking.objects.filter(cancelled=False,ticket_sent=False,attraction__cancel_deadline__isnull=False,attraction__cancel_deadline__lte=now).select_related('user', 'attraction', 'slot')
+    eligible_bookings = Booking.objects.filter(cancelled=False,ticket_sent=False,cancel_deadline__isnull=False,cancel_deadline__lte=now).select_related('user', 'attraction', 'slot')
 
     for booking in eligible_bookings:
         send_attraction_booking_email_ticket_distribution(booking)
@@ -69,7 +69,7 @@ def send_reminders():
         send_attraction_booking_email_reminder(attraction_booking)
 
 
-    ticketdraws = Booking.objects.filter(slot__date=tomorrow,cancelled=False).select_related('user', 'ticket_draw', 'slot')
+    ticketdraws = TicketDrawBooking.objects.filter(slot__date=tomorrow,cancelled=False).select_related('user', 'ticket_draw', 'slot')
 
     for draw_booking in ticketdraws:
         send_draw_booking_email_reminder(draw_booking)
