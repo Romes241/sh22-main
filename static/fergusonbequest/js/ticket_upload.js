@@ -215,11 +215,25 @@ if (ticketUploadForm) {
     }
 
     else if (["pdf_template", "pdf_template_random"].includes(type)) {
-      const count = document.getElementById("ticketFilesInput")?.files.length || 0;
+      const input = document.getElementById("ticketFilesInput");
+      const files = Array.from(input?.files || []);
+      const count = files.length;
 
       if (count !== n) {
         e.preventDefault();
-        alert(`Please upload exactly ${n} file(s). You have selected ${count}.`);
+        alert(`Please upload exactly ${n} PDF file(s). You have selected ${count}.`);
+        return false;
+      }
+
+      const badFile = files.find(file => {
+        const name = (file.name || "").toLowerCase();
+        const mime = (file.type || "").toLowerCase();
+        return !(name.endsWith(".pdf") || mime === "application/pdf");
+      });
+
+      if (badFile) {
+        e.preventDefault();
+        alert(`"${badFile.name}" is not a PDF. Please upload PDF files only.`);
         return false;
       }
     }
@@ -369,79 +383,6 @@ async function _fetchAndPushPage(url) {
   } else {
     const text = await res.text();
     _ticketPages.push({ type: "text", text });
-  }
-}
-
-async function openTicketViewModal(bookingId) {
-  const body = document.getElementById("ticketViewBody");
-  if (!body) return;
-
-  _ticketPages = [];
-  _ticketIdx = 0;
-  body.textContent = "Loading…";
-  setTicketViewModalOpen(true);
-
-  const prev = document.getElementById("ticketPrev");
-  const next = document.getElementById("ticketNext");
-
-  if (prev) {
-    prev.onclick = () => {
-      if (_ticketIdx > 0) {
-        _ticketIdx--;
-        _showTicketPage(body);
-      }
-    };
-  }
-
-  if (next) {
-    next.onclick = () => {
-      if (_ticketIdx < _ticketPages.length - 1) {
-        _ticketIdx++;
-        _showTicketPage(body);
-      }
-    };
-  }
-
-  try {
-    const listRes = await fetch(`/tickets/${bookingId}/list/`, {
-      headers: { "X-Requested-With": "XMLHttpRequest" },
-      credentials: "same-origin",
-    });
-
-    if (!listRes.ok) {
-      throw new Error(`List endpoint failed: ${listRes.status}`);
-    }
-
-    const listData = await listRes.json();
-    const urls = Array.isArray(listData.tickets) ? listData.tickets : [];
-
-    const ref = listData.booking_reference || "";
-    const refEl = document.getElementById("ticketViewRef");
-
-    if (refEl) {
-      refEl.textContent = `Booking reference: ${ref}`;
-    }
-
-    for (const url of urls) {
-      await _fetchAndPushPage(url);
-    }
-
-    if (_ticketPages.length === 0) {
-      const fallbackUrl = getTicketViewUrl(bookingId);
-      if (fallbackUrl) {
-        await _fetchAndPushPage(fallbackUrl);
-      }
-    }
-
-    if (_ticketPages.length === 0) {
-      body.textContent = "No ticket available for this booking.";
-      return;
-    }
-
-    _showTicketPage(body);
-  } catch (err) {
-    console.error("Ticket viewer error:", err);
-    body.textContent = "Could not load ticket.";
   }
 }
 

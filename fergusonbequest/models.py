@@ -237,6 +237,7 @@ class Booking(models.Model):
     generic_booking_code = models.CharField(max_length=100, blank=True, null=True)
     ticket_qr_value = models.TextField(blank=True, null=True)
     ticket_visible_at = models.DateTimeField(null=True, blank=True)
+    box_office_notes = models.TextField(blank=True, null=True)
 
     ticket_release_days = models.PositiveSmallIntegerField(
         default=1,
@@ -290,6 +291,8 @@ class BookingTicket(models.Model):
         on_delete=models.CASCADE
     )
     file = models.FileField(upload_to="tickets/")
+    qr_value = models.TextField(blank=True, null=True)
+    ticket_code = models.TextField(blank=True, null=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
     sort_order = models.PositiveIntegerField(default=0)
 
