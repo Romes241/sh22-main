@@ -165,8 +165,8 @@
         {% endif %}
     </div>
 
-    {% if rows %}
-{% for r in rows %}
+{% if rows or draw_rows %}
+    {% for r in rows %}
   <div class="tu-row">
 
     {% if show_all %}
@@ -228,8 +228,8 @@
           <button
             type="button"
             class="tu-btn tu-btn--primary"
-            onclick="openTicketViewModal('{{ r.id }}', '{{ r.booking_reference|escapejs }}')">
-            View Ticket
+            onclick="openTicketViewModal('b:{{ r.id }}', '{{ r.booking_reference|escapejs }}')">
+              View Ticket
           </button>
 
         {% elif r.is_past %}
@@ -258,101 +258,102 @@
     {% endif %}
   </div>
 {% endfor %}
-{% if draw_rows %}
-  {% for r in draw_rows %}
-    <div class="tu-row">
-      {% if show_all %}
-        <div class="tu-cell" style="width:44px;">
-          <input type="checkbox"
-                 class="rowChk"
-                 name="selected_ids"
-                 value="d:{{ r.id }}"
-                 aria-label="Select draw booking {{ r.id }}">
+<!-- draw section  -->
+    {% if draw_rows %}
+      {% for r in draw_rows %}
+        <div class="tu-row">
+          {% if show_all %}
+            <div class="tu-cell" style="width:44px;">
+              <input type="checkbox"
+                     class="rowChk"
+                     name="selected_ids"
+                     value="d:{{ r.id }}"
+                     aria-label="Select draw booking {{ r.id }}">
+            </div>
+          {% endif %}
+
+          <div class="tu-cell tu-venue">
+            {{ r.venue_name }} <span style="opacity:.6;"></span>
+          </div>
+            <div class="tu-cell">{{ r.first_name }}</div>
+            <div class="tu-cell">{{ r.last_name }}</div>
+            <div class="tu-cell">{{ r.guid }}</div>
+            <div class="tu-cell">{{ r.booking_date }}</div>
+            <div class="tu-cell">{{ r.booking_reference }}</div>
+            <div class="tu-cell">{{ r.num_tickets|default:"1" }}</div>
+
+            {% if show_all %}
+              <div class="tu-cell">
+                {% if r.ticket_type and r.ticket_type != "—" %}
+                  {{ r.ticket_type }}
+                {% else %}
+                  —
+                {% endif %}
+              </div>
+
+              <div class="tu-cell tu-action tu-action--wide">
+                {% if r.ticket_sent %}
+                  {# ticket exists — delete via checkbox only #}
+                {% elif r.is_past %}
+                  <span class="tu-past">Past booking</span>
+                {% else %}
+                  <button
+                    type="button"
+                    class="tu-btn tu-btn--primary"
+                    onclick="openIndividualTicketModal(
+                      '{{ r.id }}',
+                      '{{ r.venue_name|escapejs }}',
+                      '',
+                      '',
+                      '',
+                      'd',
+                      '{{ r.ticketed_count|default:"0" }}',
+                      '{{ r.total_count|default:"0" }}',
+                      '{{ r.num_tickets|default:"0" }}',
+                      this
+                    )">
+                    Assign ticket
+                  </button>
+                {% endif %}
+              </div>
+
+            {% else %}
+              <div class="tu-cell tu-action">
+                {% if r.ticket_sent %}
+                  <button
+                    type="button"
+                    class="tu-btn tu-btn--primary"
+                    onclick="openTicketViewModal('d:{{ r.id }}', '{{ r.booking_reference|escapejs }}')">
+                      View Ticket
+                  </button>
+
+                {% elif r.is_past %}
+                  <span class="tu-past">Past booking</span>
+
+                {% else %}
+                  <button
+                    type="button"
+                    class="tu-btn tu-btn--primary"
+                    onclick="openIndividualTicketModal(
+                      '{{ r.id }}',
+                      '{{ r.venue_name|escapejs }}',
+                      '{{ r.forename|escapejs }}',
+                      '{{ r.surname|escapejs }}',
+                      '{{ r.guid }}',
+                      'd',
+                      '{{ r.ticketed_count }}',
+                      '{{ r.total_count }}',
+                      '{{ r.num_tickets }}',
+                      this
+                    )">
+                    Assign ticket
+                  </button>
+                {% endif %}
+              </div>
+            {% endif %}
         </div>
-      {% endif %}
-
-      <div class="tu-cell tu-venue">
-        {{ r.venue_name }} <span style="opacity:.6;">(Draw)</span>
-      </div>
-        <div class="tu-cell">{{ r.first_name }}</div>
-        <div class="tu-cell">{{ r.last_name }}</div>
-        <div class="tu-cell">{{ r.guid }}</div>
-        <div class="tu-cell">{{ r.booking_date }}</div>
-        <div class="tu-cell">{{ r.booking_reference }}</div>
-        <div class="tu-cell">{{ r.num_tickets|default:"1" }}</div>
-
-        {% if show_all %}
-          <div class="tu-cell">
-            {% if r.ticket_type and r.ticket_type != "—" %}
-              {{ r.ticket_type }}
-            {% else %}
-              —
-            {% endif %}
-          </div>
-
-          <div class="tu-cell tu-action tu-action--wide">
-            {% if r.ticket_sent %}
-              {# ticket exists — delete via checkbox only #}
-            {% elif r.is_past %}
-              <span class="tu-past">Past booking</span>
-            {% else %}
-              <button
-                type="button"
-                class="tu-btn tu-btn--primary"
-                onclick="openIndividualTicketModal(
-                  '{{ r.id }}',
-                  '{{ r.venue_name|escapejs }}',
-                  '',
-                  '',
-                  '',
-                  '{{ r.row_kind|default:"d" }}',
-                  '{{ r.ticketed_count|default:"0" }}',
-                  '{{ r.total_count|default:"0" }}',
-                  '{{ r.num_tickets|default:"0" }}',
-                  this
-                )">
-                Assign ticket
-              </button>
-            {% endif %}
-          </div>
-
-        {% else %}
-          <div class="tu-cell tu-action">
-            {% if r.ticket_sent %}
-              <button
-                type="button"
-                class="tu-btn tu-btn--primary"
-                onclick="openTicketViewModal('{{ r.id }}', '{{ r.booking_reference|escapejs }}')">
-                View Ticket
-              </button>
-
-            {% elif r.is_past %}
-              <span class="tu-past">Past booking</span>
-
-            {% else %}
-              <button
-                type="button"
-                class="tu-btn tu-btn--primary"
-                onclick="openIndividualTicketModal(
-                  '{{ r.id }}',
-                  '{{ r.venue_name|escapejs }}',
-                  '',
-                  '',
-                  '',
-                  '{{ r.row_kind|default:"d" }}',
-                  '{{ r.ticketed_count }}',
-                  '{{ r.total_count }}',
-                  '{{ r.num_tickets }}',
-                  this
-                )">
-                Assign ticket
-              </button>
-            {% endif %}
-          </div>
-        {% endif %}
-    </div>
-  {% endfor %}
-{% endif %}
+      {% endfor %}
+    {% endif %}
 
       {% for _ in empty_rows %}
         <div class="tu-row tu-row--blank">
@@ -529,31 +530,58 @@
             </div>
           </div>
 
-          <div class="tu-type-panel" data-panel="pdfs">
-            <div class="tu-field">
-              <label class="tu-label">Upload PDF ticket file(s)</label>
-              <input id="ticketFilesInput" class="tu-input-file" type="file" name="ticket_files" multiple>
-                <div id="pdfUploadStatusHint" class="tu-hint">0 / 0 files selected (Required: 0)</div>
-            </div>
-          </div>
-
-          <div class="tu-type-panel" data-panel="qr">
-            <div class="tu-bulk-only">
+            <div class="tu-type-panel" data-panel="pdfs">
               <div class="tu-field">
-                <label class="tu-label">Upload QR ticket files</label>
-                    <input id="qrFilesBulk" class="tu-input-file" type="file" name="qr_files" multiple accept=".png,.jpg,.jpeg,.pdf">
-                  <div id="qrBulkUploadStatusHint" class="tu-hint">0 / 0 files selected (Required: 0)</div>
+                <label class="tu-label">Upload PDF ticket file(s)</label>
+                  <input id="ticketFilesInput"  class="tu-input-file"  type="file"  name="ticket_files"  multiple  accept=".pdf,application/pdf">
+                  <div id="pdfUploadStatusHint" class="tu-hint">0 / 0 files selected (Required: 0)</div>
+              </div>
+
+              <div class="tu-field">
+                <label class="tu-label">
+                  <input type="checkbox" name="pdf_generate_codes" id="pdfGenerateCodes">
+                  Generate random code for each PDF
+                </label>
               </div>
             </div>
 
-            <div class="tu-individual-only">
-                <div class="tu-field">
-                  <label class="tu-label">Upload QR ticket files for this booking</label>
-                  <input id="qrFilesIndividual" class="tu-input-file" type="file" name="qr_files_individual" multiple>
-                  <div id="qrIndividualUploadStatusHint" class="tu-hint">0 / 0 files selected (Required: 0)</div>
-                </div>
+        <div class="tu-type-panel" data-panel="qr">
+          <div class="tu-bulk-only">
+            <div class="tu-field">
+              <label class="tu-label">Upload QR ticket files</label>
+              <input id="qrFilesBulk" class="tu-input-file" type="file" name="qr_files" multiple accept=".png,.jpg,.jpeg,.pdf">
+              <div id="qrBulkUploadStatusHint" class="tu-hint">0 / 0 files selected (Required: 0)</div>
+            </div>
+
+            <div class="tu-field">
+              <label class="tu-label">QR value</label>
+              <textarea
+                  class="tu-textarea"
+                  name="ticket_qr_values_bulk"
+                  rows="5"
+                  placeholder="Enter one QR value per line, matching the uploaded files in order"></textarea>
+              <div class="tu-hint">Line 1 = file 1, line 2 = file 2, etc.</div>
             </div>
           </div>
+
+          <div class="tu-individual-only">
+            <div class="tu-field">
+              <label class="tu-label">Upload QR ticket files for this booking</label>
+              <input id="qrFilesIndividual" class="tu-input-file" type="file" name="qr_files_individual" multiple>
+              <div id="qrIndividualUploadStatusHint" class="tu-hint">0 / 0 files selected (Required: 0)</div>
+            </div>
+
+            <div class="tu-field">
+              <label class="tu-label">QR values</label>
+              <textarea
+                class="tu-textarea"
+                name="ticket_qr_values_individual"
+                rows="5"
+                placeholder="Enter one QR value per line, in the same order as the uploaded files"></textarea>
+              <div class="tu-hint">Line 1 = file 1, line 2 = file 2, etc.</div>
+            </div>
+          </div>
+        </div>
 
           <div class="tu-type-panel" data-panel="booking_code">
             <div class="tu-field">

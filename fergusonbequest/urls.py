@@ -83,9 +83,9 @@ urlpatterns = [
     path("ticket-upload/send/", views.ticket_upload_send, name="ticket_upload_send"),
     path('ticket-upload/venue-distribute/', views.venue_distribute_tickets, name='venue_distribute_tickets'),
     path("ticket-upload/individual/", views.individual_booking, name="individual_booking"),
-    path("ticket-upload/view/<int:booking_id>/", views.ticket_view, name="ticket_view"),
-    path("my-ticket/<int:booking_id>/", views.user_ticket_view, name="user_ticket_view"),
+    path("ticket-upload/view/<str:booking_id>/", views.ticket_view, name="ticket_view"),
+    path("my-ticket/<str:booking_id>/", views.user_ticket_view, name="user_ticket_view"),
+    path("tickets/<str:booking_id>/list/", views.ticket_list, name="ticket_list"),
     path("ticket-upload/delete/", views.ticket_upload_delete, name="ticket_upload_delete"),
     path("ticket-upload/bulk-delete/", views.ticket_upload_bulk_delete, name="ticket_upload_bulk_delete"),
-    path("tickets/<int:booking_id>/list/", views.ticket_list, name="ticket_list"),
 ]
