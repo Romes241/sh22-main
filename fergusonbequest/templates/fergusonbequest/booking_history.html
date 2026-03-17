@@ -46,8 +46,8 @@
   </form>
 
   {# Future bookings panel #}
-  {% if when != 'past' %}
-  <div class="fb-card bh-panel">
+    {% if request.GET.when != 'past' %}
+    <div class="fb-card bh-panel">
     <h2 class="bh-panel-title">Future Bookings</h2>
 
     <div class="bh-table-wrap">
@@ -60,7 +60,7 @@
             <th>Type</th>
             <th>Collection Location</th>
             <th>Number of Tickets</th>
-            <th>Ticket Number</th>
+            <th>View Ticket</th>
             <th>Cancel Status</th>
           </tr>
         </thead>
@@ -94,11 +94,21 @@
                   {% endif %}
                 </td>
                 <td>{{ b.num_tickets }}</td>
-              <td class="bh-ticket">
-                  {{ b.ticket_code|default:b.id }}
+                <td class="bh-ticket">
+                  {% if b.can_view_ticket %}
+                    <button type="button" class="tu-btn tu-btn--primary"
+                            onclick="openTicketViewModal('{{ b.id }}');">
+                      View Ticket
+                    </button>
+                  {% else %}
+                    <span class="bh-muted">
+                      Ticket available in {{ b.days_to_release }} day(s)
+                    </span>
+                  {% endif %}
+
                   <span class="sr-only">EMAIL: {{ b.email }}</span>
                   <span class="sr-only">ID: {{ b.id }}</span>
-              </td>
+                </td>
 
               <td class="bh-cancel-cell">
                 {% if b.cancelled %}
@@ -140,8 +150,8 @@
   {% endif %}
 
   {# Past bookings panel #}
-  {% if when != 'future' %}
-  <div class="fb-card bh-panel">
+    {% if request.GET.when != 'future' %}
+    <div class="fb-card bh-panel">
     <h2 class="bh-panel-title">Past Bookings</h2>
 
     <div class="bh-table-wrap">
@@ -189,10 +199,12 @@
                   {% endif %}
                 </td>
                 <td>{{ b.num_tickets }}</td>
-              <td class="bh-ticket">{{ b.ticket_code|default:b.id }}
+                <td class="bh-ticket">
+                  <span class="bh-muted">Not available</span>
+
                   <span class="sr-only">EMAIL: {{ b.email }}</span>
                   <span class="sr-only">ID: {{ b.id }}</span>
-              </td>
+                </td>
 
               <td>
                 {% if b.cancelled %}
@@ -275,7 +287,7 @@
     </form>
   </div>
 </div>
-
+{% include "fergusonbequest/_ticket_popup.html" with ticket_view_url_template=user_ticket_url_template %}
 <script src="{% static 'fergusonbequest/js/filters.js' %}"></script>
 
 {% endblock %}

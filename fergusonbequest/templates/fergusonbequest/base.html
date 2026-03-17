@@ -41,11 +41,10 @@
         <a href="{% url 'admin_dashboard' %}">Admin Dashboard</a>
       {% else %}
         <a href="{% url 'attractions' %}">Attractions</a>
-        <a href="{% url 'ticket_draws' %}">Ticket Draws</a>
-        <a href="{% url 'waiting_listattraction' %}">Attraction Waiting List</a>
-        <a href="{% url 'booking_history' %}">Booking History</a>
+        <a href="{% url 'ticket_draws' %}">Ticket Draws</a>   
         <a href="{% url 'dashboard' %}">Dashboard</a>
         <a href="{% url 'how_to_book' %}">Terms &amp; Conditions</a>
+        <a href="{% url 'user_discount_codes' %}">Discounts</a>
       {% endif %}
       <form method="post" action="{% url 'logout' %}" style="display: inline; margin: 0;">
         {% csrf_token %}

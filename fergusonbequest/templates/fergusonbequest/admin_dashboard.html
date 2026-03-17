@@ -79,6 +79,12 @@
           <span class="ad-link__chev" aria-hidden="true">›</span>
         </a>
 
+        <a class="ad-link" href="{% url 'ticket_upload' %}">
+          <span class="ad-link__icon" aria-hidden="true">🎟️</span>
+          <span class="ad-link__text">Ticket Upload</span>
+          <span class="ad-link__chev" aria-hidden="true">›</span>
+        </a>
+
        <a class="ad-link" href="{% url 'admin_reports' %}">
         <span class="ad-link__icon" aria-hidden="true">📊</span>
         <span class="ad-link__text">View Reports</span>
@@ -91,18 +97,17 @@
         <span class="ad-link__chev" aria-hidden="true">›</span>
        </a>
 
-       <a class="ad-link" href="{% url 'export_suggestions_excel' %}">
+      <a class="ad-link" href="{% url 'export_suggestions_excel' %}">
         <span class="ad-link__icon" aria-hidden="true">📥</span>
         <span class="ad-link__text">Export Suggestions (Excel)</span>
         <span class="ad-link__chev" aria-hidden="true">›</span>
        </a>
 
-       <a class="ad-link" href="{% url 'discount_codes_page' %}">
+       <a class="ad-link" href="{% url 'discount_codes' %}">
         <span class="ad-link__icon" aria-hidden="true">🎟️</span>
         <span class="ad-link__text">Discount Codes</span>
         <span class="ad-link__chev" aria-hidden="true">›</span>
       </a>
-
       </div>
     </div>
 

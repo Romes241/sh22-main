@@ -15,7 +15,7 @@ def send_attraction_ticket():
     # send tickets 3 days before the users attraction
     now = timezone.now()
 
-    eligible_bookings = Booking.objects.filter(cancelled=False,ticket_sent=False,attraction__cancel_deadline__isnull=False,attraction__cancel_deadline__lte=now).select_related('user', 'attraction', 'slot')
+    eligible_bookings = Booking.objects.filter(cancelled=False,ticket_sent=False,cancel_deadline__isnull=False,cancel_deadline__lte=now).select_related('user', 'attraction', 'slot')
 
     for booking in eligible_bookings:
         send_attraction_booking_email_ticket_distribution(booking)
