@@ -48,6 +48,55 @@
 
 </div>
 
+{% if selected_type %}
+<div class="email-type-description">
+  <strong>About this email type:</strong>
+  
+  {% if selected_type == "attraction_confirmation" %}
+    <p>Sent immediately after a user successfully books an attraction.</p>
+  
+  {% elif selected_type == "draw_confirmation" %}
+    <p>Sent immediately after a user enters a ticket draw.</p>
+  
+  {% elif selected_type == "attraction_cancellation" %}
+    <p>Sent when a user cancels their attraction booking.</p>
+  
+  {% elif selected_type == "draw_cancellation" %}
+    <p>Sent when a user cancels their draw entry.</p>
+  
+  {% elif selected_type == "attraction_distribution" %}
+    <p>Sent when tickets are assigned to an attraction booking, either manually by staff or automatically 3 days before the event.</p>
+  
+  {% elif selected_type == "draw_distribution" %}
+    <p>Sent when tickets are assigned to a draw winner after they've accepted their win.</p>
+  
+  {% elif selected_type == "draw_winner" %}
+    <p>Sent to the winner of a draw immediately after the draw is run. Includes links to accept or reject the tickets, with a 72-hour deadline to respond.</p>
+  
+  {% elif selected_type == "attraction_reallocation" %}
+    <p>Sent when a cancelled attraction slot is reassigned to the next person on the waiting list.</p>
+  
+  {% elif selected_type == "draw_reallocation" %}
+    <p>Sent to a new winner if the original winner declines or fails to respond within 72 hours. Includes links to accept or reject with another 72-hour deadline.</p>
+  
+  {% elif selected_type == "attraction_reminder" %}
+    <p>Sent 1 day before an attraction visit. Reminds the user of their upcoming booking and provides relevant details.</p>
+  
+  {% elif selected_type == "draw_reminder" %}
+    <p>Sent 1 day before a draw event (if the user has tickets). Reminds them of their upcoming visit and provides ticket information.</p>
+  
+  {% elif selected_type == "announcement" %}
+    <p>General announcements sent to all users.</p>
+  
+  {% elif selected_type == "custom" %}
+    <p>Custom emails for specific communications. You can select individual users or groups to receive this email.</p>
+  
+  {% else %}
+    <p>Select an email type to see its description.</p>
+  {% endif %}
+</div>
+{% endif %}
+
 <div class="ae-card">
 
   {% if selected_template %}
@@ -70,11 +119,12 @@
 
     <div id="variables-panel" style="display: none;">
 
-      <code onclick="copyToClipboard('{{ current_date }}')">{% templatetag openvariable %} current_date {% templatetag closevariable %}</code> (e.g., 25/03/2024)<br>
-      <code onclick="copyToClipboard('{{ current_time }}')">{% templatetag openvariable %} current_time {% templatetag closevariable %}</code> (e.g., 14:30)<br>
-      <code onclick="copyToClipboard('{{ site_url }}')">{% templatetag openvariable %} site_url {% templatetag closevariable %}</code> Website link<br>
-      <code onclick="copyToClipboard('{{ homepage_url }}')">{% templatetag openvariable %} homepage_url {% templatetag closevariable %}</code> Homepage link<br>
-      <code onclick="copyToClipboard('{{ contact_email }}')">{% templatetag openvariable %} contact_email {% templatetag closevariable %}</code> fergusonbequest@glasgow.ac.uk<br>
+      <h4>Basic Information</h4>
+      <code onclick="copyToClipboard('{{ current_date }}')">{% templatetag openvariable %} current_date {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ current_time }}')">{% templatetag openvariable %} current_time {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ site_url }}')">{% templatetag openvariable %} site_url {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ homepage_url }}')">{% templatetag openvariable %} homepage_url {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ contact_email }}')">{% templatetag openvariable %} contact_email {% templatetag closevariable %}</code><br>
 
       <h4>User</h4>
       <code onclick="copyToClipboard('{{ user_id }}')">{% templatetag openvariable %} user_id {% templatetag closevariable %}</code><br>
@@ -135,8 +185,8 @@
       <code onclick="copyToClipboard('{{ ticket_type }}')">{% templatetag openvariable %} ticket_type {% templatetag closevariable %}</code><br>
       <code onclick="copyToClipboard('{{ ticket_sent_date }}')">{% templatetag openvariable %} ticket_sent_date {% templatetag closevariable %}</code><br>
 
-      <code onclick="copyToClipboard('{{ all_tickets }}')">{% templatetag openvariable %} all_tickets {% templatetag closevariable %}</code> (List of all tickets)<br>
-      <code onclick="copyToClipboard('{{ all_tickets_count }}')">{% templatetag openvariable %} all_tickets_count {% templatetag closevariable %}</code> (Total number of tickets)<br>
+      <code onclick="copyToClipboard('{{ all_tickets }}')">{% templatetag openvariable %} all_tickets {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ all_tickets_count }}')">{% templatetag openvariable %} all_tickets_count {% templatetag closevariable %}</code><br>
 
       <h5>Ticket Distribution - Type Specific</h5>
       
