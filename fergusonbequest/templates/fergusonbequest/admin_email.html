@@ -75,6 +75,7 @@
       <code onclick="copyToClipboard('{{ site_url }}')">{% templatetag openvariable %} site_url {% templatetag closevariable %}</code> Website link<br>
       <code onclick="copyToClipboard('{{ homepage_url }}')">{% templatetag openvariable %} homepage_url {% templatetag closevariable %}</code> Homepage link<br>
       <code onclick="copyToClipboard('{{ contact_email }}')">{% templatetag openvariable %} contact_email {% templatetag closevariable %}</code> fergusonbequest@glasgow.ac.uk<br>
+      <code onclick="copyToClipboard('{{ feedback_url }}')">{% templatetag openvariable %} feedback_url {% templatetag closevariable %}</code> Feedback form URL<br>
 
       <h4>User</h4>
       <code onclick="copyToClipboard('{{ user_id }}')">{% templatetag openvariable %} user_id {% templatetag closevariable %}</code><br>
@@ -138,6 +139,20 @@
       <textarea name="body" rows="18">{{ selected_template.body }}</textarea>
     </div>
 
+    {% if selected_type == 'feedback' and feedback_settings %}
+    <div class="ae-form-row">
+      <label>Feedback Form URL</label>
+      <input type="url" name="feedback_url" value="{{ feedback_settings.feedback_url }}" placeholder="https://forms.office.com/...">
+    </div>
+
+    <div class="ae-form-row">
+      <label style="display:flex;align-items:center;gap:.5rem;">
+        <input type="checkbox" name="feedback_enabled" {% if feedback_settings.enabled %}checked{% endif %}>
+        Enable automatic feedback emails
+      </label>
+    </div>
+    {% endif %}
+
     
     {% if selected_type == 'custom' %}
     <div class="ae-form-row">
@@ -191,6 +206,9 @@
     <div class="ae-form-row ae-form-row--actions">
       <button type="submit" name="save" class="fb-btn fb-btn--primary">Save</button>
       <button type="submit" name="send" class="fb-btn fb-btn--primary">Send Test</button>
+      {% if selected_type == 'feedback' %}
+      <button type="submit" name="send_feedback_now" class="fb-btn fb-btn--primary">Send Feedback Now</button>
+      {% endif %}
       <button type="submit" name="set_default" class="fb-btn fb-btn--primary">Set as Default</button>
       <button type="submit" name="delete" class="fb-btn fb-btn--primary">Delete</button>
     </div>

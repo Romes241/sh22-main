@@ -1830,6 +1830,8 @@ def admin_email(request):
     if template_id:
         selected_template = get_object_or_404(EmailTemplate, id=template_id)
 
+    feedback_settings = FeedbackEmailTemplate.get_template() if selected_type == "feedback" else None
+
     # POST actions
     if request.method == "POST" and selected_template:
 
@@ -1846,19 +1848,29 @@ def admin_email(request):
                 feedback_singleton = FeedbackEmailTemplate.get_template()
                 feedback_singleton.subject = subject
                 feedback_singleton.body = body
-                feedback_singleton.save(update_fields=["subject", "body"])
+                feedback_singleton.enabled = request.POST.get("feedback_enabled") == "on"
+                feedback_singleton.feedback_url = request.POST.get("feedback_url", "").strip()
+                feedback_singleton.save(update_fields=["subject", "body", "enabled", "feedback_url"])
             
             messages.success(request, "Template saved")
 
         # SEND TEST
         elif "send" in request.POST:
             context = get_email_context(user=request.user)
+            if selected_template.type == "feedback":
+                feedback_singleton = FeedbackEmailTemplate.get_template()
+                context["feedback_url"] = feedback_singleton.feedback_url
             send_template_email(
                 selected_template.type,
                 request.user.email,  # send to yourself
                 context,
             )
             messages.success(request, "Test email sent")
+
+        elif "send_feedback_now" in request.POST and selected_template.type == "feedback":
+            from .scheduler import send_scheduled_feedback_emails
+            send_scheduled_feedback_emails()
+            messages.success(request, "Feedback emails job ran successfully")
 
         elif "send_announcement_all" in request.POST:
             selected_template.subject = subject
@@ -1944,6 +1956,7 @@ def admin_email(request):
         "templates": templates,
         "selected_template": selected_template,
         "selected_type": selected_type,
+        "feedback_settings": feedback_settings,
         "all_users": User.objects.all().order_by("last_name", "first_name"),
     }
 
