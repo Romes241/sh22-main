@@ -140,12 +140,27 @@ LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/dashboard/"
 LOGOUT_REDIRECT_URL = "/"
 
-#Email settings
+SITE_ID = 1
+
+#Email
+#Testing - Email settings
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = '587'
-EMAIL_HOST_USER = 'tommytran22005@gmail.com' 
-EMAIL_HOST_PASSWORD = 'zjfxougojlgmgtzk' 
+EMAIL_HOST_USER = '' 
+EMAIL_HOST_PASSWORD = '' 
 EMAIL_USE_TLS = True
 # EMAIL_USE_SSL = False
 
-SITE_ID = 1
+#Amazon Simple Email Service
+EMAIL_BACKEND = 'django_ses_backend.backends.SESEmailBackend'
+
+# AWS Credentials
+SES_AWS_ACCESS_KEY_ID = ''
+SES_AWS_SECRET_ACCESS_KEY = ''
+
+# Reigon and Endpoint
+AWS_SES_REGION_NAME = ''
+AWS_SES_REGION_ENDPOINT = '' 
+
+# Default from email
+DEFAULT_FROM_EMAIL = ''
