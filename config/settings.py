@@ -10,8 +10,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+from dotenv import load_dotenv
+load_dotenv()
 import os
 from pathlib import Path
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -152,15 +155,15 @@ EMAIL_USE_TLS = True
 # EMAIL_USE_SSL = False
 
 #Amazon Simple Email Service
-EMAIL_BACKEND = 'django_ses_backend.backends.SESEmailBackend'
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django_ses_backend.backends.SESEmailBackend')
 
 # AWS Credentials
-SES_AWS_ACCESS_KEY_ID = ''
-SES_AWS_SECRET_ACCESS_KEY = ''
+SES_AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+SES_AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
 
 # Reigon and Endpoint
-AWS_SES_REGION_NAME = ''
-AWS_SES_REGION_ENDPOINT = '' 
+AWS_SES_REGION_NAME = os.getenv('AWS_SES_REGION_NAME')
+AWS_SES_REGION_ENDPOINT = os.getenv('AWS_SES_REGION_ENDPOINT')
 
 # Default from email
-DEFAULT_FROM_EMAIL = ''
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
