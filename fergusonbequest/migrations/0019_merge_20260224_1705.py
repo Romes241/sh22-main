@@ -6,7 +6,6 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('fergusonbequest', '0015_merge_20260216_1600'),
         ('fergusonbequest', '0018_alter_feedbackemailtemplate_body_and_more'),
     ]
 

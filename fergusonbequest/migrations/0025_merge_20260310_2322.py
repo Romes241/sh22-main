@@ -7,7 +7,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('fergusonbequest', '0021_create_feedbackemailtemplate_table'),
-        ('fergusonbequest', '0024_merge_20260310_1300'),
     ]
 
     operations = [

@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('fergusonbequest', '0012_attraction_cancel_deadline'),
+        ('fergusonbequest', '0004_bookingticket_ticket_code'),
     ]
 
     operations = [
