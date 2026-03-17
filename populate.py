@@ -72,6 +72,7 @@ from fergusonbequest.models import (
 User = get_user_model()
 from django.utils import timezone
 from fergusonbequest.models import Profile
+from django.contrib.sites.models import Site  
 
 
 # Fixed surname mapping
@@ -134,6 +135,12 @@ def get_participants():
 
 
 def populate():
+
+    site = Site.objects.get_current()
+    site.domain = '127.0.0.1:8000'  # local test
+    site.name = 'Local Development'
+    site.save()
+
     now = timezone.now()
     today = now.date()
 

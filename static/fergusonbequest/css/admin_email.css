@@ -194,3 +194,14 @@
     font-style: italic;
     padding: 10px;
   }
+
+  .email-type-description {
+    background-color: #f8f9fa;
+    border-left: 4px solid #0059b3;
+    padding: 15px 20px;
+    margin: 20px 0;
+    border-radius: 4px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #333;
+  }
