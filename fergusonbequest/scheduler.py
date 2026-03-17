@@ -69,7 +69,7 @@ def send_reminders():
         send_attraction_booking_email_reminder(attraction_booking)
 
 
-    ticketdraws = Booking.objects.filter(slot__date=tomorrow,cancelled=False).select_related('user', 'ticket_draw', 'slot')
+    ticketdraws = TicketDrawBooking.objects.filter(slot__date=tomorrow,cancelled=False).select_related('user', 'ticket_draw', 'slot')
 
     for draw_booking in ticketdraws:
         send_draw_booking_email_reminder(draw_booking)
