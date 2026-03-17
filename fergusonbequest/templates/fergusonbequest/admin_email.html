@@ -131,6 +131,37 @@
         </code>
       </div>
 
+      <h4>Ticket Distribution</h4>
+      <code onclick="copyToClipboard('{{ ticket_type }}')">{% templatetag openvariable %} ticket_type {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ ticket_sent_date }}')">{% templatetag openvariable %} ticket_sent_date {% templatetag closevariable %}</code><br>
+
+      <code onclick="copyToClipboard('{{ all_tickets }}')">{% templatetag openvariable %} all_tickets {% templatetag closevariable %}</code> (List of all tickets)<br>
+      <code onclick="copyToClipboard('{{ all_tickets_count }}')">{% templatetag openvariable %} all_tickets_count {% templatetag closevariable %}</code> (Total number of tickets)<br>
+
+      <h5>Ticket Distribution - Type Specific</h5>
+      
+      <h6>1. TICKET CODES</h6>
+      <code onclick="copyToClipboard('{{ ticket_codes }}')">{% templatetag openvariable %} ticket_codes {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ ticket_codes_count }}')">{% templatetag openvariable %} ticket_codes_count {% templatetag closevariable %}</code><br>
+
+      <h6>2. PDF TICKETS</h6>
+      <code onclick="copyToClipboard('{{ pdf_tickets }}')">{% templatetag openvariable %} pdf_tickets {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ pdf_tickets_count }}')">{% templatetag openvariable %} pdf_tickets_count {% templatetag closevariable %}</code><br>
+
+      <h6>3. QR TICKETS</h6>
+      <code onclick="copyToClipboard('{{ qr_tickets }}')">{% templatetag openvariable %} qr_tickets {% templatetag closevariable %}</code><br>
+      <code onclick="copyToClipboard('{{ qr_tickets_count }}')">{% templatetag openvariable %} qr_tickets_count {% templatetag closevariable %}</code><br>
+
+      <h6>4. BOOKING CODE</h6>
+      <code onclick="copyToClipboard('{{ booking_code }}')">{% templatetag openvariable %} booking_code {% templatetag closevariable %}</code><br>
+
+      <h6>5. ENTRY INSTRUCTIONS</h6>
+      <code onclick="copyToClipboard('{{ entry_instructions }}')">{% templatetag openvariable %} entry_instructions {% templatetag closevariable %}</code><br>
+
+      <h6>6. BOX OFFICE COLLECTION</h6>
+      <code onclick="copyToClipboard('{{ box_office_instructions }}')">{% templatetag openvariable %} box_office_instructions {% templatetag closevariable %}</code><br>
+      
+
     </div>
 
     <div class="ae-form-row">
