@@ -501,6 +501,41 @@ class AttractionWaitlistEntry(models.Model):
         return f"{self.user.username} → {self.attraction.name} waitlist"
 
 
+class TermsAndConditions(models.Model):
+    """Singleton model to store editable Terms & Conditions content."""
+    
+    eligibility = models.TextField(
+        default="Attraction and Ticket Draws are available to any member of staff of the University holding a contract of employment with the University. This does not include registered honorary staff, affiliates, or individuals employed directly by other organisations but paid via the University payroll."
+    )
+    application_limits = models.TextField(
+        default="Staff may apply, per calendar year, for a pair of ticket codes for a maximum of 3 Attractions.\n\nStaff may apply for a pair of tickets to each of the Weekly Events (Basketball, Ice Hockey, The Stand) per season.\n\nStaff may enter as many Ticket Draws as they wish and can win 1 per calendar year. Winners will be removed from future draws."
+    )
+    how_to_book = models.TextField(
+        default="Bookings are made via the Ferguson Bequest link within MyGlasgow for Staff. Each individual attraction contains information on how to book. You must select the correct number of tickets required."
+    )
+    attendance = models.TextField(
+        default="Please only apply if you can attend an event or attraction! Your tickets can not necessarily be cancelled and reallocated.\n\nIf, due to unforeseen circumstances, you are unable to attend a pre-booked event or attraction, you may not request further tickets within the same calendar year. Expiry dates cannot be extended and you may not request further tickets within the same calendar year if you do not use your tickets by the expiry date."
+    )
+    conduct = models.TextField(
+        default="During visits, staff should be mindful that they are representing the University of Glasgow and ensure they, and members of their party, conduct themselves in a manner appropriate to the University and its values. Tickets are non-transferable and should not be passed to another person or another staff member. It is your responsibility to ensure the event is suitable for all members of your party."
+    )
+    liability_and_entry = models.TextField(
+        default="The University is in no way liable or responsible for other costs incurred during visits, nor event cancellations or closures. Staff are required to present their staff card and any tickets or confirmations on the day. Staff are subject to venue policies, procedures and safety measures. Tickets are equivalent to event entry on the date advertised and cannot be used as a substitution for monetary value towards goods and/or services."
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = "Terms and Conditions"
+
+    def __str__(self):
+        return "Terms and Conditions"
+
+    @classmethod
+    def get(cls):
+        """Return the singleton instance."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
 class FeedbackEmailTemplate(models.Model):
     """Stores the email template for feedback requests. Only one instance should exist."""
     

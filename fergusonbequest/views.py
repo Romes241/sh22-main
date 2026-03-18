@@ -411,7 +411,9 @@ def calendar_view(request, year=None, month=None):
 
 
 def terms(request):
-    return render(request, "fergusonbequest/terms.html")
+    from .models import TermsAndConditions
+    t_and_c = TermsAndConditions.get()
+    return render(request, "fergusonbequest/terms.html", {'t_and_c': t_and_c})
 
 
 # -----------------------------
@@ -4498,4 +4500,30 @@ def ticket_upload_bulk_delete(request):
 
     return redirect("ticket_upload")
 
+
+@staff_member_required
+def manage_terms_and_conditions(request):
+    """
+    Allow admins to edit Terms and Conditions sections through a web form
+    with live preview.
+    """
+    from .models import TermsAndConditions
+    
+    t_and_c = TermsAndConditions.get()
+    
+    if request.method == 'POST':
+        t_and_c.eligibility = request.POST.get('eligibility', '')
+        t_and_c.application_limits = request.POST.get('application_limits', '')
+        t_and_c.how_to_book = request.POST.get('how_to_book', '')
+        t_and_c.attendance = request.POST.get('attendance', '')
+        t_and_c.conduct = request.POST.get('conduct', '')
+        t_and_c.liability_and_entry = request.POST.get('liability_and_entry', '')
+        t_and_c.save()
+        
+        messages.success(request, "Terms and Conditions updated successfully.")
+        return redirect('manage_terms_and_conditions')
+    
+    return render(request, 'fergusonbequest/manage_terms_and_conditions.html', {
+        't_and_c': t_and_c,
+    })
 User = get_user_model()
