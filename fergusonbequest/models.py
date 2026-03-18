@@ -231,6 +231,7 @@ class Booking(models.Model):
     ]
     ticket_type = models.CharField(max_length=50, choices=TICKET_TYPE_CHOICES, blank=True, null=True)
 
+    feedback_email_sent = models.BooleanField(default=False)
     ticket_sent = models.BooleanField(default=False)
     ticket_sent_at = models.DateTimeField(null=True, blank=True)
     ticket_instructions = models.TextField(blank=True, null=True)
@@ -431,7 +432,7 @@ class EmailTemplate(models.Model):
         ("draw_reminder", "Ticket Draw Reminder"),
 
         # Forms - Feedback
-        #("feedback", "Feedback"),
+        ("feedback", "Feedback"),
 
         # Announcements
         ("announcement", "Announcements"),
@@ -534,3 +535,61 @@ class TermsAndConditions(models.Model):
         """Return the singleton instance."""
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
+
+class FeedbackEmailTemplate(models.Model):
+    """Stores the email template for feedback requests. Only one instance should exist."""
+    
+    subject = models.CharField(
+        max_length=200,
+        default="How was your visit to {attraction_name}?",
+        help_text="Email subject. Use {attraction_name} as placeholder for the attraction name."
+    )
+    
+    body = models.TextField(
+        default="""Dear {user_name},
+
+Thank you for using the Ferguson Bequest to visit {attraction_name} on {visit_date}.
+
+We hope you enjoyed your experience! We'd love to hear your feedback to help us improve the Ferguson Bequest service.
+
+Please take a few moments to complete our feedback form:
+{feedback_url}
+
+Your feedback is valuable and helps us provide better experiences for all University of Glasgow staff.
+
+Best regards,
+The Ferguson Bequest Team
+
+---
+This is an automated email. For queries, contact fergusonbequest@glasgow.ac.uk""",
+        help_text="Email body. Available placeholders: {user_name}, {attraction_name}, {visit_date}, {feedback_url}"
+    )
+    
+    feedback_url = models.URLField(
+        max_length=500,
+        blank=True,
+        default="",
+        help_text="Microsoft Forms feedback URL. Create your form in Microsoft Forms and paste the link here. This field is required to send feedback emails."
+    )
+    
+    enabled = models.BooleanField(
+        default=True,
+        help_text="Uncheck to disable automatic feedback emails"
+    )
+    
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Feedback Email Template"
+        verbose_name_plural = "Feedback Email Template"
+    
+    def __str__(self):
+        return "Feedback Email Template"
+    
+    @classmethod
+    def get_template(cls):
+        """Get or create the singleton template instance."""
+        template, created = cls.objects.get_or_create(pk=1)
+        return template
+
+

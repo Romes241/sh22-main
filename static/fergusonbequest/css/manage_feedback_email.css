@@ -1,0 +1,65 @@
+.feedback-checkbox-wrapper {
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.feedback-checkbox-wrapper input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.placeholder-info {
+  background: #e3f2fd;
+  border-left: 4px solid #2196F3;
+  padding: 15px 20px;
+  margin-bottom: 20px;
+  border-radius: 4px;
+}
+
+.placeholder-info code {
+  background: #fff;
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: #d63384;
+  font-weight: 600;
+}
+
+.preview-box {
+  background: #f8f9fa;
+  border: 2px dashed #dee2e6;
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.preview-email {
+  background: white;
+  padding: 20px;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+}
+
+.preview-subject {
+  font-weight: 700;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.preview-body {
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+textarea.fb-field-textarea {
+  min-height: 300px;
+  font-family: monospace;
+  line-height: 1.6;
+  resize: vertical;
+}

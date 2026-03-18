@@ -7,7 +7,7 @@ from .models import (
     TicketDraw,
     TicketDrawBooking,
     TicketDrawVisitSlot,
-    AttractionSuggestion,
+    AttractionSuggestion, FeedbackEmailTemplate,
     AttractionWaitlistEntry,
     DiscountCode,   # ← 确保导入
 )
@@ -67,6 +67,36 @@ class AttractionSuggestionAdmin(admin.ModelAdmin):
     list_filter = ("status", "created_at")
     search_fields = ("name", "description", "why_recommended", "location", "website_url")
     ordering = ("-created_at",)
+
+
+@admin.register(FeedbackEmailTemplate)
+class FeedbackEmailTemplateAdmin(admin.ModelAdmin):
+    list_display = ("__str__", "enabled", "updated_at")
+    fieldsets = (
+        ("Email Settings", {
+            "fields": ("enabled",),
+            "description": "Enable or disable automatic feedback emails"
+        }),
+        ("Email Content", {
+            "fields": ("subject", "body"),
+            "description": """
+                Customize the feedback email sent to users after their visit.<br><br>
+                <strong>Available placeholders:</strong><br>
+                • <code>{user_name}</code> - User's first name<br>
+                • <code>{attraction_name}</code> - Name of the attraction<br>
+                • <code>{visit_date}</code> - Date of the visit<br>
+                • <code>{feedback_url}</code> - Link to the feedback form
+            """
+        }),
+    )
+    
+    def has_add_permission(self, request):
+        # Only allow one instance
+        return not FeedbackEmailTemplate.objects.exists()
+    
+    def has_delete_permission(self, request, obj=None):
+        # Don't allow deletion
+        return False
 
 
 @admin.register(AttractionWaitlistEntry)

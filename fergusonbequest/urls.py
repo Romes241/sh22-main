@@ -60,6 +60,8 @@ urlpatterns = [
     path("admin-terms-and-conditions/", views.manage_terms_and_conditions, name="manage_terms_and_conditions"),
 
     # Admin create/edit
+    path("manage-feedback-email/", views.manage_feedback_email, name="manage_feedback_email"),
+    path("manage-feedback-email/send-now/", views.trigger_feedback_emails, name="trigger_feedback_emails"),
     path("create-attraction/", views.create_attraction, name="create_attraction"),
     path("edit-attraction/<int:pk>/", views.edit_attraction, name="edit_attraction"),
 
@@ -69,6 +71,9 @@ urlpatterns = [
     # Suggestions export
     path("suggestions/", views.create_attraction_suggestion, name="create_attraction_suggestion"),
     path("admin-export/suggestions.xlsx", views.export_suggestions_excel, name="export_suggestions_excel"),
+    path("waiting-list-attraction/", views.waiting_listattraction, name="waiting_listattraction"),
+    path("waiting-list-attraction/join/<int:pk>/", views.waiting_listattraction_join, name="waiting_listattraction_join"),
+    path("waiting-list-attraction/leave/<int:pk>/", views.waiting_listattraction_leave, name="waiting_listattraction_leave"),
 
     # Discount codes - admin management
     path("staff/discounts/", views.discount_codes_page, name="discount_codes"),
