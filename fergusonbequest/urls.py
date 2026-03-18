@@ -62,6 +62,7 @@ urlpatterns = [
     # Admin create/edit
     path("create-attraction/", views.create_attraction, name="create_attraction"),
     path("edit-attraction/<int:pk>/", views.edit_attraction, name="edit_attraction"),
+
     path("create-ticket-draw/", views.create_ticket_draw, name="create_ticket_draw"),
     path("edit-ticket-draw/<int:pk>/", views.edit_ticket_draw, name="edit_ticket_draw"),
 
