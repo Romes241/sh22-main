@@ -428,6 +428,7 @@ def attractions_view(request):
 
     location = (request.GET.get("location") or "").strip()
     sort = (request.GET.get("sort") or "name").strip()
+    type_filter = (request.GET.get("type") or "").strip()
 
     today = timezone.now().date()
 
@@ -459,6 +460,9 @@ def attractions_view(request):
     else:
         attractions = attractions.order_by("name")
 
+    if type_filter:
+        attractions = attractions.filter(attraction_type=type_filter)
+
     locations = Attraction.objects.values_list("location", flat=True).distinct().order_by("location")
 
     for a in attractions:
@@ -483,8 +487,8 @@ def attractions_view(request):
             "location_filter": location,
             "sort": sort,
             "locations": locations,
-            "types": [],
-            "type_filter": "",
+            "types": ["regular", "weekly_event"],
+            "type_filter": type_filter,
         },
     )
 
@@ -1702,6 +1706,10 @@ def run_draw(request, draw_id):
     now = timezone.now()
     if _call_is_open(draw, now):
         messages.error(request, "This draw is still open. You can only run it after it closes.")
+        return redirect(f"{reverse('admin_management')}?tab=draws")
+
+    if draw.winner_booking:
+        messages.error(request, "This draw has already been run and cannot be run again.")
         return redirect(f"{reverse('admin_management')}?tab=draws")
 
     entries = list(
@@ -4060,15 +4068,11 @@ def individual_booking(request):
     dedupe_codes = bool(request.POST.get("dedupe_codes"))
 
     now = timezone.now()
+    visit_datetime = datetime.combine(booking.slot.date, datetime.min.time())
+    if timezone.is_aware(timezone.now()):
+        visit_datetime = timezone.make_aware(visit_datetime)
 
-    ticket_visible_at_raw = request.POST.get("ticket_visible_at")
-    ticket_visible_at = None
-
-    if ticket_visible_at_raw:
-        from django.utils.dateparse import parse_datetime
-        dt = parse_datetime(ticket_visible_at_raw)
-        if dt:
-            ticket_visible_at = timezone.make_aware(dt, timezone.get_current_timezone())
+    ticket_visible_at = visit_datetime - timedelta(days=3)
 
     # Booking code (generic)
     if ticket_type == "booking_code":
