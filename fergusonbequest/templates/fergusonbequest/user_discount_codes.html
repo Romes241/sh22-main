@@ -1,0 +1,69 @@
+{% extends "fergusonbequest/base.html" %}
+{% load static %}
+
+{% block title %}Discounts – Ferguson Bequest{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'fergusonbequest/css/discount_codes.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="dc-page">
+
+  <div class="dc-header">
+    <div>
+      <h1 class="dc-title">Partner Discounts</h1>
+      <p class="dc-subtitle">
+        Exclusive discount codes from our venue partners, available as part of your Corporate Membership.
+      </p>
+    </div>
+  </div>
+
+  {% if active_codes %}
+    <div class="dc-user-grid">
+      {% for d in active_codes %}
+        <div class="dc-user-card">
+          <div class="dc-user-card__top">
+            <span class="dc-code-chip dc-code-chip--large">{{ d.code }}</span>
+            <span class="dc-badge dc-badge--active">Active</span>
+          </div>
+          <h3 class="dc-user-card__title">{{ d.title }}</h3>
+          {% if d.description %}
+            <p class="dc-user-card__desc">{{ d.description }}</p>
+          {% endif %}
+          <div class="dc-user-card__footer">
+            <span class="dc-user-card__expiry">
+              🗓 Valid until {{ d.valid_until|date:"j F Y" }}
+            </span>
+            <button class="dc-copy-btn" data-code="{{ d.code }}" onclick="copyCode(this)">
+              Copy Code
+            </button>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="dc-panel dc-empty-state">
+      <div class="dc-empty-icon">🎟️</div>
+      <p class="dc-empty-title">No discounts available right now</p>
+      <p class="dc-empty-sub">Check back later — new partner discounts are added regularly.</p>
+    </div>
+  {% endif %}
+
+</div>
+
+<script>
+function copyCode(btn) {
+  const code = btn.dataset.code;
+  navigator.clipboard.writeText(code).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied!';
+    btn.classList.add('dc-copy-btn--copied');
+    setTimeout(() => {
+      btn.textContent = orig;
+      btn.classList.remove('dc-copy-btn--copied');
+    }, 2000);
+  });
+}
+</script>
+{% endblock %}

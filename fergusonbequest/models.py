@@ -3,6 +3,8 @@ from django.utils import timezone
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db.models import Q
+from django.db import IntegrityError
+import uuid
 
 # Create your models here.
 YEAR_LIMIT_DEFAULT = 3
@@ -73,17 +75,6 @@ class Attraction(models.Model):
             self.slots -> all VisitSlot objects linked to this attraction.
         """
         return sum(s.remaining for s in self.slots.all())
-
-    cancel_deadline = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="Users can cancel their booking until this date/time. Leave empty for 'no cancellation allowed'."
-    )
-
-    def can_cancel_booking(self):
-        if not self.cancel_deadline:
-            return False
-        return timezone.now() <= self.cancel_deadline
 
 class TicketDraw(models.Model):
     name = models.CharField(max_length=120)
@@ -196,7 +187,6 @@ class Booking(models.Model):
     attraction = models.ForeignKey("Attraction", on_delete=models.CASCADE)
     slot = models.ForeignKey("VisitSlot", on_delete=models.PROTECT)
 
-    # Data for history
     full_name = models.CharField(max_length=120)
     email = models.EmailField()
 
@@ -216,8 +206,45 @@ class Booking(models.Model):
     agreed_terms = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled = models.BooleanField(default=False)
-    ticket_code = models.CharField(max_length=16, unique=True, null=True, blank=True)
+    ticket_code = models.CharField(max_length=100, blank=True, null=True)
+
+    cancel_deadline = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Users can cancel their booking until this date/time. Leave empty for 'no cancellation allowed'."
+    )
+
+    def can_cancel_booking(self):
+        if not self.cancel_deadline:
+            return False
+        return timezone.now() <= self.cancel_deadline
+
+    TICKET_TYPE_CHOICES = [
+        ("codes", "E-ticket codes"),
+        ("pdf_template", "PDF template"),
+        ("pdf_template_random", "PDF template + random code"),
+        ("pdf_individual", "Individual PDF tickets"),
+        ("qr_individual", "Individual QR tickets"),
+        ("booking_code", "Generic booking code"),
+        ("instructions", "Staff-card instructions"),
+        ("box_office", "Box office collection"),
+    ]
+    ticket_type = models.CharField(max_length=50, choices=TICKET_TYPE_CHOICES, blank=True, null=True)
+
+    feedback_email_sent = models.BooleanField(default=False)
     ticket_sent = models.BooleanField(default=False)
+    ticket_sent_at = models.DateTimeField(null=True, blank=True)
+    ticket_instructions = models.TextField(blank=True, null=True)
+    generic_booking_code = models.CharField(max_length=100, blank=True, null=True)
+    ticket_qr_value = models.TextField(blank=True, null=True)
+    ticket_visible_at = models.DateTimeField(null=True, blank=True)
+    box_office_notes = models.TextField(blank=True, null=True)
+
+    ticket_release_days = models.PositiveSmallIntegerField(
+        default=1,
+        validators=[MinValueValidator(0), MaxValueValidator(30)],
+        help_text="How many days before the visit date the ticket becomes visible to the user."
+    )
 
     class Meta:
         ordering = ("-created_at",)
@@ -237,33 +264,74 @@ class Booking(models.Model):
         return self.created_at.year
 
     def save(self, *args, **kwargs):
-        if not self.ticket_code:
-            import uuid
+        if self.ticket_type == "pdf_template_random" and not self.ticket_code:
             base = "FB-" + uuid.uuid4().hex[:8].upper()
             tries = 0
+
             while tries < 5:
                 if not Booking.objects.filter(ticket_code=base).exists():
                     self.ticket_code = base
                     break
                 base = "FB-" + uuid.uuid4().hex[:8].upper()
                 tries += 1
+
         super().save(*args, **kwargs)
 
+    @property
+    def uploaded_ticket_count(self):
+        return self.tickets.count()
+
+    @property
+    def needs_more_tickets(self):
+        return self.uploaded_ticket_count < self.num_tickets
+
+class BookingTicket(models.Model):
+    booking = models.ForeignKey(
+        Booking,
+        related_name="tickets",
+        on_delete=models.CASCADE
+    )
+    file = models.FileField(upload_to="tickets/")
+    qr_value = models.TextField(blank=True, null=True)
+    ticket_code = models.TextField(blank=True, null=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ("sort_order", "id")
+
+    def __str__(self):
+        return f"Booking #{self.booking_id} Ticket #{self.id}"
+
 class TicketDrawBooking(models.Model):
-    """One reservation. (Using name/email for now; can swap to auth.User later.)"""
+    """A draw entry / winner record. Real tickets live on Booking."""
     ticket_draw = models.ForeignKey('TicketDraw', on_delete=models.CASCADE)
     slot = models.ForeignKey(TicketDrawVisitSlot, on_delete=models.PROTECT)
     full_name = models.CharField(max_length=120)
     email = models.EmailField()
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
-                              blank=True, related_name='ticket_draw_bookings')
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ticket_draw_bookings',
+    )
     num_tickets = models.PositiveIntegerField(default=1)
     agreed_terms = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled = models.BooleanField(default=False)
-    ticket_code = models.CharField(max_length=16, unique=True, null=True, blank=True)
+
+    # draw state only
     is_accepted = models.BooleanField(default=False)
-    ticket_sent = models.BooleanField(default=False)
+
+    # once accepted, create a normal Booking and store it here
+    converted_booking = models.OneToOneField(
+        'Booking',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='source_draw_booking',
+    )
 
     class Meta:
         ordering = ('-created_at',)
@@ -275,20 +343,6 @@ class TicketDrawBooking(models.Model):
     @property
     def year(self):
         return self.created_at.year
-    
-    def save(self, *args, **kwargs):
-        if not self.ticket_code:
-            import uuid
-            base = 'FB-' + uuid.uuid4().hex[:8].upper()
-            from django.db import IntegrityError
-            tries = 0
-            while tries < 5:
-                if not TicketDrawBooking.objects.filter(ticket_code=base).exists():
-                    self.ticket_code = base
-                    break
-                base = 'FB-' + uuid.uuid4().hex[:8].upper()
-                tries += 1
-        super().save(*args, **kwargs)
 
 class Profile(models.Model):
     """User profile to extend default User model."""
@@ -349,7 +403,7 @@ class AttractionSuggestion(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.status})"
-    
+
 class EmailTemplate(models.Model):
     TYPE_CHOICES = [
         # Confirmation
@@ -378,7 +432,7 @@ class EmailTemplate(models.Model):
         ("draw_reminder", "Ticket Draw Reminder"),
 
         # Forms - Feedback
-        #("feedback", "Feedback"),
+        ("feedback", "Feedback"),
 
         # Announcements
         ("announcement", "Announcements"),
@@ -408,18 +462,27 @@ class EmailTemplate(models.Model):
     def __str__(self):
         return f"{self.get_type_display()} – {self.name}"
 
-
 class AttractionWaitlistEntry(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="attraction_waitlist_entries",
     )
+
     attraction = models.ForeignKey(
         "Attraction",
         on_delete=models.CASCADE,
         related_name="waitlist_entries",
     )
+
+    slot = models.ForeignKey(
+        "VisitSlot",
+        on_delete=models.CASCADE,
+        related_name="waitlist_entries",
+        null=True,
+        blank=True,
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled = models.BooleanField(default=False)
     notified = models.BooleanField(default=False)
@@ -428,12 +491,105 @@ class AttractionWaitlistEntry(models.Model):
         ordering = ("-created_at",)
         constraints = [
             models.UniqueConstraint(
-                fields=["user", "attraction"],
+                fields=["user", "slot"],
                 condition=Q(cancelled=False),
-                name="unique_active_attraction_waitlist",
+                name="unique_active_slot_waitlist",
             )
         ]
 
     def __str__(self):
         return f"{self.user.username} → {self.attraction.name} waitlist"
+
+
+class TermsAndConditions(models.Model):
+    """Singleton model to store editable Terms & Conditions content."""
+    
+    eligibility = models.TextField(
+        default="Attraction and Ticket Draws are available to any member of staff of the University holding a contract of employment with the University. This does not include registered honorary staff, affiliates, or individuals employed directly by other organisations but paid via the University payroll."
+    )
+    application_limits = models.TextField(
+        default="Staff may apply, per calendar year, for a pair of ticket codes for a maximum of 3 Attractions.\n\nStaff may apply for a pair of tickets to each of the Weekly Events (Basketball, Ice Hockey, The Stand) per season.\n\nStaff may enter as many Ticket Draws as they wish and can win 1 per calendar year. Winners will be removed from future draws."
+    )
+    how_to_book = models.TextField(
+        default="Bookings are made via the Ferguson Bequest link within MyGlasgow for Staff. Each individual attraction contains information on how to book. You must select the correct number of tickets required."
+    )
+    attendance = models.TextField(
+        default="Please only apply if you can attend an event or attraction! Your tickets can not necessarily be cancelled and reallocated.\n\nIf, due to unforeseen circumstances, you are unable to attend a pre-booked event or attraction, you may not request further tickets within the same calendar year. Expiry dates cannot be extended and you may not request further tickets within the same calendar year if you do not use your tickets by the expiry date."
+    )
+    conduct = models.TextField(
+        default="During visits, staff should be mindful that they are representing the University of Glasgow and ensure they, and members of their party, conduct themselves in a manner appropriate to the University and its values. Tickets are non-transferable and should not be passed to another person or another staff member. It is your responsibility to ensure the event is suitable for all members of your party."
+    )
+    liability_and_entry = models.TextField(
+        default="The University is in no way liable or responsible for other costs incurred during visits, nor event cancellations or closures. Staff are required to present their staff card and any tickets or confirmations on the day. Staff are subject to venue policies, procedures and safety measures. Tickets are equivalent to event entry on the date advertised and cannot be used as a substitution for monetary value towards goods and/or services."
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = "Terms and Conditions"
+
+    def __str__(self):
+        return "Terms and Conditions"
+
+    @classmethod
+    def get(cls):
+        """Return the singleton instance."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+class FeedbackEmailTemplate(models.Model):
+    """Stores the email template for feedback requests. Only one instance should exist."""
+    
+    subject = models.CharField(
+        max_length=200,
+        default="How was your visit to {attraction_name}?",
+        help_text="Email subject. Use {attraction_name} as placeholder for the attraction name."
+    )
+    
+    body = models.TextField(
+        default="""Dear {user_name},
+
+Thank you for using the Ferguson Bequest to visit {attraction_name} on {visit_date}.
+
+We hope you enjoyed your experience! We'd love to hear your feedback to help us improve the Ferguson Bequest service.
+
+Please take a few moments to complete our feedback form:
+{feedback_url}
+
+Your feedback is valuable and helps us provide better experiences for all University of Glasgow staff.
+
+Best regards,
+The Ferguson Bequest Team
+
+---
+This is an automated email. For queries, contact fergusonbequest@glasgow.ac.uk""",
+        help_text="Email body. Available placeholders: {user_name}, {attraction_name}, {visit_date}, {feedback_url}"
+    )
+    
+    feedback_url = models.URLField(
+        max_length=500,
+        blank=True,
+        default="",
+        help_text="Microsoft Forms feedback URL. Create your form in Microsoft Forms and paste the link here. This field is required to send feedback emails."
+    )
+    
+    enabled = models.BooleanField(
+        default=True,
+        help_text="Uncheck to disable automatic feedback emails"
+    )
+    
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Feedback Email Template"
+        verbose_name_plural = "Feedback Email Template"
+    
+    def __str__(self):
+        return "Feedback Email Template"
+    
+    @classmethod
+    def get_template(cls):
+        """Get or create the singleton template instance."""
+        template, created = cls.objects.get_or_create(pk=1)
+        return template
+
 

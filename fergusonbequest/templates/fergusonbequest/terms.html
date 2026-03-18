@@ -1,10 +1,11 @@
 {% extends "fergusonbequest/base.html" %}
 {% load static %}
 
-{% block title %}Home – Ferguson Bequest{% endblock %}
+{% block title %}Terms &amp; Conditions – Ferguson Bequest{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'fergusonbequest/css/home.css' %}">
+<link rel="stylesheet" href="{% static 'fergusonbequest/css/terms.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -13,56 +14,43 @@
 
     <h1>Terms &amp; Conditions</h1>
 
-    <p><strong>Before Staff apply for Attraction Tickets and Ticket Draws, they should be aware of the T&amp;Cs:</strong></p>
+    <div class="terms-intro">
+        <span>Before Staff apply for Attraction Tickets and Ticket Draws, they should be aware of the T&amp;Cs below.</span>
+    </div>
 
-    <p>
-        Attraction and Ticket Draws are available to any member of staff of the University, holding a contract of employment with the University.
-        This does not include registered honorary staff, affiliates, or individuals employed directly by other organisations but paid via the University payroll.
-    </p>
+    <div class="terms-grid">
 
-    <p>Staff may apply to <strong>3 attractions per calendar year.</strong> Weekly Ticket Draws are exempt, and a user may enter draws as they wish until any one draw day.</p>
+        <div class="terms-block">
+            <p class="terms-block__title">Eligibility</p>
+            {{ t_and_c.eligibility|safe|linebreaks }}
+        </div>
 
-    <p>Ticket winners will be removed from further draws.</p>
+        <div class="terms-block">
+            <p class="terms-block__title">Application Limits</p>
+            {{ t_and_c.application_limits|safe|linebreaks }}
+        </div>
 
-    <p>Bookings are made via the MyCampus link to the Ferguson Bequest.</p>
+        <div class="terms-block">
+            <p class="terms-block__title">How to Book</p>
+            {{ t_and_c.how_to_book|safe|linebreaks }}
+        </div>
 
-    <p>Information for booking will be emailed to you when you apply.</p>
+        <div class="terms-block terms-block--warning">
+            <p class="terms-block__title">⚠ Attendance</p>
+            {{ t_and_c.attendance|safe|linebreaks }}
+        </div>
 
-    <p>You must select the <strong>correct number of tickets</strong> required if applying for block attractions in advance without the information.</p>
+        <div class="terms-block">
+            <p class="terms-block__title">Conduct &amp; Transferability</p>
+            {{ t_and_c.conduct|safe|linebreaks }}
+        </div>
 
-    <p><strong>Please, please, only apply if you are able to attend.</strong> We cannot reallocate your ticket(s), and you <strong>may lose the chance</strong> to obtain further tickets.</p>
+        <div class="terms-block">
+            <p class="terms-block__title">Liability &amp; Entry</p>
+            {{ t_and_c.liability_and_entry|safe|linebreaks }}
+        </div>
 
-    <p>
-        If you are unable to attend an attraction for any reason, please contact:
-        <a href="mailto:fergusonbequest@glasgow.ac.uk">fergusonbequest@glasgow.ac.uk</a>.
-        However, if the course has been reallocated then it may affect further tickets in the same calendar year.
-    </p>
-
-    <p>
-        If, due to unforeseen circumstances, you are unable to attend a booked attraction, you may request further tickets for that attraction within the year.
-    </p>
-
-    <p>
-        It is the responsibility of the member of staff to ensure that their details are correct and suitable at the point of any future booking.
-    </p>
-
-    <p>
-        Tickets are non-transferable and cannot be passed on to another staff member or third party.
-        Conduct breaches or behaviours that do not support appropriate staff conduct may affect the University’s aid or values.
-    </p>
-
-    <p>
-        Tickets are non-refundable and cannot be used for admission to University-related events, University-owned goods and services.
-    </p>
-
-    <p>
-        The University is in no way liable or responsible for site closures caused during visits, nor for attraction cancellations or closures.
-    </p>
-
-    <p>
-        Staff are required to present their staff card and confirmation email, as well as any tickets, on the day.
-        Failure to do so will result in entry being denied and loss of that attraction being applied.
-    </p>
+    </div>
 
 </div>
 
