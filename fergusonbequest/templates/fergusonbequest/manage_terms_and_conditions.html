@@ -1,0 +1,120 @@
+{% extends 'fergusonbequest/base.html' %}
+{% load static %}
+
+{% block title %}Manage Terms & Conditions - Ferguson Bequest{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'fergusonbequest/css/manage_terms_and_conditions.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<h1 class="fb-h1">⚖️ Manage Terms & Conditions</h1>
+
+<div style="background-color: #e7f3fe; border-left: 4px solid #084298; padding: 12px 16px; margin-bottom: 20px; border-radius: 4px;">
+  <strong>How to use:</strong> Select any text and click <strong>Toggle Bold</strong>. Click it again on selected bold text to remove bold.
+</div>
+
+<form method="post" id="t-and-c-form" class="fb-tc-form">
+  {% csrf_token %}
+  
+  <div class="fb-form-row">
+    <label class="fb-label">Eligibility</label>
+    <div class="fb-tc-field-group">
+      <button type="button" class="fb-btn fb-btn--primary fb-tc-bold-btn" onclick="toggleBold('eligibility')" title="Select text first, then click to toggle bold">Toggle Bold</button>
+      <textarea name="eligibility" id="eligibility" class="fb-tc-textarea">{{ t_and_c.eligibility }}</textarea>
+    </div>
+  </div>
+  
+  <div class="fb-form-row">
+    <label class="fb-label">Application Limits</label>
+    <div class="fb-tc-field-group">
+      <button type="button" class="fb-btn fb-btn--primary fb-tc-bold-btn" onclick="toggleBold('application_limits')" title="Select text first, then click to toggle bold">Toggle Bold</button>
+      <textarea name="application_limits" id="application_limits" class="fb-tc-textarea">{{ t_and_c.application_limits }}</textarea>
+    </div>
+  </div>
+  
+  <div class="fb-form-row">
+    <label class="fb-label">How to Book</label>
+    <div class="fb-tc-field-group">
+      <button type="button" class="fb-btn fb-btn--primary fb-tc-bold-btn" onclick="toggleBold('how_to_book')" title="Select text first, then click to toggle bold">Toggle Bold</button>
+      <textarea name="how_to_book" id="how_to_book" class="fb-tc-textarea">{{ t_and_c.how_to_book }}</textarea>
+    </div>
+  </div>
+  
+  <div class="fb-form-row">
+    <label class="fb-label">Attendance</label>
+    <div class="fb-tc-field-group">
+      <button type="button" class="fb-btn fb-btn--primary fb-tc-bold-btn" onclick="toggleBold('attendance')" title="Select text first, then click to toggle bold">Toggle Bold</button>
+      <textarea name="attendance" id="attendance" class="fb-tc-textarea">{{ t_and_c.attendance }}</textarea>
+    </div>
+  </div>
+  
+  <div class="fb-form-row">
+    <label class="fb-label">Conduct & Transferability</label>
+    <div class="fb-tc-field-group">
+      <button type="button" class="fb-btn fb-btn--primary fb-tc-bold-btn" onclick="toggleBold('conduct')" title="Select text first, then click to toggle bold">Toggle Bold</button>
+      <textarea name="conduct" id="conduct" class="fb-tc-textarea">{{ t_and_c.conduct }}</textarea>
+    </div>
+  </div>
+  
+  <div class="fb-form-row">
+    <label class="fb-label">Liability & Entry</label>
+    <div class="fb-tc-field-group">
+      <button type="button" class="fb-btn fb-btn--primary fb-tc-bold-btn" onclick="toggleBold('liability_and_entry')" title="Select text first, then click to toggle bold">Toggle Bold</button>
+      <textarea name="liability_and_entry" id="liability_and_entry" class="fb-tc-textarea">{{ t_and_c.liability_and_entry }}</textarea>
+    </div>
+  </div>
+  
+  <div class="mt-4" style="display: flex; gap: 1rem; flex-wrap: wrap;">
+    <button type="submit" class="fb-btn fb-btn--primary">💾 Save Changes</button>
+    <a href="{% url 'admin_dashboard' %}" class="fb-btn">← Back to Dashboard</a>
+  </div>
+</form>
+
+<script>
+  function toggleBold(fieldId) {
+    const textarea = document.getElementById(fieldId);
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = textarea.value.substring(start, end);
+    
+    if (!selectedText) {
+      alert('Please select text to toggle bold');
+      return;
+    }
+
+    const openTag = '<strong>';
+    const closeTag = '</strong>';
+    const value = textarea.value;
+    const before = value.substring(0, start);
+    const after = value.substring(end);
+
+    let newValue;
+
+    if (before.endsWith(openTag) && after.startsWith(closeTag)) {
+      newValue = before.slice(0, -openTag.length) + selectedText + after.slice(closeTag.length);
+      textarea.value = newValue;
+      textarea.focus();
+      textarea.setSelectionRange(start - openTag.length, end - openTag.length);
+      return;
+    }
+
+    if (selectedText.startsWith(openTag) && selectedText.endsWith(closeTag)) {
+      const unwrapped = selectedText.slice(openTag.length, selectedText.length - closeTag.length);
+      newValue = before + unwrapped + after;
+      textarea.value = newValue;
+      textarea.focus();
+      textarea.setSelectionRange(start, start + unwrapped.length);
+      return;
+    }
+
+    const wrapped = openTag + selectedText + closeTag;
+    newValue = before + wrapped + after;
+    textarea.value = newValue;
+    textarea.focus();
+    textarea.setSelectionRange(start + openTag.length, start + openTag.length + selectedText.length);
+  }
+</script>
+
+{% endblock %}

@@ -1,4 +1,18 @@
 from datetime import datetime, timedelta
+import calendar
+import csv
+import random
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth import login, logout, get_user_model
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django import forms
+from django.conf import settings
+from .models import Attraction, VisitSlot, Booking, Profile, TicketDraw, TicketDrawBooking, TicketDrawVisitSlot
+from .forms import BookingForm, AttractionCreateForm, TicketDrawCreateForm, FeedbackEmailTemplateForm
+from django.utils import timezone
+import datetime
+from operator import itemgetter
 
 from django import forms
 from django.conf import settings
@@ -52,10 +66,20 @@ from .models import (
     AttractionWaitlistEntry,
     DiscountCode,
     EmailTemplate, BookingTicket,
+    EmailTemplate,
+    FeedbackEmailTemplate,
+)
+
+from .forms import (
+    BookingForm,
+    AttractionCreateForm,
+    TicketDrawCreateForm,
+    EmailAuthenticationForm,
 )
 
 from .forms_discount_codes import DiscountCodeForm
 from .forms_suggestions import AttractionSuggestionForm
+
 User = get_user_model()
 
 # Business rule: max 3 bookings per calendar year (regular) and 3 per year (weekly_event) unless overridden elsewhere.
@@ -387,7 +411,9 @@ def calendar_view(request, year=None, month=None):
 
 
 def terms(request):
-    return render(request, "fergusonbequest/terms.html")
+    from .models import TermsAndConditions
+    t_and_c = TermsAndConditions.get()
+    return render(request, "fergusonbequest/terms.html", {'t_and_c': t_and_c})
 
 
 # -----------------------------
@@ -813,17 +839,103 @@ def booking_history(request):
 
     future_all = sorted(future_bookings + future_draws, key=sort_key, reverse=reverse_sort)
     past_all = sorted(past_bookings + past_draws, key=sort_key, reverse=reverse_sort)
-    return render(request, "fergusonbequest/booking_history.html", {
-        "future_bookings": future_all,
-        "past_bookings": past_all,
-        "remaining_allowance": remaining_allowance,
-        "today": today,
-        "user_ticket_url_template": reverse("user_ticket_view", args=[999999]),
+
+    return render(
+        request,
+        "fergusonbequest/booking_history.html",
+        {
+            "future_bookings": future_all,
+            "past_bookings": past_all,
+            "when": when,
+            "status": status,
+            "venue": venue,
+            "q": q,
+            "start": start,
+            "end": end,
+            "sort": sort,
+            "now": timezone.now(),
+            "remaining_allowance": remaining_allowance,
+            "max_allowance": MAX_ATTRACTIONS_PER_YEAR,
+            "today": today,
+            "user_ticket_url_template": reverse("user_ticket_view", args=[999999]),
+        },
+    )
+
+@staff_member_required
+def manage_feedback_email(request):
+    """
+    Allow admins to edit the feedback email template through a simple web form.
+    """
+    template = FeedbackEmailTemplate.get_template()
+
+    feedback_email_template = (
+        EmailTemplate.objects.filter(type="feedback", is_default=True).first()
+        or EmailTemplate.objects.filter(type="feedback").first()
+    )
+
+    if feedback_email_template:
+        changed_fields = []
+        if template.subject != feedback_email_template.subject:
+            template.subject = feedback_email_template.subject
+            changed_fields.append("subject")
+        if template.body != feedback_email_template.body:
+            template.body = feedback_email_template.body
+            changed_fields.append("body")
+        if changed_fields:
+            template.save(update_fields=changed_fields)
+    
+    if request.method == 'POST':
+        form = FeedbackEmailTemplateForm(request.POST, instance=template)
+        if form.is_valid():
+            saved_template = form.save()
+
+            email_template_defaults = {
+                "name": "Feedback Template",
+                "subject": saved_template.subject,
+                "body": saved_template.body,
+                "is_default": True,
+            }
+
+            feedback_email_template = (
+                EmailTemplate.objects.filter(type="feedback", is_default=True).first()
+                or EmailTemplate.objects.filter(type="feedback").first()
+            )
+
+            if feedback_email_template:
+                feedback_email_template.subject = saved_template.subject
+                feedback_email_template.body = saved_template.body
+                if not feedback_email_template.is_default:
+                    EmailTemplate.objects.filter(type="feedback").update(is_default=False)
+                    feedback_email_template.is_default = True
+                feedback_email_template.save()
+            else:
+                EmailTemplate.objects.filter(type="feedback").update(is_default=False)
+                EmailTemplate.objects.create(type="feedback", **email_template_defaults)
+
+            messages.success(request, 'Feedback email settings saved successfully!')
+            return redirect('manage_feedback_email')
+    else:
+        form = FeedbackEmailTemplateForm(instance=template)
+    
+    return render(request, 'fergusonbequest/manage_feedback_email.html', {
+        'form': form,
+        'template': template,
     })
 
 
+@staff_member_required
 @require_POST
-@login_required
+def trigger_feedback_emails(request):
+    """Allow staff to manually trigger the feedback email send from the web UI."""
+    from .scheduler import send_scheduled_feedback_emails
+    try:
+        send_scheduled_feedback_emails()
+        messages.success(request, 'Feedback emails sent successfully.')
+    except Exception as e:
+        messages.error(request, f'Error sending feedback emails: {e}')
+    return redirect('manage_feedback_email')
+
+
 @require_POST
 @login_required
 def cancel_booking(request, pk):
@@ -2079,6 +2191,8 @@ def admin_email(request):
     if template_id:
         selected_template = get_object_or_404(EmailTemplate, id=template_id)
 
+    feedback_settings = FeedbackEmailTemplate.get_template() if selected_type == "feedback" else None
+
     # POST actions
     if request.method == "POST" and selected_template:
 
@@ -2090,17 +2204,34 @@ def admin_email(request):
             selected_template.subject = subject
             selected_template.body = body
             selected_template.save()
+            
+            if selected_template.type == "feedback":
+                feedback_singleton = FeedbackEmailTemplate.get_template()
+                feedback_singleton.subject = subject
+                feedback_singleton.body = body
+                feedback_singleton.enabled = request.POST.get("feedback_enabled") == "on"
+                feedback_singleton.feedback_url = request.POST.get("feedback_url", "").strip()
+                feedback_singleton.save(update_fields=["subject", "body", "enabled", "feedback_url"])
+            
             messages.success(request, "Template saved")
 
         # SEND TEST
         elif "send" in request.POST:
             context = get_email_context(user=request.user)
+            if selected_template.type == "feedback":
+                feedback_singleton = FeedbackEmailTemplate.get_template()
+                context["feedback_url"] = feedback_singleton.feedback_url
             send_template_email(
                 selected_template.type,
                 request.user.email,  # send to yourself
                 context,
             )
             messages.success(request, "Test email sent")
+
+        elif "send_feedback_now" in request.POST and selected_template.type == "feedback":
+            from .scheduler import send_scheduled_feedback_emails
+            send_scheduled_feedback_emails()
+            messages.success(request, "Feedback emails job ran successfully")
 
         elif "send_announcement_all" in request.POST:
             selected_template.subject = subject
@@ -2182,6 +2313,7 @@ def admin_email(request):
         "templates": templates,
         "selected_template": selected_template,
         "selected_type": selected_type,
+        "feedback_settings": feedback_settings,
         "all_users": User.objects.all().order_by("last_name", "first_name"),
     }
 
@@ -2189,8 +2321,11 @@ def admin_email(request):
 
 
 def send_template_email(template_type, recipient, context_dict, attachments=None):
-    template = EmailTemplate.objects.filter(type=template_type).first()
-    
+    template = (
+        EmailTemplate.objects.filter(type=template_type, is_default=True).first()
+        or EmailTemplate.objects.filter(type=template_type).first()
+    )
+
     if not template:
         return
         
@@ -2385,6 +2520,19 @@ def send_custom_email(user):
         user.email,
         context,
     )
+
+
+def send_feedback_email_request(booking, feedback_url):
+    recipient = booking.user.email if booking.user and booking.user.email else booking.email
+    context = get_email_context(booking=booking, feedback_url=feedback_url)
+    send_template_email(
+        "feedback",
+        recipient,
+        context,
+    )
+    
+
+
 
 
 def get_email_context(booking=None, draw_booking=None, user=None, **kwargs):
@@ -4352,4 +4500,30 @@ def ticket_upload_bulk_delete(request):
 
     return redirect("ticket_upload")
 
+
+@staff_member_required
+def manage_terms_and_conditions(request):
+    """
+    Allow admins to edit Terms and Conditions sections through a web form
+    with live preview.
+    """
+    from .models import TermsAndConditions
+    
+    t_and_c = TermsAndConditions.get()
+    
+    if request.method == 'POST':
+        t_and_c.eligibility = request.POST.get('eligibility', '')
+        t_and_c.application_limits = request.POST.get('application_limits', '')
+        t_and_c.how_to_book = request.POST.get('how_to_book', '')
+        t_and_c.attendance = request.POST.get('attendance', '')
+        t_and_c.conduct = request.POST.get('conduct', '')
+        t_and_c.liability_and_entry = request.POST.get('liability_and_entry', '')
+        t_and_c.save()
+        
+        messages.success(request, "Terms and Conditions updated successfully.")
+        return redirect('manage_terms_and_conditions')
+    
+    return render(request, 'fergusonbequest/manage_terms_and_conditions.html', {
+        't_and_c': t_and_c,
+    })
 User = get_user_model()

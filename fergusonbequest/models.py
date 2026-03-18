@@ -231,6 +231,7 @@ class Booking(models.Model):
     ]
     ticket_type = models.CharField(max_length=50, choices=TICKET_TYPE_CHOICES, blank=True, null=True)
 
+    feedback_email_sent = models.BooleanField(default=False)
     ticket_sent = models.BooleanField(default=False)
     ticket_sent_at = models.DateTimeField(null=True, blank=True)
     ticket_instructions = models.TextField(blank=True, null=True)
@@ -431,7 +432,7 @@ class EmailTemplate(models.Model):
         ("draw_reminder", "Ticket Draw Reminder"),
 
         # Forms - Feedback
-        #("feedback", "Feedback"),
+        ("feedback", "Feedback"),
 
         # Announcements
         ("announcement", "Announcements"),
@@ -498,4 +499,97 @@ class AttractionWaitlistEntry(models.Model):
 
     def __str__(self):
         return f"{self.user.username} → {self.attraction.name} waitlist"
+
+
+class TermsAndConditions(models.Model):
+    """Singleton model to store editable Terms & Conditions content."""
+    
+    eligibility = models.TextField(
+        default="Attraction and Ticket Draws are available to any member of staff of the University holding a contract of employment with the University. This does not include registered honorary staff, affiliates, or individuals employed directly by other organisations but paid via the University payroll."
+    )
+    application_limits = models.TextField(
+        default="Staff may apply, per calendar year, for a pair of ticket codes for a maximum of 3 Attractions.\n\nStaff may apply for a pair of tickets to each of the Weekly Events (Basketball, Ice Hockey, The Stand) per season.\n\nStaff may enter as many Ticket Draws as they wish and can win 1 per calendar year. Winners will be removed from future draws."
+    )
+    how_to_book = models.TextField(
+        default="Bookings are made via the Ferguson Bequest link within MyGlasgow for Staff. Each individual attraction contains information on how to book. You must select the correct number of tickets required."
+    )
+    attendance = models.TextField(
+        default="Please only apply if you can attend an event or attraction! Your tickets can not necessarily be cancelled and reallocated.\n\nIf, due to unforeseen circumstances, you are unable to attend a pre-booked event or attraction, you may not request further tickets within the same calendar year. Expiry dates cannot be extended and you may not request further tickets within the same calendar year if you do not use your tickets by the expiry date."
+    )
+    conduct = models.TextField(
+        default="During visits, staff should be mindful that they are representing the University of Glasgow and ensure they, and members of their party, conduct themselves in a manner appropriate to the University and its values. Tickets are non-transferable and should not be passed to another person or another staff member. It is your responsibility to ensure the event is suitable for all members of your party."
+    )
+    liability_and_entry = models.TextField(
+        default="The University is in no way liable or responsible for other costs incurred during visits, nor event cancellations or closures. Staff are required to present their staff card and any tickets or confirmations on the day. Staff are subject to venue policies, procedures and safety measures. Tickets are equivalent to event entry on the date advertised and cannot be used as a substitution for monetary value towards goods and/or services."
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = "Terms and Conditions"
+
+    def __str__(self):
+        return "Terms and Conditions"
+
+    @classmethod
+    def get(cls):
+        """Return the singleton instance."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+class FeedbackEmailTemplate(models.Model):
+    """Stores the email template for feedback requests. Only one instance should exist."""
+    
+    subject = models.CharField(
+        max_length=200,
+        default="How was your visit to {attraction_name}?",
+        help_text="Email subject. Use {attraction_name} as placeholder for the attraction name."
+    )
+    
+    body = models.TextField(
+        default="""Dear {user_name},
+
+Thank you for using the Ferguson Bequest to visit {attraction_name} on {visit_date}.
+
+We hope you enjoyed your experience! We'd love to hear your feedback to help us improve the Ferguson Bequest service.
+
+Please take a few moments to complete our feedback form:
+{feedback_url}
+
+Your feedback is valuable and helps us provide better experiences for all University of Glasgow staff.
+
+Best regards,
+The Ferguson Bequest Team
+
+---
+This is an automated email. For queries, contact fergusonbequest@glasgow.ac.uk""",
+        help_text="Email body. Available placeholders: {user_name}, {attraction_name}, {visit_date}, {feedback_url}"
+    )
+    
+    feedback_url = models.URLField(
+        max_length=500,
+        blank=True,
+        default="",
+        help_text="Microsoft Forms feedback URL. Create your form in Microsoft Forms and paste the link here. This field is required to send feedback emails."
+    )
+    
+    enabled = models.BooleanField(
+        default=True,
+        help_text="Uncheck to disable automatic feedback emails"
+    )
+    
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Feedback Email Template"
+        verbose_name_plural = "Feedback Email Template"
+    
+    def __str__(self):
+        return "Feedback Email Template"
+    
+    @classmethod
+    def get_template(cls):
+        """Get or create the singleton template instance."""
+        template, created = cls.objects.get_or_create(pk=1)
+        return template
+
 
