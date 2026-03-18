@@ -2320,7 +2320,7 @@ def admin_email(request):
     return render(request, "fergusonbequest/admin_email.html", context)
 
 
-def send_template_email(template_type, recipient, context_dict):
+def send_template_email(template_type, recipient, context_dict, attachments=None):
     template = (
         EmailTemplate.objects.filter(type=template_type, is_default=True).first()
         or EmailTemplate.objects.filter(type=template_type).first()
