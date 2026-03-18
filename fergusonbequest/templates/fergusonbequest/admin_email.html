@@ -84,6 +84,9 @@
   
   {% elif selected_type == "draw_reminder" %}
     <p>Sent 1 day before a draw event (if the user has tickets). Reminds them of their upcoming visit and provides ticket information.</p>
+
+  {% elif selected_type == "feedback" %}
+    <p> Sent automatically to users after their visit to request feedback. You can customise the content of the email and include the URL to the feedback from. You can also trigger these emails to be sent manually to all eligible users <p>
   
   {% elif selected_type == "announcement" %}
     <p>General announcements sent to all users.</p>
