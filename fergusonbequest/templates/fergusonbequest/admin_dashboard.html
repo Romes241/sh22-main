@@ -31,7 +31,7 @@
       </div>
     </a>
 
-    <a class="ad-card" href="/admin/fergusonbequest/booking/">
+    <a class="ad-card" <a href="{% url 'admin_reports' %}" >
       <div class="ad-card__icon" aria-hidden="true">📖</div>
       <div class="ad-card__text">
         <div class="ad-card__label">Bookings</div>
@@ -39,11 +39,11 @@
       </div>
     </a>
 
-    <a class="ad-card" href="/admin/fergusonbequest/ticketdrawbooking/">
-      <div class="ad-card__icon" aria-hidden="true">🕒</div>
+    <a class="ad-card" href="{% url 'ticket_upload' %}">
+      <div class="ad-card__icon" aria-hidden="true">🎫</div>
       <div class="ad-card__text">
-        <div class="ad-card__label">Pending Requests</div>
-        <div class="ad-card__value">{{ pending_requests_count }}</div>
+        <div class="ad-card__label">Bookings Needing Tickets</div>
+        <div class="ad-card__value">{{ bookings_needing_tickets_count }}</div>
       </div>
     </a>
   </div>

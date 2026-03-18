@@ -1,22 +1,6 @@
 from datetime import datetime, timedelta
-import calendar
-import csv
-import random
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import login, logout, get_user_model
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
 from django import forms
 from django.conf import settings
-from .models import Attraction, VisitSlot, Booking, Profile, TicketDraw, TicketDrawBooking, TicketDrawVisitSlot
-from .forms import BookingForm, AttractionCreateForm, TicketDrawCreateForm, FeedbackEmailTemplateForm
-from django.utils import timezone
-import datetime
-from operator import itemgetter
-
-from django import forms
-from django.conf import settings
-from django.contrib import messages
 from django.contrib.auth import get_user_model, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
@@ -31,7 +15,6 @@ from django.urls import reverse, reverse_lazy
 from django.utils.dateparse import parse_date
 from django.utils.text import slugify
 
-from django.utils.safestring import mark_safe
 from openpyxl import Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.utils import get_column_letter
@@ -47,13 +30,6 @@ from django.http import HttpResponse, FileResponse, HttpResponseForbidden, JsonR
 from django.utils import timezone
 from django.contrib import messages
 from django.views.decorators.http import require_POST, require_http_methods
-from .forms import (
-    BookingForm,
-    AttractionCreateForm,
-    TicketDrawCreateForm,
-    EmailAuthenticationForm,
-)
-from .forms_suggestions import AttractionSuggestionForm
 from .models import (
     Attraction,
     VisitSlot,
@@ -75,6 +51,7 @@ from .forms import (
     AttractionCreateForm,
     TicketDrawCreateForm,
     EmailAuthenticationForm,
+    FeedbackEmailTemplateForm
 )
 
 from .forms_discount_codes import DiscountCodeForm
@@ -621,7 +598,7 @@ def booking_view(request, attraction_pk):
     booking.email = user.email
 
     visit_datetime = datetime.combine(booking.slot.date, datetime.min.time())
-    
+
     # Make it timezone-aware if needed
     if timezone.is_aware(timezone.now()):
         import pytz
@@ -1628,7 +1605,11 @@ def admin_dashboard(request):
     open_venues_count = sum(1 for a in Attraction.objects.all() if _call_is_open(a, now))
 
     bookings_count = Booking.objects.filter(cancelled=False).count()
-    pending_requests_count = TicketDrawBooking.objects.filter(cancelled=False).count()
+    # Bookings and ticket draw booking unsent and canceled
+    bookings_needing_tickets_count = Booking.objects.filter(
+        cancelled=False,
+        ticket_sent=False
+    ).aggregate(total=Sum("num_tickets"))["total"] or 0
 
     return render(
         request,
@@ -1637,7 +1618,7 @@ def admin_dashboard(request):
             "active_draws_count": active_draws_count,
             "open_venues_count": open_venues_count,
             "bookings_count": bookings_count,
-            "pending_requests_count": pending_requests_count,
+            "bookings_needing_tickets_count": bookings_needing_tickets_count,
         },
     )
 
@@ -1650,7 +1631,7 @@ def admin_management(request):
     sort_draws = request.GET.get("sort_draws", "close_date_desc")
     sort_attractions = request.GET.get("sort_attractions", "date_desc")
 
-    draws_qs = TicketDraw.objects.all()
+    draws_qs = TicketDraw.objects.annotate(entry_count=Count("ticketdrawbooking"))
     attractions_qs = Attraction.objects.all()
 
     if q:
@@ -2646,7 +2627,10 @@ def get_email_context(booking=None, draw_booking=None, user=None, **kwargs):
             ]
         
         elif booking.ticket_type == "booking_code" and booking.generic_booking_code:
-            booking_code = booking.generic_booking_code
+            return HttpResponse(
+                f"Booking Code: {booking.generic_booking_code}",
+                content_type="text/plain",
+            )
         
         elif booking.ticket_type == "instructions" and booking.ticket_instructions:
             entry_instructions = booking.ticket_instructions
@@ -3612,6 +3596,12 @@ def _ticket_response_for_booking(booking):
     if booking.ticket_type == "codes":
         return HttpResponse(
             f"Ticket Code: {booking.ticket_code}",
+            content_type="text/plain",
+        )
+
+    if booking.ticket_type == "booking_code" and booking.generic_booking_code:
+        return HttpResponse(
+            f"Booking Code: {booking.generic_booking_code}",
             content_type="text/plain",
         )
 

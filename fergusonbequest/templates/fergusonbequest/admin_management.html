@@ -69,6 +69,7 @@
           </div>
 
           <div class="mng-meta">
+              <span class="mng-muted">Entries: {{ draw.entry_count }}   </span>
               {% if draw.winner_booking and not draw.winner_booking.cancelled %}
                 <span class="mng-muted">
                   Winner: <strong>{{ draw.winner_booking.full_name }}</strong>
