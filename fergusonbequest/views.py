@@ -254,6 +254,8 @@ class CustomLoginView(LoginView):
     authentication_form = EmailAuthenticationForm
 
     def get_success_url(self):
+        if self.request.user.is_staff:
+            return reverse_lazy("admin_dashboard")
         return reverse_lazy("home")
 
 
@@ -503,6 +505,8 @@ def attraction(request, pk):
 
     remaining_allowance = 0
     waitlisted_slot_ids = set()
+    on_waitlist = False
+    waitlist_slot = available_slots.filter(remaining=0).first()
 
     if request.user.is_authenticated:
         remaining_allowance = calculate_remaining_allowance(
@@ -518,6 +522,9 @@ def attraction(request, pk):
             ).values_list("slot_id", flat=True)
         )
 
+        if waitlist_slot:
+            on_waitlist = waitlist_slot.id in waitlisted_slot_ids
+
     return render(
         request,
         "fergusonbequest/attraction.html",
@@ -529,9 +536,10 @@ def attraction(request, pk):
             "remaining_allowance": remaining_allowance,
             "is_sold_out": is_sold_out,
             "waitlisted_slot_ids": waitlisted_slot_ids,
+            "on_waitlist": on_waitlist,
+            "waitlist_slot": waitlist_slot,
         },
     )
-
 
 @login_required
 def booking_view(request, attraction_pk):

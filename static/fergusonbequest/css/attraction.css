@@ -215,3 +215,26 @@ button.btn:disabled {
   }
 }
 
+.book-btn-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.book-now-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #003865;
+  color: #fff;
+  text-decoration: none;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.book-now-link:hover {
+  background: #002a4c;
+}

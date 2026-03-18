@@ -21,18 +21,17 @@
 
   <div class="layout">
 
-    <!-- LEFT PANEL -->
     <div class="panel left-panel">
 
-        <div class="left-title">{{ attraction.name|default:"Attraction Name" }}</div>
+      <div class="left-title">{{ attraction.name|default:"Attraction Name" }}</div>
 
-        <div class="image-box">
-          {% if attraction.image %}
-            <img class="image-inner" src="{{ attraction.image.url }}" alt="{{ attraction.name }}">
-          {% else %}
-            <div class="image-inner">Attraction Image</div>
-          {% endif %}
-        </div>
+      <div class="image-box">
+        {% if attraction.image %}
+          <img class="image-inner" src="{{ attraction.image.url }}" alt="{{ attraction.name }}">
+        {% else %}
+          <div class="image-inner">Attraction Image</div>
+        {% endif %}
+      </div>
 
       {% if attraction.location %}
         <a class="location-row location-link"
@@ -50,17 +49,19 @@
 
     </div>
 
-    <!-- RIGHT COLUMN -->
     <div class="right-col">
 
       <div class="panel">
-          <div class="panel-heading">Details</div>
+        <div class="panel-heading">Details</div>
 
         <div class="panel-body">
-
           <div class="detail-line">
             <strong>Available dates:</strong>
-            {{ available_slots.0.date|date:"d/m/Y" }}
+            {% if available_slots %}
+              {{ available_slots.0.date|date:"d/m/Y" }}
+            {% else %}
+              —
+            {% endif %}
           </div>
 
           <div class="detail-line">
@@ -73,39 +74,42 @@
           </div>
 
           <div class="detail-line">
-            <strong>Description:</strong>
-            {{ attraction.description|default:"—" }}
+            <strong>Description:</strong> {{ attraction.description|default:"—" }}
           </div>
 
           <div class="spacer"></div>
 
           <div class="detail-line">
-            <strong>Contact:</strong>
-            {{ attraction.contact_email|default:"—" }}
+            <strong>Contact:</strong> {{ attraction.contact_email|default:"—" }}
           </div>
-<div style="display:flex; justify-content:flex-end; margin-top:16px;">
-  <a href="{% url 'attraction_book' attraction_pk=attraction.pk %}"
-     style="
-       display:inline-flex;
-       align-items:center;
-       justify-content:center;
-       background:#1e3a8a;
-       color:#fff;
-       text-decoration:none;
-       padding:10px 22px;
-       border-radius:999px;
-       font-size:14px;
-       font-weight:700;
-       line-height:1;
-       width:auto;
-       min-width:unset;
-       max-width:max-content;
-       white-space:nowrap;
-     ">
-    Book now
-  </a>
-</div>
 
+          {% if has_bookable_slots %}
+            <div class="book-btn-container">
+              <a href="{% url 'attraction_book' attraction_pk=attraction.pk %}" class="book-now-link">
+                Book now
+              </a>
+            </div>
+
+          {% elif user.is_authenticated and is_sold_out and waitlist_slot %}
+            <div style="margin-top: 16px;">
+              {% if on_waitlist %}
+                <p class="detail-line" style="margin-bottom: 10px; color: #065f46;">You're on this waiting list.</p>
+                <form method="POST" action="{% url 'waiting_listattraction_leave' waitlist_slot.pk %}">
+                  {% csrf_token %}
+                  <button class="btn primary" type="submit">Leave Waiting List</button>
+                </form>
+              {% else %}
+                <p class="detail-line" style="margin-bottom: 10px;">This attraction is sold out. Join the waiting list to be notified if spots open.</p>
+                <form method="POST" action="{% url 'waiting_listattraction_join' waitlist_slot.pk %}">
+                  {% csrf_token %}
+                  <button class="btn primary" type="submit">Join Waiting List</button>
+                </form>
+              {% endif %}
+            </div>
+
+          {% else %}
+            <div class="detail-line" style="margin-top: 16px;">No future slots available for booking.</div>
+          {% endif %}
         </div>
       </div>
 
