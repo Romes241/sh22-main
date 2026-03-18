@@ -1,0 +1,265 @@
+<div id="ticketViewConfig" data-ticket-view-url-template="{{ ticket_view_url_template }}"></div>
+
+<div id="ticketViewModal" class="tu-modal" aria-hidden="true">
+  <div class="tu-modal-content" role="dialog" aria-modal="true" aria-labelledby="ticketViewTitle">
+    <div class="tu-modal-top">
+      <div>
+        <h3 id="ticketViewTitle">Ticket</h3>
+        <div id="ticketViewRef" class="ticket-ref"></div>
+        <div id="ticketQrValue"></div>
+      </div>
+
+      <button type="button" class="tu-modal-close" onclick="closeTicketViewModal()">✕</button>
+    </div>
+
+    <div class="tu-modal-body">
+      <div id="ticketViewBody" style="flex:1;">Loading…</div>
+    </div>
+
+    <div class="tu-modal-actions">
+      <button type="button" class="tu-btn tu-btn--chip" onclick="closeTicketViewModal()">Close</button>
+
+      <div class="tu-ticket-nav">
+        <button type="button" id="ticketPrev" class="tu-arrow-btn" style="display:none;">←</button>
+        <button type="button" id="ticketNext" class="tu-arrow-btn" style="display:none;">→</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let _ticketPages = [];
+  let _ticketIdx = 0;
+
+  function escapeHtml(str) {
+    return String(str)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function getTicketViewUrl(bookingId) {
+    const cfg = document.getElementById("ticketViewConfig");
+    const tmpl = cfg ? cfg.dataset.ticketViewUrlTemplate : "";
+    if (!tmpl) return "";
+    return tmpl.replace("999999", String(bookingId));
+  }
+
+  function setTicketViewModalOpen(isOpen) {
+    const modal = document.getElementById("ticketViewModal");
+    if (!modal) return;
+    modal.classList.toggle("is-open", isOpen);
+    modal.setAttribute("aria-hidden", isOpen ? "false" : "true");
+    modal.style.display = "";
+  }
+
+  function closeTicketViewModal() {
+    setTicketViewModalOpen(false);
+  }
+
+  document.addEventListener("click", (e) => {
+    const modal = document.getElementById("ticketViewModal");
+    if (!modal || modal.getAttribute("aria-hidden") === "true") return;
+    if (e.target === modal) closeTicketViewModal();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    const modal = document.getElementById("ticketViewModal");
+    if (!modal || modal.getAttribute("aria-hidden") === "true") return;
+    if (e.key === "Escape") closeTicketViewModal();
+  });
+
+  function _showTicketPage(body) {
+    const entry = _ticketPages[_ticketIdx];
+    const prev = document.getElementById("ticketPrev");
+    const next = document.getElementById("ticketNext");
+    const multi = _ticketPages.length > 1;
+
+    if (prev) prev.style.display = multi ? "" : "none";
+    if (next) next.style.display = multi ? "" : "none";
+
+    const counter = multi
+      ? `<div style="text-align:center;font-size:0.85em;color:#666;margin-bottom:8px;">
+           Ticket ${_ticketIdx + 1} of ${_ticketPages.length}
+         </div>`
+      : "";
+
+    if (entry.type === "image") {
+      body.innerHTML = `
+        ${counter}
+        <div style="display:flex;flex-direction:column;align-items:center;gap:16px;">
+          ${entry.qr_value ? `<div style="font-size:24px;font-weight:600;">QR Code: ${escapeHtml(entry.qr_value)}</div>` : ""}
+          <img src="${entry.url}" alt="Ticket image" style="max-width:100%;height:auto;">
+        </div>
+      `;
+    } else if (entry.type === "pdf") {
+      body.innerHTML = `
+        ${counter}
+        <div style="display:flex;flex-direction:column;align-items:center;gap:16px;">
+          ${entry.ticket_code ? `<div style="font-size:24px;font-weight:600;">Code: ${escapeHtml(entry.ticket_code)}</div>` : ""}
+          ${entry.qr_value ? `<div style="font-size:24px;font-weight:600;">QR Code: ${escapeHtml(entry.qr_value)}</div>` : ""}
+          <div style="height:60vh;width:100%;">
+            <iframe src="${entry.url}" style="width:100%;height:100%;border:0;"></iframe>
+          </div>
+          <div style="margin-top:12px;">
+            <a class="tu-btn tu-btn--primary" href="${entry.url}" target="_blank" rel="noopener">Open PDF</a>
+          </div>
+        </div>
+      `;
+    } else if (entry.type === "iframe") {
+      body.innerHTML = `
+        ${counter}
+        <div style="height:65vh;">
+          <iframe src="${entry.url}" style="width:100%;height:100%;border:0;"></iframe>
+        </div>
+      `;
+    } else {
+      body.innerHTML = `
+        ${counter}
+        <pre style="white-space:pre-wrap;margin:0;">${escapeHtml(entry.text || "")}</pre>
+      `;
+    }
+  }
+
+  async function _fetchAndPushPage(url) {
+    const res = await fetch(url, {
+      headers: { "X-Requested-With": "XMLHttpRequest" }
+    });
+
+    if (!res.ok) return false;
+
+    const ct = (res.headers.get("content-type") || "").toLowerCase();
+
+    if (ct.startsWith("image/")) {
+      const blob = await res.blob();
+      _ticketPages.push({ type: "image", url: URL.createObjectURL(blob) });
+      return true;
+    }
+
+    if (ct.includes("application/pdf")) {
+      const blob = await res.blob();
+      _ticketPages.push({ type: "pdf", url: URL.createObjectURL(blob) });
+      return true;
+    }
+
+    if (ct.includes("application/json")) {
+      const data = await res.json();
+      _ticketPages.push({
+        type: "text",
+        text: data.text || "No ticket content available."
+      });
+      return true;
+    }
+
+    const text = await res.text();
+
+    if (
+      ct.includes("text/html") ||
+      text.trim().startsWith("<!DOCTYPE") ||
+      text.trim().startsWith("<html")
+    ) {
+      _ticketPages.push({ type: "iframe", url: url });
+      return true;
+    }
+
+    _ticketPages.push({ type: "text", text: text });
+    return true;
+  }
+
+  async function openTicketViewModal(bookingId, bookingReference = "") {
+    const body = document.getElementById("ticketViewBody");
+    if (!body) return;
+
+    const refEl = document.getElementById("ticketViewRef");
+    const qrEl = document.getElementById("ticketQrValue");
+
+    if (refEl) {
+      refEl.textContent = bookingReference ? `Booking Reference: ${bookingReference}` : "";
+    }
+    if (qrEl) qrEl.textContent = "";
+
+    _ticketPages = [];
+    _ticketIdx = 0;
+    body.textContent = "Loading…";
+    setTicketViewModalOpen(true);
+
+    const prev = document.getElementById("ticketPrev");
+    const next = document.getElementById("ticketNext");
+
+    if (prev) {
+      prev.onclick = () => {
+        if (_ticketIdx > 0) {
+          _ticketIdx--;
+          _showTicketPage(body);
+        }
+      };
+    }
+
+    if (next) {
+      next.onclick = () => {
+        if (_ticketIdx < _ticketPages.length - 1) {
+          _ticketIdx++;
+          _showTicketPage(body);
+        }
+      };
+    }
+
+    try {
+        const rawBookingId = String(bookingId);
+
+        const listRes = await fetch(`/tickets/${rawBookingId}/list/`, {
+          headers: { "X-Requested-With": "XMLHttpRequest" }
+        });
+
+      if (!listRes.ok) {
+        throw new Error(`List endpoint failed: ${listRes.status}`);
+      }
+
+      const listData = await listRes.json();
+      const rawTickets = Array.isArray(listData.tickets) ? listData.tickets : [];
+
+      if (refEl && listData.booking_reference) {
+        refEl.textContent = `Booking Reference: ${listData.booking_reference}`;
+      }
+
+      for (const item of rawTickets) {
+        try {
+          if (typeof item === "string") {
+            await _fetchAndPushPage(item);
+            continue;
+          }
+
+          await _fetchAndPushPage(item.url);
+
+          if (item.qr_value && _ticketPages.length > 0) {
+            _ticketPages[_ticketPages.length - 1].qr_value = item.qr_value;
+          }
+          if (item.ticket_code && _ticketPages.length > 0) {
+            _ticketPages[_ticketPages.length - 1].ticket_code = item.ticket_code;
+          }
+        } catch (e) {
+          console.warn("Skipping bad ticket item:", item, e);
+        }
+      }
+
+      if (_ticketPages.length === 0) {
+        const fallbackUrl = getTicketViewUrl(rawBookingId);
+        if (fallbackUrl) {
+          await _fetchAndPushPage(fallbackUrl);
+        }
+      }
+
+      if (_ticketPages.length === 0) {
+        body.textContent = "No ticket available for this booking.";
+        return;
+      }
+
+      _showTicketPage(body);
+    } catch (err) {
+      body.textContent = "Could not load ticket.";
+      console.error("Ticket view modal error:", err);
+    }
+    }
+ </script>

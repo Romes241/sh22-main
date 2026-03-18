@@ -161,6 +161,44 @@ button.btn:disabled {
   background: grey;
   transform: translateY(-1px);
 }
+
+/* Waiting List Section */
+
+.waitlist-section {
+  margin-top: 10px;
+}
+
+.waitlist-text {
+  margin-bottom: 12px;
+}
+
+.waitlist-dropdown {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.waitlist-dropdown label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #555;
+}
+
+.waitlist-dropdown select {
+  height: 42px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 14px;
+  background: white;
+  transition: border 0.2s ease;
+}
+
+.waitlist-dropdown select:focus {
+  border-color: #0b2f6b;
+  outline: none;
+}
+
 /* Responsive */
 @media (max-width: 900px) {
   .layout {
