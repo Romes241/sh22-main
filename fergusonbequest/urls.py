@@ -20,7 +20,7 @@ urlpatterns = [
     # User pages
     path("dashboard/", views.dashboard_view, name="dashboard"),
     path("dashboard/<int:year>/<int:month>/", views.dashboard_view, name="dashboard"),
-    path("how-to-book/", views.terms, name="how_to_book"),
+    path("terms-and-conditions/", views.terms, name="terms_and_conditions"),
 
     # Ticket draws
     path("ticket-draws/", views.ticket_draws_view, name="ticket_draws"),
@@ -63,6 +63,7 @@ urlpatterns = [
     path("manage-feedback-email/send-now/", views.trigger_feedback_emails, name="trigger_feedback_emails"),
     path("create-attraction/", views.create_attraction, name="create_attraction"),
     path("edit-attraction/<int:pk>/", views.edit_attraction, name="edit_attraction"),
+
     path("create-ticket-draw/", views.create_ticket_draw, name="create_ticket_draw"),
     path("edit-ticket-draw/<int:pk>/", views.edit_ticket_draw, name="edit_ticket_draw"),
 
