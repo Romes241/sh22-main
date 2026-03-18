@@ -20,7 +20,7 @@ urlpatterns = [
     # User pages
     path("dashboard/", views.dashboard_view, name="dashboard"),
     path("dashboard/<int:year>/<int:month>/", views.dashboard_view, name="dashboard"),
-    path("how-to-book/", views.terms, name="how_to_book"),
+    path("terms-and-conditions/", views.terms, name="terms_and_conditions"),
 
     # Ticket draws
     path("ticket-draws/", views.ticket_draws_view, name="ticket_draws"),
@@ -57,6 +57,7 @@ urlpatterns = [
     path("admin-dashboard/management/attractions/<int:attraction_id>/delete/", views.mng_delete_attraction, name="mng_delete_attraction"),
     path("admin-reports/", views.admin_reports, name="admin_reports"),
     path("admin-email/", views.admin_email, name="admin_email"),
+    path("admin-terms-and-conditions/", views.manage_terms_and_conditions, name="manage_terms_and_conditions"),
 
     # Admin create/edit
     path("create-attraction/", views.create_attraction, name="create_attraction"),
