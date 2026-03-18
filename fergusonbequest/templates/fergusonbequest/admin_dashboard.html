@@ -5,6 +5,7 @@
 
 {% block extra_css %}
   <link rel="stylesheet" href="{% static 'fergusonbequest/css/admin_dashboard.css' %}">
+  <link rel="stylesheet" href="{% static 'fergusonbequest/css/calendar.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -118,6 +119,10 @@
     </div>
 
   </aside>
+</section>
+
+<section id="calendar" class="ad-calendar" aria-label="Calendar of events">
+  {% include 'fergusonbequest/calendar.html' %}
 </section>
 
 {% endblock %}

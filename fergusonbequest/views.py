@@ -401,7 +401,9 @@ def dashboard_view(request, year=None, month=None):
     return render(
         request,
         "fergusonbequest/dashboard.html",
-        {"featured_attractions": featured_attractions, **calendar_data},
+        {"featured_attractions": featured_attractions, 
+         "url_name": "dashboard",
+         **calendar_data},
     )
 
 
@@ -1617,7 +1619,7 @@ def user_discount_codes(request):
 # Staff / Admin dashboard + management
 # -----------------------------
 @staff_member_required
-def admin_dashboard(request):
+def admin_dashboard(request, year=None, month=None):
     now = timezone.now()
 
     active_draws_count = sum(1 for d in TicketDraw.objects.all() if _call_is_open(d, now))
@@ -1625,6 +1627,8 @@ def admin_dashboard(request):
 
     bookings_count = Booking.objects.filter(cancelled=False).count()
     pending_requests_count = TicketDrawBooking.objects.filter(cancelled=False).count()
+
+    calendar_data = get_calendar(year, month)
 
     return render(
         request,
@@ -1634,6 +1638,8 @@ def admin_dashboard(request):
             "open_venues_count": open_venues_count,
             "bookings_count": bookings_count,
             "pending_requests_count": pending_requests_count,
+            "url_name": "admin_dashboard",
+            **calendar_data,
         },
     )
 
