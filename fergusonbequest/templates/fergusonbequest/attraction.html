@@ -83,6 +83,28 @@
             <strong>Contact:</strong>
             {{ attraction.contact_email|default:"—" }}
           </div>
+<div style="display:flex; justify-content:flex-end; margin-top:16px;">
+  <a href="{% url 'attraction_book' attraction_pk=attraction.pk %}"
+     style="
+       display:inline-flex;
+       align-items:center;
+       justify-content:center;
+       background:#1e3a8a;
+       color:#fff;
+       text-decoration:none;
+       padding:10px 22px;
+       border-radius:999px;
+       font-size:14px;
+       font-weight:700;
+       line-height:1;
+       width:auto;
+       min-width:unset;
+       max-width:max-content;
+       white-space:nowrap;
+     ">
+    Book now
+  </a>
+</div>
 
         </div>
       </div>
