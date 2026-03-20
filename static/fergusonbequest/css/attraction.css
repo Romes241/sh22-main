@@ -20,7 +20,7 @@
 }
 
 .back-link:hover {
-  color: #0b2f6b;
+  color: #001a80;
 }
 
 /* Layout */
@@ -48,7 +48,7 @@
   font-size: 18px;
   color: #111;
   background: transparent;
-  border-bottom: 2px solid #0b2f6b;
+  border-bottom: 2px solid #001a80;
   border-radius: 0;
   padding: 8px 0;
 }
@@ -133,7 +133,7 @@ panel-body.text {
 .btn.primary {
   display: block;
   margin: 16px auto 0;
-  background: #0b2f6b;
+  background: #001a80;
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -195,7 +195,7 @@ button.btn:disabled {
 }
 
 .waitlist-dropdown select:focus {
-  border-color: #0b2f6b;
+  border-color: #001a80;
   outline: none;
 }
 
