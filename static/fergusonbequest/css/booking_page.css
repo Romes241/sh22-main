@@ -25,7 +25,7 @@
   margin: 22px auto 10px;
   font-size: 36px;
   font-weight: 800;
-  color: #0b2f6b;
+  color: #001a80;
 }
 
 .fb-h2 {
@@ -39,7 +39,7 @@
   margin: 0 0 10px;
   font-size: 18px;
   font-weight: 800;
-  color: #0b2f6b;
+  color: #001a80;
 }
 
 .muted { color: #6b7280; }
@@ -103,7 +103,7 @@
 .fb-field input:focus,
 .fb-field select:focus,
 .fb-field textarea:focus {
-  border-color: #0b2f6b;
+  border-color: #001a80;
   box-shadow: 0 0 0 3px rgba(11,47,107,0.12);
 }
 
@@ -159,7 +159,7 @@
   border-radius: 999px;
   border: 1px solid #cfd8ef;
   background: #ffffff;
-  color: #0b2f6b;
+  color: #001a80;
   font-weight: 800;
   cursor: pointer;
   transition: transform 0.08s ease, filter 0.08s ease;
@@ -168,8 +168,8 @@
 .fb-btn:active { transform: translateY(1px); }
 
 .fb-btn--primary {
-  background: #0b2f6b;
-  border-color: #0b2f6b;
+  background: #001a80;
+  border-color: #001a80;
   color: #ffffff;
 }
 
@@ -226,7 +226,7 @@
   margin: 0 0 10px;
   font-size: 18px;
   font-weight: 900;
-  color: #0b2f6b;
+  color: #001a80;
 }
 
 .fb-modal__body {
@@ -289,7 +289,7 @@
   margin: 8px 0 18px;
   font-size: 17px;
   font-weight: 600;
-  color: #0b2f6b;
+  color: #001a80;
 }
 
 .booking-allowance strong {
@@ -309,7 +309,7 @@
 }
 
 .back-link:hover {
-  color: #0b2f6b;
+  color: #001a80;
 }
 
 .fb-readonly {

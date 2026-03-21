@@ -50,15 +50,15 @@
 }
 
 .td-card{
-  border: 2px solid #1a1a1a;
-  border-radius: 22px;
+  border: 1px solid #cfcfcf;   
+  border-radius: 26px;
   background: #f3f3f3;
   overflow: hidden;
 }
 
 .td-card-image{
   height: 220px;
-  border-bottom: 2px solid #1a1a1a;
+  border-bottom: 1px solid #cfcfcf;
   background: #e9e9e9;
   display: flex;
   align-items: center;
@@ -105,8 +105,8 @@
 }
 
 .td-btn-primary{
-  background: #0b2f6b;
-  border-color: #0b2f6b;
+  background: #001a80;
+  border-color: #001a80;
   color: #fff;
 }
 
