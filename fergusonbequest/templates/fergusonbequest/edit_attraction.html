@@ -22,6 +22,10 @@
   <div class="fb-card">
     <form method="post" enctype="multipart/form-data" class="fb-form-grid">
     {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="fb-form-errors">{{ form.non_field_errors }}</div>
+    {% endif %}
     
     <div class="fb-form-group">
       <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
@@ -119,6 +123,23 @@
         <div class="fb-form-errors">{{ form.terms.errors }}</div>
       {% endif %}
     </div>
+
+    <div class="fb-form-group">
+      <label>Visit Slots</label>
+      <div id="attraction-slot-rows">
+        {% for slot in slot_rows %}
+          <div class="fb-form-row visit-slot-row">
+            <input type="hidden" name="slot_id[]" value="{{ slot.id }}">
+            <input type="date" name="slot_date[]" class="form-control" value="{{ slot.date }}">
+            <input type="time" name="slot_time[]" class="form-control" value="{{ slot.time }}">
+            <input type="number" name="slot_capacity[]" class="form-control" min="1" value="{{ slot.capacity|default:'20' }}" placeholder="Capacity">
+            <button type="button" class="fb-btn-cancel js-remove-slot">Remove</button>
+          </div>
+        {% endfor %}
+      </div>
+      <button type="button" id="add-attraction-slot" class="fb-btn fb-btn--primary">Add Slot</button>
+      <div class="fb-form-help">Add date, optional time, and capacity for each visit slot.</div>
+    </div>
     
       <div class="fb-form-actions">
         <button type="submit" class="fb-btn fb-btn--primary fb-btn-submit">Save Changes</button>
@@ -127,4 +148,51 @@
     </form>
   </div>
 </div>
+
+<script>
+  (function () {
+    const rows = document.getElementById("attraction-slot-rows");
+    const addBtn = document.getElementById("add-attraction-slot");
+    if (!rows || !addBtn) {
+      return;
+    }
+
+    function buildRow() {
+      const row = document.createElement("div");
+      row.className = "fb-form-row visit-slot-row";
+      row.innerHTML =
+        '<input type="hidden" name="slot_id[]" value="">' +
+        '<input type="date" name="slot_date[]" class="form-control">' +
+        '<input type="time" name="slot_time[]" class="form-control">' +
+        '<input type="number" name="slot_capacity[]" class="form-control" min="1" value="20" placeholder="Capacity">' +
+        '<button type="button" class="fb-btn-cancel js-remove-slot">Remove</button>';
+      return row;
+    }
+
+    addBtn.addEventListener("click", function () {
+      rows.appendChild(buildRow());
+    });
+
+    rows.addEventListener("click", function (event) {
+      const button = event.target.closest(".js-remove-slot");
+      if (!button) {
+        return;
+      }
+
+      const allRows = rows.querySelectorAll(".visit-slot-row");
+      if (allRows.length <= 1) {
+        const inputs = allRows[0].querySelectorAll("input");
+        if (inputs.length >= 4) {
+          inputs[0].value = "";
+          inputs[1].value = "";
+          inputs[2].value = "";
+          inputs[3].value = "20";
+        }
+        return;
+      }
+
+      button.closest(".visit-slot-row").remove();
+    });
+  })();
+</script>
 {% endblock %}
