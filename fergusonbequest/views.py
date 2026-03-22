@@ -473,10 +473,15 @@ def attractions_view(request):
 def attraction(request, pk):
     attraction_obj = get_object_or_404(Attraction, pk=pk)
 
-    available_slots = VisitSlot.objects.filter(
-        attraction=attraction_obj,
-        date__gte=timezone.now().date(),
-    ).order_by("date", "time")
+    now = timezone.localtime()
+
+    available_slots = (
+        VisitSlot.objects
+        .filter(attraction=attraction_obj, remaining__gt=0)
+        .exclude(date__lt=now.date())
+        .exclude(date=now.date(), time__lt=now.time())
+        .order_by("date", "time")
+    )
 
     bookable_slots = available_slots.filter(remaining__gt=0)
     has_bookable_slots = bookable_slots.exists()
@@ -519,10 +524,15 @@ def booking_view(request, attraction_pk):
     attraction_obj = get_object_or_404(Attraction, pk=attraction_pk)
     user = request.user
 
-    available_slots = VisitSlot.objects.filter(
-        attraction=attraction_obj,
-        date__gte=timezone.now().date(),
-    ).order_by("date", "time")
+    now = timezone.localtime()
+
+    available_slots = (
+        VisitSlot.objects
+        .filter(attraction=attraction_obj, remaining__gt=0)
+        .exclude(date__lt=now.date())
+        .exclude(date=now.date(), time__lt=now.time())
+        .order_by("date", "time")
+    )
 
     booking_summary = {"price": "Free"}
     remaining_allowance = calculate_remaining_allowance(user, "regular")
@@ -1598,18 +1608,27 @@ def user_discount_codes(request):
 # Staff / Admin dashboard + management
 # -----------------------------
 @staff_member_required
-def admin_dashboard(request):
+def admin_dashboard(request, year=None, month=None):
     now = timezone.now()
+    today = timezone.localdate()
 
     active_draws_count = sum(1 for d in TicketDraw.objects.all() if _call_is_open(d, now))
-    open_venues_count = sum(1 for a in Attraction.objects.all() if _call_is_open(a, now))
+
+    open_venues_count = (
+        VisitSlot.objects
+        .filter(date__gte=today, remaining__gt=0)
+        .values("attraction_id")
+        .distinct()
+        .count()
+    )
 
     bookings_count = Booking.objects.filter(cancelled=False).count()
-    # Bookings and ticket draw booking unsent and canceled
     bookings_needing_tickets_count = Booking.objects.filter(
         cancelled=False,
         ticket_sent=False
     ).aggregate(total=Sum("num_tickets"))["total"] or 0
+
+    calendar_data = get_calendar(year, month)
 
     return render(
         request,
@@ -1619,6 +1638,7 @@ def admin_dashboard(request):
             "open_venues_count": open_venues_count,
             "bookings_count": bookings_count,
             "bookings_needing_tickets_count": bookings_needing_tickets_count,
+            **calendar_data,
         },
     )
 

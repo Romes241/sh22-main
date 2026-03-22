@@ -31,7 +31,7 @@ def keep_previous_data(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("fergusonbequest", "0027_repair_booking_feedback_email_sent_column"),
+        ("fergusonbequest", "0001_initial"),
     ]
 
     operations = [

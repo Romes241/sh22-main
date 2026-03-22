@@ -32,8 +32,8 @@
       </div>
     </a>
 
-    <a class="ad-card" <a href="{% url 'admin_reports' %}" >
-      <div class="ad-card__icon" aria-hidden="true">📖</div>
+    <a class="ad-card" href="{% url 'admin_reports' %}">
+    <div class="ad-card__icon" aria-hidden="true">📖</div>
       <div class="ad-card__text">
         <div class="ad-card__label">Bookings</div>
         <div class="ad-card__value">{{ bookings_count }}</div>
@@ -99,7 +99,7 @@
        </a>
 
        <a class="ad-link" href="{% url 'discount_codes' %}">
-        <span class="ad-link__icon" aria-hidden="true">🎟️</span>
+        <span class="ad-link__icon" aria-hidden="true">🏷️</span>
         <span class="ad-link__text">Discount Codes</span>
         <span class="ad-link__chev" aria-hidden="true">›</span>
       </a>
@@ -116,7 +116,7 @@
 </section>
 
 <section id="calendar" class="ad-calendar" aria-label="Calendar of events">
-  {% include 'fergusonbequest/calendar.html' %}
+        {% include 'fergusonbequest/calendar.html' with url_name='admin_dashboard' %}
 </section>
 
 {% endblock %}
