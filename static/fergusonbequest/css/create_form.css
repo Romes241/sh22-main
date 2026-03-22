@@ -13,6 +13,40 @@
   flex-direction: column;
 }
 
+.fb-form-group input,
+.fb-form-group select,
+.fb-form-group textarea,
+.fb-form-group .form-control,
+.visit-slot-row input,
+.visit-slot-row .form-control {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--ring);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 15px;
+  color: #1f2937;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.fb-form-group input[type="checkbox"],
+.fb-form-group input[type="radio"] {
+  min-height: auto;
+  width: auto;
+  padding: 0;
+}
+
+.fb-form-group input[type="file"] {
+  padding: 8px 10px;
+}
+
+.fb-form-group textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
 .fb-form-group label {
   font-weight: 600;
   margin-bottom: 0.5rem;
@@ -21,14 +55,12 @@
 
 .fb-form-group input:focus,
 .fb-form-group textarea:focus,
-.fb-form-group select:focus {
+.fb-form-group select:focus,
+.visit-slot-row input:focus,
+.visit-slot-row .form-control:focus {
   outline: none;
   border-color: var(--uog-blue);
-}
-
-.fb-form-group textarea {
-  min-height: 120px;
-  resize: vertical;
+  box-shadow: 0 0 0 3px rgba(11, 47, 107, 0.12);
 }
 
 .fb-form-checkbox {
@@ -89,8 +121,29 @@
   gap: 1.5rem;
 }
 
+.visit-slot-row {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 0.9fr auto;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.visit-slot-row input[type="hidden"] {
+  display: none;
+}
+
+.visit-slot-row .fb-btn-cancel {
+  padding: 0.6rem 1rem;
+  white-space: nowrap;
+}
+
 @media (max-width: 768px) {
   .fb-form-row-2col {
+    grid-template-columns: 1fr;
+  }
+
+  .visit-slot-row {
     grid-template-columns: 1fr;
   }
 }
