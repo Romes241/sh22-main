@@ -475,17 +475,19 @@ def attraction(request, pk):
 
     now = timezone.localtime()
 
-    available_slots = (
+    future_slots = (
         VisitSlot.objects
-        .filter(attraction=attraction_obj, remaining__gt=0)
+        .filter(attraction=attraction_obj)
         .exclude(date__lt=now.date())
         .exclude(date=now.date(), time__lt=now.time())
         .order_by("date", "time")
     )
 
-    bookable_slots = available_slots.filter(remaining__gt=0)
+    bookable_slots = future_slots.filter(remaining__gt=0)
+    sold_out_slots = future_slots.filter(remaining=0)
+
     has_bookable_slots = bookable_slots.exists()
-    is_sold_out = available_slots.exists() and not has_bookable_slots
+    is_sold_out = sold_out_slots.exists() and not has_bookable_slots
 
     remaining_allowance = 0
     waitlisted_slot_ids = set()
@@ -500,7 +502,7 @@ def attraction(request, pk):
             AttractionWaitlistEntry.objects.filter(
                 user=request.user,
                 cancelled=False,
-                slot__in=available_slots,
+                slot__in=future_slots,
             ).values_list("slot_id", flat=True)
         )
 
@@ -509,15 +511,15 @@ def attraction(request, pk):
         "fergusonbequest/attraction.html",
         {
             "attraction": attraction_obj,
-            "available_slots": available_slots,
+            "available_slots": future_slots,
             "bookable_slots": bookable_slots,
+            "sold_out_slots": sold_out_slots,
             "has_bookable_slots": has_bookable_slots,
             "remaining_allowance": remaining_allowance,
             "is_sold_out": is_sold_out,
             "waitlisted_slot_ids": waitlisted_slot_ids,
         },
     )
-
 
 @login_required
 def booking_view(request, attraction_pk):
