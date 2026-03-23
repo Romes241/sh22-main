@@ -440,7 +440,7 @@ class CustomLoginView(LoginView):
     authentication_form = EmailAuthenticationForm
 
     def get_success_url(self):
-        return reverse_lazy("home")
+        return reverse_lazy("dashboard")
 
 
 class RegistrationForm(forms.ModelForm):
@@ -502,7 +502,7 @@ def register_view(request):
             user = form.save()
             login(request, user)
             messages.success(request, "Registration successful.")
-            return redirect("home")
+            return redirect("dashboard")
     else:
         form = RegistrationForm()
 
@@ -519,8 +519,19 @@ def logout_view(request):
 # -----------------------------
 # Public / Home / Dashboard / Calendar / Terms
 # -----------------------------
-def home(request):
-    attractions_qs = Attraction.objects.all().order_by("name")[:4]
+def _get_featured_attractions(limit=4):
+    top_booked = list(
+        Attraction.objects.annotate(
+            booking_count=Count("booking", filter=Q(booking__cancelled=False))
+        )
+        .filter(booking_count__gt=0)
+        .order_by("-booking_count", "name", "id")[:limit]
+    )
+
+    if len(top_booked) < limit:
+        top_booked_ids = [a.id for a in top_booked]
+        fallback_qs = Attraction.objects.exclude(id__in=top_booked_ids).order_by("name", "id")[: limit - len(top_booked)]
+        top_booked.extend(list(fallback_qs))
 
     featured_attractions = [
         {
@@ -530,12 +541,11 @@ def home(request):
             "id": attr.id,
             "url": f"/attraction/{attr.id}/book/",
         }
-        for attr in attractions_qs
+        for attr in top_booked
     ]
 
-    # fallback if DB empty (helps tests/first run)
     if not featured_attractions:
-        featured_attractions = [
+        return [
             {"title": "Blair Drummond Safari Park", "subtitle": "Safari and adventure park.",
              "image": "fergusonbequest/img/blair_drumond.jpg", "id": None, "url": "/attractions/"},
             {"title": "Glasgow Clan Ice Hockey", "subtitle": "The city's professional hockey team.",
@@ -546,10 +556,16 @@ def home(request):
              "image": "fergusonbequest/img/ghostbusters.jpg", "id": None, "url": "/attractions/"},
         ]
 
+    return featured_attractions
+
+
+def home(request):
+    featured_attractions = _get_featured_attractions()
+
     if request.user.is_authenticated:
         return render(
             request,
-            "fergusonbequest/home_logged_in.html",
+            "fergusonbequest/dashboard.html",
             {"featured_attractions": featured_attractions},
         )
 
@@ -558,30 +574,7 @@ def home(request):
 
 @login_required
 def dashboard_view(request, year=None, month=None):
-    attractions_qs = Attraction.objects.all().order_by("name")[:4]
-
-    featured_attractions = [
-        {
-            "title": attr.name,
-            "subtitle": (attr.description[:100] if attr.description else (attr.location or "Book now to visit")),
-            "image": (attr.image.name if getattr(attr, "image", None) else "fergusonbequest/img/placeholder.jpg"),
-            "id": attr.id,
-            "url": f"/attraction/{attr.id}/book/",
-        }
-        for attr in attractions_qs
-    ]
-
-    if not featured_attractions:
-        featured_attractions = [
-            {"title": "Blair Drummond Safari Park", "subtitle": "Safari and adventure park.",
-             "image": "fergusonbequest/img/blair_drumond.jpg", "id": None, "url": "/attractions/"},
-            {"title": "Glasgow Clan Ice Hockey", "subtitle": "The city's professional hockey team.",
-             "image": "fergusonbequest/img/glasgow_clan.jpg", "id": None, "url": "/attractions/"},
-            {"title": "Edinburgh Zoo", "subtitle": "Scotland's most famous zoo.",
-             "image": "fergusonbequest/img/edinburgh_zoo.jpg", "id": None, "url": "/attractions/"},
-            {"title": "Ghostbusters Screening", "subtitle": "Who you gonna call?",
-             "image": "fergusonbequest/img/ghostbusters.jpg", "id": None, "url": "/attractions/"},
-        ]
+    featured_attractions = _get_featured_attractions()
 
     calendar_data = get_calendar(year, month)
     return render(
@@ -1224,6 +1217,10 @@ def cancel_booking(request, pk):
         return redirect("booking_history")
 
     if booking.slot.date < timezone.now().date():
+        return redirect("booking_history")
+
+    if booking.cancel_deadline and timezone.now() > booking.cancel_deadline:
+        messages.error(request, "This booking can no longer be cancelled.")
         return redirect("booking_history")
 
     reassigned_booking = None

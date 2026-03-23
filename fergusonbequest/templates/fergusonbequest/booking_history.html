@@ -129,7 +129,7 @@
                   {% endif %}
 
                 {% else %}
-                  {% if b.attraction.cancel_deadline and now <= b.attraction.cancel_deadline %}
+                  {% if not b.cancel_deadline or now <= b.cancel_deadline %}
                     <form method="post" action="{% url 'cancel_booking' b.id %}">
                       {% csrf_token %}
                       <button type="submit" class="bh-cancel-link">Cancel</button>
