@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.core.mail import send_mail, EmailMultiAlternatives
+from django.core.signing import TimestampSigner, BadSignature, SignatureExpired
 from django.db import IntegrityError, transaction
 from django.db.models import Q, F, Sum, Count
 from django.db.models.functions import Coalesce, Least
@@ -30,6 +31,15 @@ from django.http import HttpResponse, FileResponse, HttpResponseForbidden, JsonR
 from django.utils import timezone
 from django.contrib import messages
 from django.views.decorators.http import require_POST, require_http_methods
+from .forms import (
+    BookingForm,
+    AttractionCreateForm,
+    TicketDrawCreateForm,
+    EmailAuthenticationForm,
+    FeedbackEmailTemplateForm,
+    BookingFeedbackForm,
+)
+from .forms_suggestions import AttractionSuggestionForm
 from .models import (
     Attraction,
     VisitSlot,
@@ -44,6 +54,7 @@ from .models import (
     EmailTemplate, BookingTicket,
     EmailTemplate,
     FeedbackEmailTemplate,
+    BookingFeedback,
 )
 
 from .forms import (
@@ -61,6 +72,57 @@ User = get_user_model()
 
 # Business rule: max 3 bookings per calendar year (regular) and 3 per year (weekly_event) unless overridden elsewhere.
 MAX_ATTRACTIONS_PER_YEAR = 3
+
+
+def _booking_visit_end_datetime(booking):
+    slot = booking.slot
+    slot_time = slot.time or datetime.max.time()
+    visit_end = datetime.combine(slot.date, slot_time)
+    if booking.attraction.duration_minutes:
+        visit_end += timedelta(minutes=booking.attraction.duration_minutes)
+    if timezone.is_naive(visit_end):
+        visit_end = timezone.make_aware(visit_end)
+    return visit_end
+
+
+def _booking_feedback_expiry_datetime(booking, expiry_days):
+    return _booking_visit_end_datetime(booking) + timedelta(days=expiry_days)
+
+
+def build_booking_feedback_url(booking, request=None):
+    signer = TimestampSigner(salt="booking-feedback")
+    token = signer.sign(str(booking.id))
+    path = reverse("submit_booking_feedback", args=[booking.id])
+    if request is not None:
+        return request.build_absolute_uri(f"{path}?token={token}")
+    try:
+        from django.contrib.sites.models import Site
+
+        domain = Site.objects.get_current().domain
+        scheme = "http" if ("127.0.0.1" in domain or "localhost" in domain) else "https"
+        return f"{scheme}://{domain}{path}?token={token}"
+    except Exception:
+        fallback_domain = getattr(settings, "SITE_DOMAIN", "127.0.0.1:8000")
+        scheme = "http" if ("127.0.0.1" in fallback_domain or "localhost" in fallback_domain) else "https"
+        return f"{scheme}://{fallback_domain}{path}?token={token}"
+
+
+def booking_feedback_is_open(booking, template=None, now=None):
+    now = now or timezone.now()
+    template = template or FeedbackEmailTemplate.get_template()
+
+    visit_end = _booking_visit_end_datetime(booking)
+    if now < visit_end:
+        return False, "Feedback opens after the visit date/time has passed."
+
+    expiry_deadline = _booking_feedback_expiry_datetime(booking, template.expiry_days)
+    if now > expiry_deadline:
+        return False, "This feedback window has expired."
+
+    if hasattr(booking, "feedback_submission"):
+        return False, "Feedback has already been submitted for this booking."
+
+    return True, ""
 
 
 # -----------------------------
@@ -362,7 +424,7 @@ class CustomLoginView(LoginView):
     authentication_form = EmailAuthenticationForm
 
     def get_success_url(self):
-        return reverse_lazy("home")
+        return reverse_lazy("dashboard")
 
 
 class RegistrationForm(forms.ModelForm):
@@ -424,7 +486,7 @@ def register_view(request):
             user = form.save()
             login(request, user)
             messages.success(request, "Registration successful.")
-            return redirect("home")
+            return redirect("dashboard")
     else:
         form = RegistrationForm()
 
@@ -441,8 +503,19 @@ def logout_view(request):
 # -----------------------------
 # Public / Home / Dashboard / Calendar / Terms
 # -----------------------------
-def home(request):
-    attractions_qs = Attraction.objects.all().order_by("name")[:4]
+def _get_featured_attractions(limit=4):
+    top_booked = list(
+        Attraction.objects.annotate(
+            booking_count=Count("booking", filter=Q(booking__cancelled=False))
+        )
+        .filter(booking_count__gt=0)
+        .order_by("-booking_count", "name", "id")[:limit]
+    )
+
+    if len(top_booked) < limit:
+        top_booked_ids = [a.id for a in top_booked]
+        fallback_qs = Attraction.objects.exclude(id__in=top_booked_ids).order_by("name", "id")[: limit - len(top_booked)]
+        top_booked.extend(list(fallback_qs))
 
     featured_attractions = [
         {
@@ -452,27 +525,25 @@ def home(request):
             "id": attr.id,
             "url": f"/attraction/{attr.id}/book/",
         }
-        for attr in attractions_qs
+        for attr in top_booked
     ]
 
-    # fallback if DB empty (helps tests/first run)
-    if not featured_attractions:
-        featured_attractions = [
-            {"title": "Blair Drummond Safari Park", "subtitle": "Safari and adventure park.",
-             "image": "fergusonbequest/img/blair_drumond.jpg", "id": None, "url": "/attractions/"},
-            {"title": "Glasgow Clan Ice Hockey", "subtitle": "The city's professional hockey team.",
-             "image": "fergusonbequest/img/glasgow_clan.jpg", "id": None, "url": "/attractions/"},
-            {"title": "Edinburgh Zoo", "subtitle": "Scotland's most famous zoo.",
-             "image": "fergusonbequest/img/edinburgh_zoo.jpg", "id": None, "url": "/attractions/"},
-            {"title": "Ghostbusters Screening", "subtitle": "Who you gonna call?",
-             "image": "fergusonbequest/img/ghostbusters.jpg", "id": None, "url": "/attractions/"},
-        ]
+    return featured_attractions
+
+
+def home(request):
+    featured_attractions = _get_featured_attractions()
 
     if request.user.is_authenticated:
+        calendar_data = get_calendar()
         return render(
             request,
-            "fergusonbequest/home_logged_in.html",
-            {"featured_attractions": featured_attractions},
+            "fergusonbequest/dashboard.html",
+            {
+                "featured_attractions": featured_attractions,
+                "url_name": "dashboard",
+                **calendar_data,
+            },
         )
 
     return render(request, "fergusonbequest/home.html", {"featured_attractions": featured_attractions})
@@ -480,30 +551,7 @@ def home(request):
 
 @login_required
 def dashboard_view(request, year=None, month=None):
-    attractions_qs = Attraction.objects.all().order_by("name")[:4]
-
-    featured_attractions = [
-        {
-            "title": attr.name,
-            "subtitle": (attr.description[:100] if attr.description else (attr.location or "Book now to visit")),
-            "image": (attr.image.name if getattr(attr, "image", None) else "fergusonbequest/img/placeholder.jpg"),
-            "id": attr.id,
-            "url": f"/attraction/{attr.id}/book/",
-        }
-        for attr in attractions_qs
-    ]
-
-    if not featured_attractions:
-        featured_attractions = [
-            {"title": "Blair Drummond Safari Park", "subtitle": "Safari and adventure park.",
-             "image": "fergusonbequest/img/blair_drumond.jpg", "id": None, "url": "/attractions/"},
-            {"title": "Glasgow Clan Ice Hockey", "subtitle": "The city's professional hockey team.",
-             "image": "fergusonbequest/img/glasgow_clan.jpg", "id": None, "url": "/attractions/"},
-            {"title": "Edinburgh Zoo", "subtitle": "Scotland's most famous zoo.",
-             "image": "fergusonbequest/img/edinburgh_zoo.jpg", "id": None, "url": "/attractions/"},
-            {"title": "Ghostbusters Screening", "subtitle": "Who you gonna call?",
-             "image": "fergusonbequest/img/ghostbusters.jpg", "id": None, "url": "/attractions/"},
-        ]
+    featured_attractions = _get_featured_attractions()
 
     calendar_data = get_calendar(year, month)
     return render(
@@ -742,11 +790,13 @@ def booking_view(request, attraction_pk):
     booking.full_name = f"{user.first_name} {user.last_name}".strip()
     booking.email = user.email
 
-    visit_datetime = datetime.combine(booking.slot.date, datetime.min.time())
-
+    visit_datetime = datetime.datetime.combine(
+        booking.slot.date,
+        datetime.datetime.min.time(),
+    )
+    
     # Make it timezone-aware if needed
     if timezone.is_aware(timezone.now()):
-        import pytz
         visit_datetime = timezone.make_aware(visit_datetime)
     
     # Set cancellation deadline to 3 days before the visit
@@ -802,7 +852,7 @@ def booking_history(request):
     remaining_allowance = calculate_remaining_allowance(user, 'regular')
 
     # Base querysets for both types
-    bookings = Booking.objects.filter(user=user).select_related('slot', 'attraction')
+    bookings = Booking.objects.filter(user=user).select_related('slot', 'attraction', 'feedback_submission')
     draw_bookings = TicketDrawBooking.objects.filter(user=user).select_related('slot', 'ticket_draw')
 
     # Parse GET params for filters
@@ -948,6 +998,34 @@ def booking_history(request):
         d.is_draw = True
         apply_ticket_release_flags(d, is_draw=True)
 
+    feedback_template = FeedbackEmailTemplate.get_template()
+    for b in past_bookings:
+        b.feedback_action_url = ""
+        b.feedback_status = ""
+
+        if b.cancelled:
+            b.feedback_status = "Not available"
+            continue
+
+        if feedback_template.feedback_mode != FeedbackEmailTemplate.FEEDBACK_MODE_INTERNAL:
+            b.feedback_status = "Use email link"
+            continue
+
+        can_submit, reason = booking_feedback_is_open(b, template=feedback_template)
+        if can_submit:
+            b.feedback_action_url = build_booking_feedback_url(b, request=request)
+        else:
+            if "already been submitted" in reason.lower():
+                b.feedback_status = "Submitted"
+            elif "expired" in reason.lower():
+                b.feedback_status = "Expired"
+            else:
+                b.feedback_status = "Not available"
+
+    for d in past_draws:
+        d.feedback_action_url = ""
+        d.feedback_status = "Not available"
+
     # Combine and sort
     if sort == "slot_date":
 
@@ -1062,6 +1140,66 @@ def trigger_feedback_emails(request):
     return redirect('manage_feedback_email')
 
 
+@login_required
+def submit_booking_feedback(request, booking_id):
+    booking = get_object_or_404(
+        Booking.objects.select_related("user", "slot", "attraction", "user__profile"),
+        pk=booking_id,
+        cancelled=False,
+    )
+
+    if booking.user_id != request.user.id:
+        return HttpResponseForbidden("You do not have permission to submit feedback for this booking.")
+
+    template = FeedbackEmailTemplate.get_template()
+    token = request.GET.get("token") or request.POST.get("token")
+    if not token:
+        return HttpResponseForbidden("Missing feedback token.")
+
+    signer = TimestampSigner(salt="booking-feedback")
+    try:
+        unsigned_value = signer.unsign(token, max_age=(template.expiry_days + 30) * 24 * 60 * 60)
+    except (BadSignature, SignatureExpired):
+        return HttpResponseForbidden("Invalid or expired feedback token.")
+
+    if unsigned_value != str(booking.id):
+        return HttpResponseForbidden("Feedback token does not match this booking.")
+
+    can_submit, reason = booking_feedback_is_open(booking, template=template)
+    if not can_submit:
+        messages.error(request, reason)
+        return redirect("booking_history")
+
+    if request.method == "POST":
+        form = BookingFeedbackForm(request.POST)
+        if form.is_valid():
+            feedback = form.save(commit=False)
+            feedback.booking = booking
+            feedback.user = request.user
+            feedback.staff_full_name = request.user.get_full_name().strip() or request.user.username
+            feedback.staff_email = request.user.email or booking.email
+
+            profile = getattr(request.user, "profile", None)
+            feedback.staff_guid = getattr(profile, "staff_guid", "") or ""
+            feedback.staff_department = getattr(profile, "department", "") or ""
+            feedback.save()
+
+            messages.success(request, "Thank you for your feedback.")
+            return redirect("booking_history")
+    else:
+        form = BookingFeedbackForm()
+
+    context = {
+        "form": form,
+        "booking": booking,
+        "token": token,
+        "feedback_window_days": template.expiry_days,
+        "staff_guid": getattr(getattr(request.user, "profile", None), "staff_guid", "") or "",
+        "staff_department": getattr(getattr(request.user, "profile", None), "department", "") or "",
+    }
+    return render(request, "fergusonbequest/booking_feedback_form.html", context)
+
+
 @require_POST
 @login_required
 def cancel_booking(request, pk):
@@ -1072,6 +1210,10 @@ def cancel_booking(request, pk):
         return redirect("booking_history")
 
     if booking.slot.date < timezone.now().date():
+        return redirect("booking_history")
+
+    if booking.cancel_deadline and timezone.now() > booking.cancel_deadline:
+        messages.error(request, "This booking can no longer be cancelled.")
         return redirect("booking_history")
 
     reassigned_booking = None
@@ -2392,6 +2534,45 @@ def admin_reports(request):
     )
 
 
+@staff_member_required
+def admin_feedback_submissions(request):
+    q = (request.GET.get("q") or "").strip()
+    rating = (request.GET.get("rating") or "").strip()
+
+    feedback_qs = BookingFeedback.objects.select_related(
+        "booking",
+        "booking__attraction",
+        "user",
+    ).order_by("-submitted_at")
+
+    if q:
+        feedback_qs = feedback_qs.filter(
+            Q(booking__id__icontains=q)
+            | Q(booking__attraction__name__icontains=q)
+            | Q(staff_full_name__icontains=q)
+            | Q(staff_email__icontains=q)
+            | Q(comments__icontains=q)
+        )
+
+    if rating in {"1", "2", "3", "4", "5"}:
+        feedback_qs = feedback_qs.filter(rating=int(rating))
+
+    paginator = Paginator(feedback_qs, 25)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    return render(
+        request,
+        "fergusonbequest/admin_feedback_submissions.html",
+        {
+            "page_obj": page_obj,
+            "total_count": feedback_qs.count(),
+            "q": q,
+            "rating": rating,
+        },
+    )
+
+
 # -----------------------------
 # Emails (admin)
 # -----------------------------
@@ -2424,11 +2605,53 @@ def admin_email(request):
             
             if selected_template.type == "feedback":
                 feedback_singleton = FeedbackEmailTemplate.get_template()
+                feedback_mode = request.POST.get("feedback_mode", FeedbackEmailTemplate.FEEDBACK_MODE_INTERNAL)
+                if feedback_mode not in {
+                    FeedbackEmailTemplate.FEEDBACK_MODE_INTERNAL,
+                    FeedbackEmailTemplate.FEEDBACK_MODE_EXTERNAL,
+                }:
+                    feedback_mode = FeedbackEmailTemplate.FEEDBACK_MODE_INTERNAL
+
+                feedback_url = request.POST.get("feedback_url", "").strip()
+                expiry_days_raw = request.POST.get("expiry_days", "").strip()
+                reminder_delay_raw = request.POST.get("reminder_delay_days", "").strip()
+
+                try:
+                    expiry_days = int(expiry_days_raw or feedback_singleton.expiry_days)
+                except (TypeError, ValueError):
+                    expiry_days = feedback_singleton.expiry_days
+                expiry_days = max(1, min(90, expiry_days))
+
+                try:
+                    reminder_delay_days = int(reminder_delay_raw or feedback_singleton.reminder_delay_days)
+                except (TypeError, ValueError):
+                    reminder_delay_days = feedback_singleton.reminder_delay_days
+                reminder_delay_days = max(1, min(30, reminder_delay_days))
+
+                if feedback_mode == FeedbackEmailTemplate.FEEDBACK_MODE_EXTERNAL and not feedback_url:
+                    messages.error(request, "External mode requires a Feedback Form URL.")
+                    return redirect(request.get_full_path())
+
                 feedback_singleton.subject = subject
                 feedback_singleton.body = body
                 feedback_singleton.enabled = request.POST.get("feedback_enabled") == "on"
-                feedback_singleton.feedback_url = request.POST.get("feedback_url", "").strip()
-                feedback_singleton.save(update_fields=["subject", "body", "enabled", "feedback_url"])
+                feedback_singleton.feedback_mode = feedback_mode
+                feedback_singleton.feedback_url = feedback_url
+                feedback_singleton.expiry_days = expiry_days
+                feedback_singleton.reminder_enabled = request.POST.get("reminder_enabled") == "on"
+                feedback_singleton.reminder_delay_days = reminder_delay_days
+                feedback_singleton.save(
+                    update_fields=[
+                        "subject",
+                        "body",
+                        "enabled",
+                        "feedback_mode",
+                        "feedback_url",
+                        "expiry_days",
+                        "reminder_enabled",
+                        "reminder_delay_days",
+                    ]
+                )
             
             messages.success(request, "Template saved")
 
@@ -2437,7 +2660,10 @@ def admin_email(request):
             context = get_email_context(user=request.user)
             if selected_template.type == "feedback":
                 feedback_singleton = FeedbackEmailTemplate.get_template()
-                context["feedback_url"] = feedback_singleton.feedback_url
+                if feedback_singleton.feedback_mode == FeedbackEmailTemplate.FEEDBACK_MODE_EXTERNAL:
+                    context["feedback_url"] = feedback_singleton.feedback_url
+                else:
+                    context["feedback_url"] = request.build_absolute_uri(reverse("booking_history"))
             send_template_email(
                 selected_template.type,
                 request.user.email,  # send to yourself
@@ -2739,9 +2965,19 @@ def send_custom_email(user):
     )
 
 
-def send_feedback_email_request(booking, feedback_url):
+def send_feedback_email_request(booking, feedback_url="", request=None, template=None):
     recipient = booking.user.email if booking.user and booking.user.email else booking.email
-    context = get_email_context(booking=booking, feedback_url=feedback_url)
+    template = template or FeedbackEmailTemplate.get_template()
+
+    if template.feedback_mode == FeedbackEmailTemplate.FEEDBACK_MODE_EXTERNAL:
+        resolved_feedback_url = feedback_url or template.feedback_url
+    else:
+        resolved_feedback_url = build_booking_feedback_url(booking, request=request)
+
+    if not resolved_feedback_url:
+        resolved_feedback_url = build_booking_feedback_url(booking, request=request)
+
+    context = get_email_context(booking=booking, feedback_url=resolved_feedback_url)
     send_template_email(
         "feedback",
         recipient,

@@ -232,6 +232,9 @@ class Booking(models.Model):
     ticket_type = models.CharField(max_length=50, choices=TICKET_TYPE_CHOICES, blank=True, null=True)
 
     feedback_email_sent = models.BooleanField(default=False)
+    feedback_email_sent_at = models.DateTimeField(null=True, blank=True)
+    feedback_reminder_sent = models.BooleanField(default=False)
+    feedback_reminder_sent_at = models.DateTimeField(null=True, blank=True)
     ticket_sent = models.BooleanField(default=False)
     ticket_sent_at = models.DateTimeField(null=True, blank=True)
     ticket_instructions = models.TextField(blank=True, null=True)
@@ -284,6 +287,34 @@ class Booking(models.Model):
     @property
     def needs_more_tickets(self):
         return self.uploaded_ticket_count < self.num_tickets
+
+
+class BookingFeedback(models.Model):
+    booking = models.OneToOneField(
+        "Booking",
+        on_delete=models.CASCADE,
+        related_name="feedback_submission",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="booking_feedback_submissions",
+    )
+    rating = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+    comments = models.TextField(blank=True)
+    staff_full_name = models.CharField(max_length=150)
+    staff_email = models.EmailField()
+    staff_guid = models.CharField(max_length=64, blank=True)
+    staff_department = models.CharField(max_length=255, blank=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-submitted_at",)
+
+    def __str__(self):
+        return f"Feedback for booking #{self.booking_id}"
 
 class BookingTicket(models.Model):
     booking = models.ForeignKey(
@@ -538,6 +569,13 @@ class TermsAndConditions(models.Model):
 
 class FeedbackEmailTemplate(models.Model):
     """Stores the email template for feedback requests. Only one instance should exist."""
+
+    FEEDBACK_MODE_INTERNAL = "internal"
+    FEEDBACK_MODE_EXTERNAL = "external"
+    FEEDBACK_MODE_CHOICES = [
+        (FEEDBACK_MODE_INTERNAL, "Built-in feedback form"),
+        (FEEDBACK_MODE_EXTERNAL, "External Microsoft Forms link"),
+    ]
     
     subject = models.CharField(
         max_length=200,
@@ -575,6 +613,30 @@ This is an automated email. For queries, contact fergusonbequest@glasgow.ac.uk""
     enabled = models.BooleanField(
         default=True,
         help_text="Uncheck to disable automatic feedback emails"
+    )
+
+    feedback_mode = models.CharField(
+        max_length=20,
+        choices=FEEDBACK_MODE_CHOICES,
+        default=FEEDBACK_MODE_INTERNAL,
+        help_text="Choose whether emails link to the in-app feedback form or an external Microsoft Forms URL."
+    )
+
+    expiry_days = models.PositiveSmallIntegerField(
+        default=14,
+        validators=[MinValueValidator(1), MaxValueValidator(90)],
+        help_text="Number of days after the visit when feedback submissions remain open."
+    )
+
+    reminder_enabled = models.BooleanField(
+        default=True,
+        help_text="Send one reminder email when no feedback is submitted."
+    )
+
+    reminder_delay_days = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[MinValueValidator(1), MaxValueValidator(30)],
+        help_text="Days after the first feedback email to send the reminder."
     )
     
     updated_at = models.DateTimeField(auto_now=True)

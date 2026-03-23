@@ -1,0 +1,88 @@
+{% extends 'fergusonbequest/base.html' %}
+
+{% block title %}Feedback Submissions - Ferguson Bequest{% endblock %}
+
+{% block content %}
+<div class="fb-container">
+  <h1 class="fb-h1">Feedback Submissions</h1>
+
+  <div class="fb-card" style="margin-bottom: 16px;">
+    <form method="get" style="display:flex; gap:12px; flex-wrap:wrap; align-items:end;">
+      <div class="fb-form-row" style="min-width:240px; margin-bottom: 0;">
+        <label class="fb-label" for="id_q">Search</label>
+        <div class="fb-field">
+          <input id="id_q" name="q" type="search" value="{{ q }}" placeholder="Booking ID, venue, staff, comments">
+        </div>
+      </div>
+
+      <div class="fb-form-row" style="min-width:140px; margin-bottom: 0;">
+        <label class="fb-label" for="id_rating">Rating</label>
+        <div class="fb-field">
+          <select id="id_rating" name="rating">
+            <option value="">All</option>
+            <option value="5" {% if rating == '5' %}selected{% endif %}>5</option>
+            <option value="4" {% if rating == '4' %}selected{% endif %}>4</option>
+            <option value="3" {% if rating == '3' %}selected{% endif %}>3</option>
+            <option value="2" {% if rating == '2' %}selected{% endif %}>2</option>
+            <option value="1" {% if rating == '1' %}selected{% endif %}>1</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="fb-form-row" style="margin-bottom: 0;">
+        <label class="fb-label" style="visibility:hidden;">Actions</label>
+        <div style="display:flex; gap:8px; align-items:center; min-height:40px; flex-wrap:wrap;">
+          <button type="submit" class="fb-btn fb-btn--primary">Apply</button>
+          <a href="{% url 'admin_feedback_submissions' %}" class="fb-btn">Reset</a>
+          <a href="{% url 'admin_dashboard' %}" class="fb-btn">Back to Dashboard</a>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="fb-card" style="margin-bottom: 16px;">
+    <strong>Total submissions:</strong> {{ total_count }}
+  </div>
+
+  {% if page_obj.object_list %}
+    {% for item in page_obj.object_list %}
+      <div class="fb-card" style="margin-bottom: 12px;">
+        <div style="display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+          <div>
+            <strong>Booking #{{ item.booking_id }}</strong> · {{ item.booking.attraction.name }}
+          </div>
+          <div>
+            <strong>Rating:</strong> {{ item.rating }}/5
+          </div>
+        </div>
+
+        <div style="margin-top:8px; color:#4b5563;">
+          <div><strong>Submitted:</strong> {{ item.submitted_at|date:'d/m/Y H:i' }}</div>
+          <div><strong>Staff:</strong> {{ item.staff_full_name }} ({{ item.staff_email }})</div>
+          {% if item.staff_guid %}<div><strong>GUID:</strong> {{ item.staff_guid }}</div>{% endif %}
+          {% if item.staff_department %}<div><strong>Department:</strong> {{ item.staff_department }}</div>{% endif %}
+        </div>
+
+        <div style="margin-top:10px;">
+          <strong>Comments</strong>
+          <div style="margin-top:4px; white-space:pre-wrap;">{{ item.comments|default:'—' }}</div>
+        </div>
+      </div>
+    {% endfor %}
+
+    <div class="fb-card" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+      <div>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</div>
+      <div style="display:flex; gap:8px;">
+        {% if page_obj.has_previous %}
+          <a class="fb-btn" href="?q={{ q|urlencode }}&rating={{ rating|urlencode }}&page={{ page_obj.previous_page_number }}">Previous</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+          <a class="fb-btn" href="?q={{ q|urlencode }}&rating={{ rating|urlencode }}&page={{ page_obj.next_page_number }}">Next</a>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    <div class="fb-card">No feedback submissions found.</div>
+  {% endif %}
+</div>
+{% endblock %}

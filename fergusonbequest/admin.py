@@ -8,6 +8,7 @@ from .models import (
     TicketDrawBooking,
     TicketDrawVisitSlot,
     AttractionSuggestion, FeedbackEmailTemplate,
+    BookingFeedback,
     AttractionWaitlistEntry,
     DiscountCode,   # ← 确保导入
 )
@@ -71,10 +72,10 @@ class AttractionSuggestionAdmin(admin.ModelAdmin):
 
 @admin.register(FeedbackEmailTemplate)
 class FeedbackEmailTemplateAdmin(admin.ModelAdmin):
-    list_display = ("__str__", "enabled", "updated_at")
+    list_display = ("__str__", "enabled", "feedback_mode", "updated_at")
     fieldsets = (
         ("Email Settings", {
-            "fields": ("enabled",),
+            "fields": ("enabled", "feedback_mode", "expiry_days", "reminder_enabled", "reminder_delay_days", "feedback_url"),
             "description": "Enable or disable automatic feedback emails"
         }),
         ("Email Content", {
@@ -97,6 +98,35 @@ class FeedbackEmailTemplateAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         # Don't allow deletion
         return False
+
+
+@admin.register(BookingFeedback)
+class BookingFeedbackAdmin(admin.ModelAdmin):
+    list_display = (
+        "booking",
+        "user",
+        "rating",
+        "staff_full_name",
+        "staff_email",
+        "submitted_at",
+    )
+    list_filter = ("rating", "submitted_at")
+    search_fields = (
+        "staff_full_name",
+        "staff_email",
+        "comments",
+        "booking__id",
+        "booking__attraction__name",
+    )
+    readonly_fields = (
+        "booking",
+        "user",
+        "staff_full_name",
+        "staff_email",
+        "staff_guid",
+        "staff_department",
+        "submitted_at",
+    )
 
 
 @admin.register(AttractionWaitlistEntry)

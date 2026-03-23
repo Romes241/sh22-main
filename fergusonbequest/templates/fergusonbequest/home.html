@@ -51,6 +51,7 @@
 
         <!-- Slides container -->
         <div id="fb-slider" class="fb-slider">
+          {% if featured_attractions %}
           {% for attraction in featured_attractions %}
           <figure class="fb-slide {% if forloop.first %}is-active{% endif %}"
                   data-book-url="{{ attraction.url }}">
@@ -63,8 +64,12 @@
             </figcaption>
           </figure>
           {% endfor %}
+          {% else %}
+          <p class="bh-muted">No featured attractions yet.</p>
+          {% endif %}
         </div> 
        
+        {% if featured_attractions %}
         <!-- Slider controls -->
         <button type="button" class="fb-slider-arrow fb-slider-arrow--prev"
                 aria-label="Previous attraction">‹</button>
@@ -78,14 +83,17 @@
             Book now
           </a>
         </div>
+        {% endif %}
       </div>
 
       <!-- Slider indicator dots -->
+      {% if featured_attractions %}
       <div class="fb-home-dots">
         {% for attraction in featured_attractions %}
         <span class="fb-dot {% if forloop.first %}fb-dot--active{% endif %}"></span>
         {% endfor %}
       </div>
+      {% endif %}
     </section>
   </section>
     <script src="{% static 'fergusonbequest/js/home_carousel.js' %}"></script>

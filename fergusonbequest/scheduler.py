@@ -6,7 +6,7 @@ from django.conf import settings
 import datetime
 from django.db.models import F
 import logging
-from .models import TicketDraw, TicketDrawVisitSlot, Attraction, VisitSlot, Booking, TicketDrawBooking, FeedbackEmailTemplate, EmailTemplate
+from .models import TicketDraw, TicketDrawVisitSlot, Attraction, VisitSlot, Booking, TicketDrawBooking, FeedbackEmailTemplate, EmailTemplate, BookingFeedback
 from .views import assign_next_winner, send_attraction_booking_email_reminder, send_draw_booking_email_reminder, send_attraction_booking_email_ticket_distribution, send_feedback_email_request
 
 logger = logging.getLogger(__name__)
@@ -101,29 +101,62 @@ def send_scheduled_feedback_emails():
     now = timezone.now()
     completed_bookings = Booking.objects.filter(
         cancelled=False,
-        feedback_email_sent=False,
-        slot__date__lt=now.date(),
+        slot__date__lte=now.date(),
     ).select_related("slot", "attraction", "user")
 
     sent_count = 0
-    for booking in completed_bookings:
-        if booking.slot.time:
-            slot_dt = timezone.make_aware(
-                datetime.datetime.combine(booking.slot.date, booking.slot.time)
-            )
-            if booking.attraction.duration_minutes:
-                slot_dt += datetime.timedelta(minutes=booking.attraction.duration_minutes)
-            if now < slot_dt:
-                continue
-        try:
-            send_feedback_email_request(booking, template.feedback_url)
-            booking.feedback_email_sent = True
-            booking.save(update_fields=["feedback_email_sent"])
-            sent_count += 1
-        except Exception as e:
-            logger.error(f"Failed to send feedback email for booking #{booking.id}: {e}")
+    reminder_count = 0
 
-    logger.info(f"Feedback email job: sent {sent_count} email(s).")
+    for booking in completed_bookings:
+        slot_time = booking.slot.time or datetime.time(23, 59, 59)
+        visit_end = timezone.make_aware(datetime.datetime.combine(booking.slot.date, slot_time))
+        if booking.attraction.duration_minutes:
+            visit_end += datetime.timedelta(minutes=booking.attraction.duration_minutes)
+
+        if now < visit_end:
+            continue
+
+        expiry_deadline = visit_end + datetime.timedelta(days=template.expiry_days)
+        if now > expiry_deadline:
+            continue
+
+        if BookingFeedback.objects.filter(booking_id=booking.id).exists():
+            continue
+
+        if not booking.feedback_email_sent:
+            try:
+                send_feedback_email_request(booking, template.feedback_url, template=template)
+                booking.feedback_email_sent = True
+                booking.feedback_email_sent_at = now
+                booking.save(update_fields=["feedback_email_sent", "feedback_email_sent_at"])
+                sent_count += 1
+            except Exception as e:
+                logger.error(f"Failed to send feedback email for booking #{booking.id}: {e}")
+            continue
+
+        if not template.reminder_enabled:
+            continue
+
+        if booking.feedback_reminder_sent:
+            continue
+
+        if not booking.feedback_email_sent_at:
+            continue
+
+        reminder_due_at = booking.feedback_email_sent_at + datetime.timedelta(days=template.reminder_delay_days)
+        if now < reminder_due_at:
+            continue
+
+        try:
+            send_feedback_email_request(booking, template.feedback_url, template=template)
+            booking.feedback_reminder_sent = True
+            booking.feedback_reminder_sent_at = now
+            booking.save(update_fields=["feedback_reminder_sent", "feedback_reminder_sent_at"])
+            reminder_count += 1
+        except Exception as e:
+            logger.error(f"Failed to send feedback reminder for booking #{booking.id}: {e}")
+
+    logger.info(f"Feedback email job: sent {sent_count} email(s), reminders {reminder_count}.")
 
 
 def cleanup_old_jobs():
