@@ -532,40 +532,10 @@ def _get_featured_attractions(limit=4):
 
 
 def home(request):
-    attractions_qs = Attraction.objects.all().order_by("name")[:4]
+    featured_attractions = _get_featured_attractions()
+    
+    return render(request, "fergusonbequest/home_logged_in.html", {"featured_attractions": featured_attractions})
 
-    featured_attractions = [
-        {
-            "title": attr.name,
-            "subtitle": (attr.description[:100] if attr.description else (attr.location or "Book now to visit")),
-            "image": (attr.image.name if getattr(attr, "image", None) else "fergusonbequest/img/placeholder.jpg"),
-            "id": attr.id,
-            "url": f"/attraction/{attr.id}/book/",
-        }
-        for attr in attractions_qs
-    ]
-
-    # fallback if DB empty (helps tests/first run)
-    if not featured_attractions:
-        featured_attractions = [
-            {"title": "Blair Drummond Safari Park", "subtitle": "Safari and adventure park.",
-             "image": "fergusonbequest/img/blair_drumond.jpg", "id": None, "url": "/attractions/"},
-            {"title": "Glasgow Clan Ice Hockey", "subtitle": "The city's professional hockey team.",
-             "image": "fergusonbequest/img/glasgow_clan.jpg", "id": None, "url": "/attractions/"},
-            {"title": "Edinburgh Zoo", "subtitle": "Scotland's most famous zoo.",
-             "image": "fergusonbequest/img/edinburgh_zoo.jpg", "id": None, "url": "/attractions/"},
-            {"title": "Ghostbusters Screening", "subtitle": "Who you gonna call?",
-             "image": "fergusonbequest/img/ghostbusters.jpg", "id": None, "url": "/attractions/"},
-        ]
-
-    if request.user.is_authenticated:
-        return render(
-            request,
-            "fergusonbequest/home_logged_in.html",
-            {"featured_attractions": featured_attractions},
-        )
-
-    return render(request, "fergusonbequest/home.html", {"featured_attractions": featured_attractions})
 
 
 
