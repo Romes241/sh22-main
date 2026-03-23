@@ -12,7 +12,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.template import Template, Context
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
-from django.utils.dateparse import parse_date
+from django.utils.dateparse import parse_date, parse_time
 from django.utils.text import slugify
 
 from openpyxl import Workbook
@@ -78,6 +78,137 @@ def _call_is_open(obj, now):
         return obj.is_open(now)
     except TypeError:
         return obj.is_open()
+
+
+def _parse_visit_slot_rows(post_data):
+    slot_ids = post_data.getlist("slot_id[]") or post_data.getlist("slot_id")
+    slot_dates = post_data.getlist("slot_date[]") or post_data.getlist("slot_date")
+    slot_times = post_data.getlist("slot_time[]") or post_data.getlist("slot_time")
+    slot_capacities = post_data.getlist("slot_capacity[]") or post_data.getlist("slot_capacity")
+
+    row_count = max(len(slot_ids), len(slot_dates), len(slot_times), len(slot_capacities), 0)
+    parsed_rows = []
+    errors = []
+    raw_rows = []
+
+    for idx in range(row_count):
+        slot_id_raw = (slot_ids[idx] if idx < len(slot_ids) else "").strip()
+        date_raw = (slot_dates[idx] if idx < len(slot_dates) else "").strip()
+        time_raw = (slot_times[idx] if idx < len(slot_times) else "").strip()
+        capacity_raw = (slot_capacities[idx] if idx < len(slot_capacities) else "").strip()
+
+        raw_rows.append({"id": slot_id_raw, "date": date_raw, "time": time_raw, "capacity": capacity_raw})
+
+        if not any([slot_id_raw, date_raw, time_raw, capacity_raw]):
+            continue
+
+        slot_id_value = None
+        if slot_id_raw:
+            try:
+                slot_id_value = int(slot_id_raw)
+            except (TypeError, ValueError):
+                errors.append(f"Visit slot row {idx + 1}: invalid slot id.")
+                continue
+
+        row_errors = []
+
+        date_value = parse_date(date_raw) if date_raw else None
+        if not date_value:
+            row_errors.append(f"Visit slot row {idx + 1}: please provide a valid date.")
+
+        time_value = None
+        if time_raw:
+            time_value = parse_time(time_raw)
+            if not time_value:
+                row_errors.append(f"Visit slot row {idx + 1}: please provide a valid time.")
+
+        try:
+            capacity_value = int(capacity_raw)
+            if capacity_value <= 0:
+                row_errors.append(f"Visit slot row {idx + 1}: capacity must be greater than 0.")
+        except (TypeError, ValueError):
+            row_errors.append(f"Visit slot row {idx + 1}: please provide a valid capacity.")
+            capacity_value = None
+
+        if row_errors:
+            errors.extend(row_errors)
+            continue
+
+        parsed_rows.append({
+            "id": slot_id_value,
+            "date": date_value,
+            "time": time_value,
+            "capacity": capacity_value,
+        })
+
+    if not raw_rows:
+        raw_rows = [{"id": "", "date": "", "time": "", "capacity": "20"}]
+
+    return parsed_rows, errors, raw_rows
+
+
+def _serialize_slot_rows(slots_qs):
+    rows = [
+        {
+            "id": str(slot.id),
+            "date": slot.date.isoformat() if slot.date else "",
+            "time": slot.time.strftime("%H:%M") if slot.time else "",
+            "capacity": str(slot.capacity),
+        }
+        for slot in slots_qs.order_by("date", "time", "id")
+    ]
+    return rows or [{"id": "", "date": "", "time": "", "capacity": "20"}]
+
+
+def _sync_slots(parent_obj, slot_model, parent_field_name, booking_related_name, parsed_rows):
+    existing_slots = {
+        slot.id: slot
+        for slot in slot_model.objects.filter(**{parent_field_name: parent_obj})
+    }
+
+    kept_slot_ids = set()
+    errors = []
+
+    for idx, row in enumerate(parsed_rows, start=1):
+        slot_id = row.get("id")
+        if slot_id:
+            slot = existing_slots.get(slot_id)
+            if not slot:
+                errors.append(f"Visit slot row {idx}: slot no longer exists.")
+                continue
+
+            used_tickets = max(slot.capacity - slot.remaining, 0)
+            slot.date = row["date"]
+            slot.time = row["time"]
+            slot.capacity = row["capacity"]
+            slot.remaining = max(slot.capacity - used_tickets, 0)
+            slot.save(update_fields=["date", "time", "capacity", "remaining"])
+            kept_slot_ids.add(slot.id)
+            continue
+
+        created_slot = slot_model.objects.create(
+            **{
+                parent_field_name: parent_obj,
+                "date": row["date"],
+                "time": row["time"],
+                "capacity": row["capacity"],
+                "remaining": row["capacity"],
+            }
+        )
+        kept_slot_ids.add(created_slot.id)
+
+    slots_to_remove = slot_model.objects.filter(**{parent_field_name: parent_obj}).exclude(id__in=kept_slot_ids)
+    for slot in slots_to_remove:
+        if getattr(slot, booking_related_name).exists():
+            errors.append(
+                f"Cannot remove slot on {slot.date}"
+                f"{' at ' + slot.time.strftime('%H:%M') if slot.time else ''}"
+                " because it has bookings."
+            )
+            continue
+        slot.delete()
+
+    return errors
 
 
 def calculate_remaining_allowance(user, attraction_type="regular"):
@@ -1764,77 +1895,149 @@ def mng_delete_attraction(request, attraction_id):
 
 @staff_member_required
 def create_attraction(request):
+    slot_rows = [{"id": "", "date": "", "time": "", "capacity": "20"}]
+
     if request.method == "POST":
         form = AttractionCreateForm(request.POST, request.FILES)
-        if form.is_valid():
-            attraction_obj = form.save()
+        parsed_slot_rows, slot_errors, slot_rows = _parse_visit_slot_rows(request.POST)
+        if form.is_valid() and not slot_errors:
+            with transaction.atomic():
+                attraction_obj = form.save()
+                VisitSlot.objects.bulk_create(
+                    [
+                        VisitSlot(
+                            attraction=attraction_obj,
+                            date=row["date"],
+                            time=row["time"],
+                            capacity=row["capacity"],
+                            remaining=row["capacity"],
+                        )
+                        for row in parsed_slot_rows
+                    ]
+                )
             messages.success(request, f'Attraction "{attraction_obj.name}" created successfully!')
             return redirect(f"{reverse('admin_management')}?tab=attractions")
+
+        for slot_error in slot_errors:
+            form.add_error(None, slot_error)
     else:
         form = AttractionCreateForm()
 
     return render(
         request,
         "fergusonbequest/create_attraction.html",
-        {"form": form, "title": "Create New Attraction"},
+        {"form": form, "title": "Create New Attraction", "slot_rows": slot_rows},
     )
 
 
 @staff_member_required
 def edit_attraction(request, pk):
     attraction_obj = get_object_or_404(Attraction, pk=pk)
+    slot_rows = _serialize_slot_rows(attraction_obj.slots.all())
 
     if request.method == "POST":
         form = AttractionCreateForm(request.POST, request.FILES, instance=attraction_obj)
-        if form.is_valid():
-            form.save()
-            messages.success(request, f'Attraction "{attraction_obj.name}" updated successfully!')
-            return redirect("admin_dashboard")
+        parsed_slot_rows, slot_errors, slot_rows = _parse_visit_slot_rows(request.POST)
+        if form.is_valid() and not slot_errors:
+            with transaction.atomic():
+                form.save()
+                sync_errors = _sync_slots(
+                    parent_obj=attraction_obj,
+                    slot_model=VisitSlot,
+                    parent_field_name="attraction",
+                    booking_related_name="booking_set",
+                    parsed_rows=parsed_slot_rows,
+                )
+                if not sync_errors:
+                    messages.success(request, f'Attraction "{attraction_obj.name}" updated successfully!')
+                    return redirect("admin_dashboard")
+
+                transaction.set_rollback(True)
+                slot_errors.extend(sync_errors)
+
+        for slot_error in slot_errors:
+            form.add_error(None, slot_error)
     else:
         form = AttractionCreateForm(instance=attraction_obj)
 
     return render(
         request,
         "fergusonbequest/edit_attraction.html",
-        {"form": form, "title": "Edit Attraction", "attraction": attraction_obj},
+        {"form": form, "title": "Edit Attraction", "attraction": attraction_obj, "slot_rows": slot_rows},
     )
 
 
 @staff_member_required
 def create_ticket_draw(request):
+    slot_rows = [{"id": "", "date": "", "time": "", "capacity": "20"}]
+
     if request.method == "POST":
         form = TicketDrawCreateForm(request.POST, request.FILES)
-        if form.is_valid():
-            draw = form.save()
+        parsed_slot_rows, slot_errors, slot_rows = _parse_visit_slot_rows(request.POST)
+        if form.is_valid() and not slot_errors:
+            with transaction.atomic():
+                draw = form.save()
+                TicketDrawVisitSlot.objects.bulk_create(
+                    [
+                        TicketDrawVisitSlot(
+                            ticket_draw=draw,
+                            date=row["date"],
+                            time=row["time"],
+                            capacity=row["capacity"],
+                            remaining=row["capacity"],
+                        )
+                        for row in parsed_slot_rows
+                    ]
+                )
             messages.success(request, f'Ticket Draw "{draw.name}" created successfully!')
             return redirect(f"{reverse('admin_management')}?tab=draws")
+
+        for slot_error in slot_errors:
+            form.add_error(None, slot_error)
     else:
         form = TicketDrawCreateForm()
 
     return render(
         request,
         "fergusonbequest/create_ticket_draw.html",
-        {"form": form, "title": "Create New Ticket Draw"},
+        {"form": form, "title": "Create New Ticket Draw", "slot_rows": slot_rows},
     )
 
 
 @staff_member_required
 def edit_ticket_draw(request, pk):
     draw = get_object_or_404(TicketDraw, pk=pk)
+    slot_rows = _serialize_slot_rows(draw.slots.all())
 
     if request.method == "POST":
         form = TicketDrawCreateForm(request.POST, request.FILES, instance=draw)
-        if form.is_valid():
-            form.save()
-            messages.success(request, f'Ticket Draw "{draw.name}" updated successfully!')
-            return redirect("admin_dashboard")
+        parsed_slot_rows, slot_errors, slot_rows = _parse_visit_slot_rows(request.POST)
+        if form.is_valid() and not slot_errors:
+            with transaction.atomic():
+                form.save()
+                sync_errors = _sync_slots(
+                    parent_obj=draw,
+                    slot_model=TicketDrawVisitSlot,
+                    parent_field_name="ticket_draw",
+                    booking_related_name="ticketdrawbooking_set",
+                    parsed_rows=parsed_slot_rows,
+                )
+                if not sync_errors:
+                    messages.success(request, f'Ticket Draw "{draw.name}" updated successfully!')
+                    return redirect("admin_dashboard")
+
+                transaction.set_rollback(True)
+                slot_errors.extend(sync_errors)
+
+        for slot_error in slot_errors:
+            form.add_error(None, slot_error)
     else:
         form = TicketDrawCreateForm(instance=draw)
 
     return render(
         request,
         "fergusonbequest/edit_ticket_draw.html",
-        {"form": form, "title": "Edit Ticket Draw", "ticket_draw": draw},
+        {"form": form, "title": "Edit Ticket Draw", "ticket_draw": draw, "slot_rows": slot_rows},
     )
 
 # -----------------------------
