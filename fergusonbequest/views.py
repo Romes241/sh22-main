@@ -76,8 +76,8 @@ MAX_ATTRACTIONS_PER_YEAR = 3
 
 def _booking_visit_end_datetime(booking):
     slot = booking.slot
-    slot_time = slot.time or datetime.time(23, 59, 59)
-    visit_end = datetime.datetime.combine(slot.date, slot_time)
+    slot_time = slot.time or datetime.max.time()
+    visit_end = datetime.combine(slot.date, slot_time)
     if booking.attraction.duration_minutes:
         visit_end += timedelta(minutes=booking.attraction.duration_minutes)
     if timezone.is_naive(visit_end):
@@ -535,10 +535,15 @@ def home(request):
     featured_attractions = _get_featured_attractions()
 
     if request.user.is_authenticated:
+        calendar_data = get_calendar()
         return render(
             request,
             "fergusonbequest/dashboard.html",
-            {"featured_attractions": featured_attractions},
+            {
+                "featured_attractions": featured_attractions,
+                "url_name": "dashboard",
+                **calendar_data,
+            },
         )
 
     return render(request, "fergusonbequest/home.html", {"featured_attractions": featured_attractions})
