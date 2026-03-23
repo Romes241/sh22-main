@@ -509,7 +509,9 @@ def dashboard_view(request, year=None, month=None):
     return render(
         request,
         "fergusonbequest/dashboard.html",
-        {"featured_attractions": featured_attractions, **calendar_data},
+        {"featured_attractions": featured_attractions, 
+         "url_name": "dashboard",
+         **calendar_data},
     )
 
 
@@ -1771,6 +1773,7 @@ def admin_dashboard(request, year=None, month=None):
             "open_venues_count": open_venues_count,
             "bookings_count": bookings_count,
             "bookings_needing_tickets_count": bookings_needing_tickets_count,
+            "url_name": "admin_dashboard",
             **calendar_data,
         },
     )
