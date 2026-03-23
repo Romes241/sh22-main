@@ -544,18 +544,6 @@ def _get_featured_attractions(limit=4):
         for attr in top_booked
     ]
 
-    if not featured_attractions:
-        return [
-            {"title": "Blair Drummond Safari Park", "subtitle": "Safari and adventure park.",
-             "image": "fergusonbequest/img/blair_drumond.jpg", "id": None, "url": "/attractions/"},
-            {"title": "Glasgow Clan Ice Hockey", "subtitle": "The city's professional hockey team.",
-             "image": "fergusonbequest/img/glasgow_clan.jpg", "id": None, "url": "/attractions/"},
-            {"title": "Edinburgh Zoo", "subtitle": "Scotland's most famous zoo.",
-             "image": "fergusonbequest/img/edinburgh_zoo.jpg", "id": None, "url": "/attractions/"},
-            {"title": "Ghostbusters Screening", "subtitle": "Who you gonna call?",
-             "image": "fergusonbequest/img/ghostbusters.jpg", "id": None, "url": "/attractions/"},
-        ]
-
     return featured_attractions
 
 
