@@ -243,17 +243,25 @@ def calculate_remaining_allowance(user, attraction_type="regular"):
 def add_events(objects, events_by_day, start, end, event_type):
     """Add booking_open / booking_close events for calendar display."""
     for obj in objects:
-        date_value = getattr(obj, "date", None)
-        if not date_value:
+        if hasattr(obj, "date"):
+            event_date = obj.date
+        elif hasattr(obj, "slot") and obj.slot:
+            event_date = obj.slot.date
+        else:
             continue
-        event_date = date_value
+
+        if not event_date:
+            continue
+
         if start <= event_date <= end:
             events_by_day.setdefault(event_date.day, []).append(
                 {"object": obj, "event_type": event_type}
             )
 
+    
 
-def get_calendar(year=None, month=None):
+
+def get_calendar(year=None, month=None, user=None):
     """
     Build calendar data for dashboard/calendar template rendering.
     Returns a dict (NOT a rendered response), so it can be merged into context via **calendar_data.
@@ -280,6 +288,10 @@ def get_calendar(year=None, month=None):
     events_by_day = {}
     add_events(VisitSlot.objects.all(), events_by_day, start, end, "attraction")
     add_events(TicketDrawVisitSlot.objects.all(), events_by_day, start, end, "ticket_draw")
+
+    if user and not user.is_staff:
+        add_events(Booking.objects.filter(user=user), events_by_day, start, end, "attraction_booking")
+        add_events(TicketDrawBooking.objects.filter(user=user), events_by_day, start, end, "ticket_draw_booking")
 
     weeks = []
     for i in range(0, len(month_days), 7):
@@ -505,7 +517,7 @@ def dashboard_view(request, year=None, month=None):
              "image": "fergusonbequest/img/ghostbusters.jpg", "id": None, "url": "/attractions/"},
         ]
 
-    calendar_data = get_calendar(year, month)
+    calendar_data = get_calendar(year, month, request.user)
     return render(
         request,
         "fergusonbequest/dashboard.html",
