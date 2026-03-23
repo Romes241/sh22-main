@@ -86,7 +86,7 @@
     <p>Sent 1 day before a draw event (if the user has tickets). Reminds them of their upcoming visit and provides ticket information.</p>
 
   {% elif selected_type == "feedback" %}
-    <p> Sent automatically to users after their visit to request feedback. You can customise the content of the email and include the URL to the feedback from. You can also trigger these emails to be sent manually to all eligible users <p>
+    <p>Sent automatically after visits to request feedback. You can choose built-in form mode or external Microsoft Forms mode, then trigger sends manually for eligible users.</p>
   
   {% elif selected_type == "announcement" %}
     <p>General announcements sent to all users.</p>
@@ -226,8 +226,18 @@
 
     {% if selected_type == 'feedback' and feedback_settings %}
     <div class="ae-form-row">
+      <label>Feedback Mode</label>
+      <select name="feedback_mode">
+        <option value="internal" {% if feedback_settings.feedback_mode == 'internal' %}selected{% endif %}>Built-in feedback form</option>
+        <option value="external" {% if feedback_settings.feedback_mode == 'external' %}selected{% endif %}>External Microsoft Forms link</option>
+      </select>
+      <small>Built-in mode sends users to the in-app feedback page; external mode uses the URL below.</small>
+    </div>
+
+    <div class="ae-form-row">
       <label>Feedback Form URL</label>
       <input type="url" name="feedback_url" value="{{ feedback_settings.feedback_url }}" placeholder="https://forms.office.com/...">
+      <small>Required only when Feedback Mode is External.</small>
     </div>
 
     <div class="ae-form-row">
@@ -235,6 +245,23 @@
         <input type="checkbox" name="feedback_enabled" {% if feedback_settings.enabled %}checked{% endif %}>
         Enable automatic feedback emails
       </label>
+    </div>
+
+    <div class="ae-form-row">
+      <label>Submission Window (days)</label>
+      <input type="number" min="1" max="90" name="expiry_days" value="{{ feedback_settings.expiry_days }}">
+    </div>
+
+    <div class="ae-form-row">
+      <label style="display:flex;align-items:center;gap:.5rem;">
+        <input type="checkbox" name="reminder_enabled" {% if feedback_settings.reminder_enabled %}checked{% endif %}>
+        Enable reminder email
+      </label>
+    </div>
+
+    <div class="ae-form-row">
+      <label>Reminder Delay (days)</label>
+      <input type="number" min="1" max="30" name="reminder_delay_days" value="{{ feedback_settings.reminder_delay_days }}">
     </div>
     {% endif %}
 
