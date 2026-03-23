@@ -30,6 +30,15 @@ from django.http import HttpResponse, FileResponse, HttpResponseForbidden, JsonR
 from django.utils import timezone
 from django.contrib import messages
 from django.views.decorators.http import require_POST, require_http_methods
+from .forms import (
+    BookingForm,
+    AttractionCreateForm,
+    TicketDrawCreateForm,
+    EmailAuthenticationForm,
+    FeedbackEmailTemplateForm,
+    MainPageContentForm,
+)
+from .forms_suggestions import AttractionSuggestionForm
 from .models import (
     Attraction,
     VisitSlot,
@@ -41,21 +50,13 @@ from .models import (
     AttractionSuggestion,
     AttractionWaitlistEntry,
     DiscountCode,
-    EmailTemplate, BookingTicket,
     EmailTemplate,
+    BookingTicket,
     FeedbackEmailTemplate,
-)
-
-from .forms import (
-    BookingForm,
-    AttractionCreateForm,
-    TicketDrawCreateForm,
-    EmailAuthenticationForm,
-    FeedbackEmailTemplateForm
+    MainPageContent,
 )
 
 from .forms_discount_codes import DiscountCodeForm
-from .forms_suggestions import AttractionSuggestionForm
 
 User = get_user_model()
 
@@ -362,7 +363,7 @@ class CustomLoginView(LoginView):
     authentication_form = EmailAuthenticationForm
 
     def get_success_url(self):
-        return reverse_lazy("home")
+        return reverse_lazy("dashboard")
 
 
 class RegistrationForm(forms.ModelForm):
@@ -424,7 +425,7 @@ def register_view(request):
             user = form.save()
             login(request, user)
             messages.success(request, "Registration successful.")
-            return redirect("home")
+            return redirect("dashboard")
     else:
         form = RegistrationForm()
 
@@ -441,10 +442,21 @@ def logout_view(request):
 # -----------------------------
 # Public / Home / Dashboard / Calendar / Terms
 # -----------------------------
-def home(request):
-    attractions_qs = Attraction.objects.all().order_by("name")[:4]
+def _get_featured_attractions(limit=4):
+    top_booked = list(
+        Attraction.objects.annotate(
+            booking_count=Count("booking", filter=Q(booking__cancelled=False))
+        )
+        .filter(booking_count__gt=0)
+        .order_by("-booking_count", "name", "id")[:limit]
+    )
 
-    featured_attractions = [
+    if len(top_booked) < limit:
+        top_booked_ids = [a.id for a in top_booked]
+        fallback_qs = Attraction.objects.exclude(id__in=top_booked_ids).order_by("name", "id")[: limit - len(top_booked)]
+        top_booked.extend(list(fallback_qs))
+
+    return [
         {
             "title": attr.name,
             "subtitle": (attr.description[:100] if attr.description else (attr.location or "Book now to visit")),
@@ -452,27 +464,24 @@ def home(request):
             "id": attr.id,
             "url": f"/attraction/{attr.id}/book/",
         }
-        for attr in attractions_qs
+        for attr in top_booked
     ]
 
-    # fallback if DB empty (helps tests/first run)
-    if not featured_attractions:
-        featured_attractions = [
-            {"title": "Blair Drummond Safari Park", "subtitle": "Safari and adventure park.",
-             "image": "fergusonbequest/img/blair_drumond.jpg", "id": None, "url": "/attractions/"},
-            {"title": "Glasgow Clan Ice Hockey", "subtitle": "The city's professional hockey team.",
-             "image": "fergusonbequest/img/glasgow_clan.jpg", "id": None, "url": "/attractions/"},
-            {"title": "Edinburgh Zoo", "subtitle": "Scotland's most famous zoo.",
-             "image": "fergusonbequest/img/edinburgh_zoo.jpg", "id": None, "url": "/attractions/"},
-            {"title": "Ghostbusters Screening", "subtitle": "Who you gonna call?",
-             "image": "fergusonbequest/img/ghostbusters.jpg", "id": None, "url": "/attractions/"},
-        ]
+
+def home(request):
+    featured_attractions = _get_featured_attractions()
 
     if request.user.is_authenticated:
+        calendar_data = get_calendar()
         return render(
             request,
-            "fergusonbequest/home_logged_in.html",
-            {"featured_attractions": featured_attractions},
+            "fergusonbequest/dashboard.html",
+            {
+                "featured_attractions": featured_attractions,
+                "main_page_content": MainPageContent.get(),
+                "url_name": "dashboard",
+                **calendar_data,
+            },
         )
 
     return render(request, "fergusonbequest/home.html", {"featured_attractions": featured_attractions})
@@ -480,38 +489,19 @@ def home(request):
 
 @login_required
 def dashboard_view(request, year=None, month=None):
-    attractions_qs = Attraction.objects.all().order_by("name")[:4]
-
-    featured_attractions = [
-        {
-            "title": attr.name,
-            "subtitle": (attr.description[:100] if attr.description else (attr.location or "Book now to visit")),
-            "image": (attr.image.name if getattr(attr, "image", None) else "fergusonbequest/img/placeholder.jpg"),
-            "id": attr.id,
-            "url": f"/attraction/{attr.id}/book/",
-        }
-        for attr in attractions_qs
-    ]
-
-    if not featured_attractions:
-        featured_attractions = [
-            {"title": "Blair Drummond Safari Park", "subtitle": "Safari and adventure park.",
-             "image": "fergusonbequest/img/blair_drumond.jpg", "id": None, "url": "/attractions/"},
-            {"title": "Glasgow Clan Ice Hockey", "subtitle": "The city's professional hockey team.",
-             "image": "fergusonbequest/img/glasgow_clan.jpg", "id": None, "url": "/attractions/"},
-            {"title": "Edinburgh Zoo", "subtitle": "Scotland's most famous zoo.",
-             "image": "fergusonbequest/img/edinburgh_zoo.jpg", "id": None, "url": "/attractions/"},
-            {"title": "Ghostbusters Screening", "subtitle": "Who you gonna call?",
-             "image": "fergusonbequest/img/ghostbusters.jpg", "id": None, "url": "/attractions/"},
-        ]
+    featured_attractions = _get_featured_attractions()
+    main_page_content = MainPageContent.get()
 
     calendar_data = get_calendar(year, month)
     return render(
         request,
         "fergusonbequest/dashboard.html",
-        {"featured_attractions": featured_attractions, 
-         "url_name": "dashboard",
-         **calendar_data},
+        {
+            "featured_attractions": featured_attractions,
+            "main_page_content": main_page_content,
+            "url_name": "dashboard",
+            **calendar_data,
+        },
     )
 
 
@@ -4748,4 +4738,26 @@ def manage_terms_and_conditions(request):
     return render(request, 'fergusonbequest/manage_terms_and_conditions.html', {
         't_and_c': t_and_c,
     })
-User = get_user_model()
+
+
+@staff_member_required
+def manage_main_page_content(request):
+    content = MainPageContent.get()
+
+    if request.method == 'POST':
+        form = MainPageContentForm(request.POST, request.FILES, instance=content)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Main page content updated successfully.')
+            return redirect('manage_main_page_content')
+    else:
+        form = MainPageContentForm(instance=content)
+
+    return render(
+        request,
+        'fergusonbequest/manage_main_page_content.html',
+        {
+            'form': form,
+            'content': content,
+        },
+    )
