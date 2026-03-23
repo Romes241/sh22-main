@@ -4,53 +4,92 @@
 {% block title %}Dashboard – Ferguson Bequest{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'fergusonbequest/css/dashboard.css' %}?v=3">
+<link rel="stylesheet" href="{% static 'fergusonbequest/css/home.css' %}?v=2">
 <link rel="stylesheet" href="{% static 'fergusonbequest/css/calendar.css' %}?v=3">
 {% endblock %}
 
 {% block content %}
+<h1 class="fb-heading">
+  Welcome to the Ferguson Bequest Staff Ticketing System
+</h1>
 
-<div class="fb-container">
-  <h1 class="fb-h1">Dashboard</h1>
+<section class="fb-home-layout">
+  <article class="fb-home-card fb-home-card--left">
+    <p class="fb-home-text"><strong>{{ main_page_content.left_intro }}</strong></p>
 
-  <div class="ud-grid">
-    <div class="fb-card">
-      <div id="calendar" class="ud-main">
-        {% include 'fergusonbequest/calendar.html' with url_name='dashboard' %}
+    <div class="fb-home-youcan-row">
+      <p class="fb-home-youcan-label">You can:</p>
+      <ul class="fb-home-list">
+        <li>{{ main_page_content.left_bullet_1 }}</li>
+        <li>{{ main_page_content.left_bullet_2 }}</li>
+        <li>{{ main_page_content.left_bullet_3 }}</li>
+      </ul>
+    </div>
+
+    <div class="fb-home-warning">
+      <div class="fb-home-warning-icon">⚠</div>
+      <div class="fb-home-warning-body">
+        <p>{{ main_page_content.left_warning_body }}</p>
+        <p>{{ main_page_content.left_eligibility_text }}</p>
+      </div>
+    </div>
+  </article>
+
+  <section class="fb-home-card fb-home-card--right">
+    <h2 class="fb-home-right-title">Top Current Featured Attractions</h2>
+
+    <div class="fb-home-slider-frame">
+      <div id="fb-slider" class="fb-slider">
+        {% for attraction in featured_attractions %}
+        <figure class="fb-slide {% if forloop.first %}is-active{% endif %}" data-book-url="{{ attraction.url }}">
+          <img src="{% static attraction.image %}" alt="{{ attraction.title }}" class="fb-slide-image">
+          <figcaption class="fb-slide-caption">
+            <h3>{{ attraction.title }}</h3>
+            <p>{{ attraction.subtitle }}</p>
+          </figcaption>
+        </figure>
+        {% endfor %}
+      </div>
+
+      <button type="button" class="fb-slider-arrow fb-slider-arrow--prev" aria-label="Previous attraction">‹</button>
+      <button type="button" class="fb-slider-arrow fb-slider-arrow--next" aria-label="Next attraction">›</button>
+
+      <div class="fb-home-slider-footer">
+        <a id="fb-book-btn" href="#" class="fb-btn fb-btn--primary" target="_self" rel="noopener">Book now</a>
       </div>
     </div>
 
-    <!-- right: quick links -->
-    <aside class="ud-side" aria-label="Quick links">
-      <div class="ud-panel">
-        <div class="ud-panel__head">Quick Links</div>
+    <div class="fb-home-dots">
+      {% for attraction in featured_attractions %}
+      <span class="fb-dot {% if forloop.first %}fb-dot--active{% endif %}"></span>
+      {% endfor %}
+    </div>
+  </section>
+</section>
 
-        <div class="ud-panel__body">
-          <a class="ud-link" href="{% url 'create_attraction_suggestion' %}">
-            <span class="ud-link__icon" aria-hidden="true">💡</span>
-            <span class="ud-link__text">Suggest an attraction</span>
-            <span class="ud-link__chev" aria-hidden="true">›</span>
-          </a>
-          <!-- A place holder url until discount code link is available -->
-          <a class="ud-link" href="{% url 'user_discount_codes' %}">
-            <span class="ud-link__icon" aria-hidden="true">🏷️</span>
-            <span class="ud-link__text">View discount codes</span>
-            <span class="ud-link__chev" aria-hidden="true">›</span>
-          </a>
-          <a class="ud-link" href="{% url 'waiting_listattraction' %}">
-            <span class="ud-link__icon" aria-hidden="true">📃</span>
-            <span class="ud-link__text">View attraction waiting list</span>
-            <span class="ud-link__chev" aria-hidden="true">›</span>
-          </a>
-          <a class="ud-link" href="{% url 'booking_history' %}">
-            <span class="ud-link__icon" aria-hidden="true">📅</span>
-            <span class="ud-link__text">View booking history</span>
-            <span class="ud-link__chev" aria-hidden="true">›</span>
-          </a>
-        </div>
-      </div>
-    </aside>
+<script>
+  window.FB_CAROUSEL = {
+    userIsAuthenticated: {{ request.user.is_authenticated|yesno:"true,false" }},
+    loginUrl: "{% url 'login' %}"
+  };
+</script>
+<script src="{% static 'fergusonbequest/js/home_carousel.js' %}"></script>
+
+<hr class="fb-divider">
+
+<h2 class="fb-subheading">{{ main_page_content.about_heading }}</h2>
+<section class="fb-about">
+  <div class="fb-about__text">
+    <p>{{ main_page_content.about_paragraph_1 }}</p>
+    <p>{{ main_page_content.about_paragraph_2 }}</p>
   </div>
-</div>
 
+  <div class="fb-about__image">
+    <img src="{% if main_page_content.about_image %}{{ main_page_content.about_image.url }}{% else %}{% static 'fergusonbequest/img/Ferquest_commite.jpg' %}{% endif %}" alt="Ferguson Committee Photo">
+  </div>
+</section>
+
+<section id="calendar" class="admin-calendar" aria-label="Calendar of events">
+  {% include 'fergusonbequest/calendar.html' with url_name='dashboard' %}
+</section>
 {% endblock %}
