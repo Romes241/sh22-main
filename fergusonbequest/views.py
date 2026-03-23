@@ -509,7 +509,7 @@ def dashboard_view(request, year=None, month=None):
     return render(
         request,
         "fergusonbequest/dashboard.html",
-        {"featured_attractions": featured_attractions,
+        {"featured_attractions": featured_attractions, 
          "url_name": "dashboard",
          **calendar_data},
     )
