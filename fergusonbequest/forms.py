@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.forms import ValidationError
 from django.utils.text import slugify
 from .models import Booking, VisitSlot, Attraction, TicketDraw, FeedbackEmailTemplate, BookingFeedback
+from django.utils import timezone
 
 User = get_user_model()
 
@@ -65,7 +66,15 @@ class BookingForm(forms.ModelForm):
         self.fields["num_tickets"].widget = forms.Select(choices=[(1, "1"), (2, "2")])
 
         if attraction is not None:
-            self.fields['slot'].queryset = VisitSlot.objects.filter(attraction=attraction)
+            now = timezone.localtime()
+
+            self.fields['slot'].queryset = (
+                VisitSlot.objects
+                .filter(attraction=attraction, remaining__gt=0)
+                .exclude(date__lt=now.date())
+                .exclude(date=now.date(), time__lt=now.time())
+                .order_by("date", "time")
+            )
 
     def clean_agreed_terms(self):
         agreed = self.cleaned_data.get('agreed_terms')

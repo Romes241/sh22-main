@@ -69,6 +69,7 @@
           </div>
 
           <div class="mng-meta">
+              <span class="mng-muted">Entries: {{ draw.entry_count }}   </span>
               {% if draw.winner_booking and not draw.winner_booking.cancelled %}
                 <span class="mng-muted">
                   Winner: <strong>{{ draw.winner_booking.full_name }}</strong>
@@ -103,20 +104,10 @@
         <form method="post" action="{% url 'run_draw' draw.id %}">
           {% csrf_token %}
 
-          {% if draw.winner_booking and not draw.winner_booking.cancelled %}
-            <button type="button"
-                    class="mng-btn mng-btn--primary js-open-confirm"
-                    data-title="Rerun draw?"
-                    data-message="This draw already has a winner ({{ draw.winner_booking.full_name }}). Rerunning will replace them. Are you sure?"
-                    {% if not draw.is_closed_now %}disabled{% endif %}>
-              Run
-            </button>
-          {% else %}
-            <button class="mng-btn mng-btn--primary"
-                    {% if not draw.is_closed_now %}disabled{% endif %}>
-              Run
-            </button>
-          {% endif %}
+          <button class="mng-btn mng-btn--primary"
+                  {% if not draw.is_closed_now or draw.winner_booking %}disabled{% endif %}>
+            Run
+          </button>
         </form>
         </div>
       </div>

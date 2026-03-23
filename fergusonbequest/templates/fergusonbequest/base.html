@@ -4,8 +4,24 @@
 <head>
   <meta charset="UTF-8" />
   <title>{% block title %}Ferguson Bequest{% endblock %}</title>
+    <!-- Chould change to athentic  -->
+    <link rel="icon" type="image/png" sizes="32x32"
+          href="{% static 'fergusonbequest/img/Tab_logo-favicon-32x32.png' %}">
 
-  <!-- Base / shared styles -->
+    <link rel="icon" type="image/png" sizes="16x16"
+          href="{% static 'fergusonbequest/img/Tab_logo-favicon-16x16.png' %}">
+
+    <link rel="apple-touch-icon"
+          href="{% static 'fergusonbequest/img/Tab_logo-apple-touch-icon.png' %}">
+
+    <!-- Chrome / Android -->
+    <link rel="icon" type="image/png" sizes="192x192"
+          href="{% static 'fergusonbequest/img/Tab_logo-android-chrome-192x192.png' %}">
+
+    <link rel="icon" type="image/png" sizes="512x512"
+          href="{% static 'fergusonbequest/img/Tab_logo-android-chrome-512x512.png' %}">
+
+    <!-- Base / shared styles -->
   <link rel="stylesheet" href="{% static 'fergusonbequest/css/base.css' %}">
   {% block extra_css %}{% endblock %}
 
