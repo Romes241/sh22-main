@@ -1,22 +1,6 @@
 from datetime import datetime, timedelta
-import calendar
-import csv
-import random
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import login, logout, get_user_model
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
 from django import forms
 from django.conf import settings
-from .models import Attraction, VisitSlot, Booking, Profile, TicketDraw, TicketDrawBooking, TicketDrawVisitSlot
-from .forms import BookingForm, AttractionCreateForm, TicketDrawCreateForm, FeedbackEmailTemplateForm
-from django.utils import timezone
-import datetime
-from operator import itemgetter
-
-from django import forms
-from django.conf import settings
-from django.contrib import messages
 from django.contrib.auth import get_user_model, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
@@ -31,7 +15,6 @@ from django.urls import reverse, reverse_lazy
 from django.utils.dateparse import parse_date, parse_time
 from django.utils.text import slugify
 
-from django.utils.safestring import mark_safe
 from openpyxl import Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.utils import get_column_letter
@@ -47,13 +30,6 @@ from django.http import HttpResponse, FileResponse, HttpResponseForbidden, JsonR
 from django.utils import timezone
 from django.contrib import messages
 from django.views.decorators.http import require_POST, require_http_methods
-from .forms import (
-    BookingForm,
-    AttractionCreateForm,
-    TicketDrawCreateForm,
-    EmailAuthenticationForm,
-)
-from .forms_suggestions import AttractionSuggestionForm
 from .models import (
     Attraction,
     VisitSlot,
@@ -75,6 +51,7 @@ from .forms import (
     AttractionCreateForm,
     TicketDrawCreateForm,
     EmailAuthenticationForm,
+    FeedbackEmailTemplateForm
 )
 
 from .forms_discount_codes import DiscountCodeForm
@@ -532,9 +509,7 @@ def dashboard_view(request, year=None, month=None):
     return render(
         request,
         "fergusonbequest/dashboard.html",
-        {"featured_attractions": featured_attractions, 
-         "url_name": "dashboard",
-         **calendar_data},
+        {"featured_attractions": featured_attractions, **calendar_data},
     )
 
 
@@ -561,6 +536,7 @@ def attractions_view(request):
 
     location = (request.GET.get("location") or "").strip()
     sort = (request.GET.get("sort") or "name").strip()
+    type_filter = (request.GET.get("type") or "").strip()
 
     today = timezone.now().date()
 
@@ -592,6 +568,9 @@ def attractions_view(request):
     else:
         attractions = attractions.order_by("name")
 
+    if type_filter:
+        attractions = attractions.filter(attraction_type=type_filter)
+
     locations = Attraction.objects.values_list("location", flat=True).distinct().order_by("location")
 
     for a in attractions:
@@ -616,8 +595,8 @@ def attractions_view(request):
             "location_filter": location,
             "sort": sort,
             "locations": locations,
-            "types": [],
-            "type_filter": "",
+            "types": ["regular", "weekly_event"],
+            "type_filter": type_filter,
         },
     )
 
@@ -625,14 +604,21 @@ def attractions_view(request):
 def attraction(request, pk):
     attraction_obj = get_object_or_404(Attraction, pk=pk)
 
-    available_slots = VisitSlot.objects.filter(
-        attraction=attraction_obj,
-        date__gte=timezone.now().date(),
-    ).order_by("date", "time")
+    now = timezone.localtime()
 
-    bookable_slots = available_slots.filter(remaining__gt=0)
+    future_slots = (
+        VisitSlot.objects
+        .filter(attraction=attraction_obj)
+        .exclude(date__lt=now.date())
+        .exclude(date=now.date(), time__lt=now.time())
+        .order_by("date", "time")
+    )
+
+    bookable_slots = future_slots.filter(remaining__gt=0)
+    sold_out_slots = future_slots.filter(remaining=0)
+
     has_bookable_slots = bookable_slots.exists()
-    is_sold_out = available_slots.exists() and not has_bookable_slots
+    is_sold_out = sold_out_slots.exists() and not has_bookable_slots
 
     remaining_allowance = 0
     waitlisted_slot_ids = set()
@@ -647,7 +633,7 @@ def attraction(request, pk):
             AttractionWaitlistEntry.objects.filter(
                 user=request.user,
                 cancelled=False,
-                slot__in=available_slots,
+                slot__in=future_slots,
             ).values_list("slot_id", flat=True)
         )
 
@@ -656,8 +642,9 @@ def attraction(request, pk):
         "fergusonbequest/attraction.html",
         {
             "attraction": attraction_obj,
-            "available_slots": available_slots,
+            "available_slots": future_slots,
             "bookable_slots": bookable_slots,
+            "sold_out_slots": sold_out_slots,
             "has_bookable_slots": has_bookable_slots,
             "remaining_allowance": remaining_allowance,
             "is_sold_out": is_sold_out,
@@ -665,16 +652,20 @@ def attraction(request, pk):
         },
     )
 
-
 @login_required
 def booking_view(request, attraction_pk):
     attraction_obj = get_object_or_404(Attraction, pk=attraction_pk)
     user = request.user
 
-    available_slots = VisitSlot.objects.filter(
-        attraction=attraction_obj,
-        date__gte=timezone.now().date(),
-    ).order_by("date", "time")
+    now = timezone.localtime()
+
+    available_slots = (
+        VisitSlot.objects
+        .filter(attraction=attraction_obj, remaining__gt=0)
+        .exclude(date__lt=now.date())
+        .exclude(date=now.date(), time__lt=now.time())
+        .order_by("date", "time")
+    )
 
     booking_summary = {"price": "Free"}
     remaining_allowance = calculate_remaining_allowance(user, "regular")
@@ -750,7 +741,7 @@ def booking_view(request, attraction_pk):
     booking.email = user.email
 
     visit_datetime = datetime.combine(booking.slot.date, datetime.min.time())
-    
+
     # Make it timezone-aware if needed
     if timezone.is_aware(timezone.now()):
         import pytz
@@ -1752,12 +1743,23 @@ def user_discount_codes(request):
 @staff_member_required
 def admin_dashboard(request, year=None, month=None):
     now = timezone.now()
+    today = timezone.localdate()
 
     active_draws_count = sum(1 for d in TicketDraw.objects.all() if _call_is_open(d, now))
-    open_venues_count = sum(1 for a in Attraction.objects.all() if _call_is_open(a, now))
+
+    open_venues_count = (
+        VisitSlot.objects
+        .filter(date__gte=today, remaining__gt=0)
+        .values("attraction_id")
+        .distinct()
+        .count()
+    )
 
     bookings_count = Booking.objects.filter(cancelled=False).count()
-    pending_requests_count = TicketDrawBooking.objects.filter(cancelled=False).count()
+    bookings_needing_tickets_count = Booking.objects.filter(
+        cancelled=False,
+        ticket_sent=False
+    ).aggregate(total=Sum("num_tickets"))["total"] or 0
 
     calendar_data = get_calendar(year, month)
 
@@ -1768,8 +1770,7 @@ def admin_dashboard(request, year=None, month=None):
             "active_draws_count": active_draws_count,
             "open_venues_count": open_venues_count,
             "bookings_count": bookings_count,
-            "pending_requests_count": pending_requests_count,
-            "url_name": "admin_dashboard",
+            "bookings_needing_tickets_count": bookings_needing_tickets_count,
             **calendar_data,
         },
     )
@@ -1783,7 +1784,7 @@ def admin_management(request):
     sort_draws = request.GET.get("sort_draws", "close_date_desc")
     sort_attractions = request.GET.get("sort_attractions", "date_desc")
 
-    draws_qs = TicketDraw.objects.all()
+    draws_qs = TicketDraw.objects.annotate(entry_count=Count("ticketdrawbooking"))
     attractions_qs = Attraction.objects.all()
 
     if q:
@@ -1839,6 +1840,10 @@ def run_draw(request, draw_id):
     now = timezone.now()
     if _call_is_open(draw, now):
         messages.error(request, "This draw is still open. You can only run it after it closes.")
+        return redirect(f"{reverse('admin_management')}?tab=draws")
+
+    if draw.winner_booking:
+        messages.error(request, "This draw has already been run and cannot be run again.")
         return redirect(f"{reverse('admin_management')}?tab=draws")
 
     entries = list(
@@ -2847,7 +2852,10 @@ def get_email_context(booking=None, draw_booking=None, user=None, **kwargs):
             ]
         
         elif booking.ticket_type == "booking_code" and booking.generic_booking_code:
-            booking_code = booking.generic_booking_code
+            return HttpResponse(
+                f"Booking Code: {booking.generic_booking_code}",
+                content_type="text/plain",
+            )
         
         elif booking.ticket_type == "instructions" and booking.ticket_instructions:
             entry_instructions = booking.ticket_instructions
@@ -3816,6 +3824,12 @@ def _ticket_response_for_booking(booking):
             content_type="text/plain",
         )
 
+    if booking.ticket_type == "booking_code" and booking.generic_booking_code:
+        return HttpResponse(
+            f"Booking Code: {booking.generic_booking_code}",
+            content_type="text/plain",
+        )
+
     return HttpResponse(
         "No ticket info available for this booking.",
         status=404,
@@ -4269,15 +4283,11 @@ def individual_booking(request):
     dedupe_codes = bool(request.POST.get("dedupe_codes"))
 
     now = timezone.now()
+    visit_datetime = datetime.combine(booking.slot.date, datetime.min.time())
+    if timezone.is_aware(timezone.now()):
+        visit_datetime = timezone.make_aware(visit_datetime)
 
-    ticket_visible_at_raw = request.POST.get("ticket_visible_at")
-    ticket_visible_at = None
-
-    if ticket_visible_at_raw:
-        from django.utils.dateparse import parse_datetime
-        dt = parse_datetime(ticket_visible_at_raw)
-        if dt:
-            ticket_visible_at = timezone.make_aware(dt, timezone.get_current_timezone())
+    ticket_visible_at = visit_datetime - timedelta(days=3)
 
     # Booking code (generic)
     if ticket_type == "booking_code":

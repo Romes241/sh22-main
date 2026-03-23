@@ -610,20 +610,15 @@
 
           <!-- Dynamic per-ticket upload slots (rendered by JS based on num_tickets) -->
           <div id="ticketUploadInputs" style="margin-top:10px;"></div>
-
-              <div class="tu-field" style="margin-top:10px;">
-                  <label class="tu-label">Make visible to user at (optional)</label>
-                  <input class="tu-input" type="datetime-local" name="ticket_visible_at">
-                  <div class="tu-hint">Leave blank to use the automatic release rule.</div>
+                <div class="tu-hint">
+                    Tickets will automatically become visible to users <strong>3 days before their visit date</strong>.
                 </div>
-
               <div class="tu-modal-actions">
                     <div class="tu-hint" id="ticketedInfo">
                       <span id="ticketedLabel">Ticketed for specific attraction</span>:
                       <span id="ticketedCount">{{ venue_ticketed }}</span> /
                       <span id="ticketTotal">{{ venue_total }}</span>
                     </div>
-
                   <div class="tu-action-buttons">
                       <div id="bookingNav">
                           <button type="button" id="prevBookingBtn" class="tu-arrow-btn">←</button>
