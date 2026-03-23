@@ -26,7 +26,7 @@
   padding:16px;
   border:0;
   border-radius:14px;
-  background:#0b2f6b;
+  background:#001a80;
   color:#fff;
   font-weight:800;
   opacity:.55;
@@ -52,7 +52,7 @@
   font-family: inherit;
   font-size: 15px;
   font-weight: 600;
-  color: #0b2f6b;
+  color: #001a80;
   transition: border-color 0.2s, box-shadow 0.2s;
   box-sizing: border-box;
 }
@@ -60,7 +60,7 @@
 .mng-search input:focus,
 .mng-controls select:focus {
   outline: none;
-  border-color: #0b2f6b;
+  border-color: #001a80;
   box-shadow: 0 0 0 4px rgba(11, 47, 107, 0.1);
 }
 
@@ -161,13 +161,13 @@
 }
 
 .mng-btn--primary{
-  background:#0b2f6b;
+  background:#001a80;
   color:#fff;
 }
 
 .mng-btn--ghost{
   background:#eef2ff;
-  color:#0b2f6b;
+  color:#001a80;
 }
 
 .mng-btn--danger{

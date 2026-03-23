@@ -5,119 +5,118 @@
 
 {% block extra_css %}
   <link rel="stylesheet" href="{% static 'fergusonbequest/css/admin_dashboard.css' %}">
+  <link rel="stylesheet" href="{% static 'fergusonbequest/css/calendar.css' %}">
 {% endblock %}
 
 {% block content %}
 
-<h1 class="ad-title">Admin Dashboard</h1>
+<h1 class="admin-title">Admin Dashboard</h1>
 
-<section class="ad-grid" aria-label="Admin dashboard">
+<section class="admin-grid" aria-label="Admin dashboard">
 
   <!-- Four blue cards on the left -->
-  <div class="ad-main">
-    <a class="ad-card" href="{% url 'ticket_draws' %}">
-      <div class="ad-card__icon" aria-hidden="true">📅</div>
-      <div class="ad-card__text">
-        <div class="ad-card__label">Active Draws</div>
-        <div class="ad-card__value">{{ active_draws_count }}</div>
+  <div class="admin-main">
+    <a class="admin-card" href="{% url 'ticket_draws' %}">
+      <div class="admin-card__icon" aria-hidden="true">📅</div>
+      <div class="admin-card__text">
+        <div class="admin-card__label">Active Draws</div>
+        <div class="admin-card__value">{{ active_draws_count }}</div>
       </div>
     </a>
 
-    <a class="ad-card" href="{% url 'attractions' %}">
-      <div class="ad-card__icon" aria-hidden="true">📍</div>
-      <div class="ad-card__text">
-        <div class="ad-card__label">Open Venues</div>
-        <div class="ad-card__value">{{ open_venues_count }}</div>
+    <a class="admin-card" href="{% url 'attractions' %}">
+      <div class="admin-card__icon" aria-hidden="true">📍</div>
+      <div class="admin-card__text">
+        <div class="admin-card__label">Open Venues</div>
+        <div class="admin-card__value">{{ open_venues_count }}</div>
       </div>
     </a>
 
-    <a class="ad-card" href="/admin/fergusonbequest/booking/">
-      <div class="ad-card__icon" aria-hidden="true">📖</div>
-      <div class="ad-card__text">
-        <div class="ad-card__label">Bookings</div>
-        <div class="ad-card__value">{{ bookings_count }}</div>
+    <a class="admin-card" href="/admin/fergusonbequest/booking/">
+      <div class="admin-card__icon" aria-hidden="true">📖</div>
+      <div class="admin-card__text">
+        <div class="admin-card__label">Bookings</div>
+        <div class="admin-card__value">{{ bookings_count }}</div>
       </div>
     </a>
 
-    <a class="ad-card" href="/admin/fergusonbequest/ticketdrawbooking/">
-      <div class="ad-card__icon" aria-hidden="true">🕒</div>
-      <div class="ad-card__text">
-        <div class="ad-card__label">Pending Requests</div>
-        <div class="ad-card__value">{{ pending_requests_count }}</div>
+    <a class="admin-card" href="/admin/fergusonbequest/ticketdrawbooking/">
+      <div class="admin-card__icon" aria-hidden="true">🕒</div>
+      <div class="admin-card__text">
+        <div class="admin-card__label">Pending Requests</div>
+        <div class="admin-card__value">{{ pending_requests_count }}</div>
       </div>
     </a>
   </div>
 
   <!-- Quick Links + Reminders -->
-  <aside class="ad-side" aria-label="Admin quick actions">
+  <aside class="admin-side" aria-label="Admin quick actions">
 
-    <div class="ad-panel">
-      <div class="ad-panel__title">Quick Links</div>
-      <div class="ad-panel__body">
+    <div class="admin-panel">
+      <div class="admin-panel__title">Quick Links</div>
+      <div class="admin-panel__body">
 
-        <a class="ad-link" href="{% url 'admin_management' %}">
-          <span class="ad-link__icon" aria-hidden="true">🛠</span>
-          <span class="ad-link__text">Manage Content</span>
-          <span class="ad-link__chev" aria-hidden="true">›</span>
+        <a class="admin-link" href="{% url 'admin_management' %}">
+          <span class="admin-link__icon" aria-hidden="true">🛠</span>
+          <span class="admin-link__text">Manage Content</span>
+          <span class="admin-link__chev" aria-hidden="true">›</span>
         </a>
 
-        <a class="ad-link" href="{% url 'create_attraction' %}">
-          <span class="ad-link__icon" aria-hidden="true">🏛</span>
-          <span class="ad-link__text">Add Attraction</span>
-          <span class="ad-link__chev" aria-hidden="true">›</span>
+        <a class="admin-link" href="{% url 'create_attraction' %}">
+          <span class="admin-link__icon" aria-hidden="true">🏛</span>
+          <span class="admin-link__text">Add Attraction</span>
+          <span class="admin-link__chev" aria-hidden="true">›</span>
         </a>
 
-        <a class="ad-link" href="/admin/">
-          <span class="ad-link__icon" aria-hidden="true">🛠</span>
-          <span class="ad-link__text">Manage Content</span>
-          <span class="ad-link__chev" aria-hidden="true">›</span>
+        <a class="admin-link" href="{% url 'create_ticket_draw' %}">
+          <span class="admin-link__icon" aria-hidden="true">+</span>
+          <span class="admin-link__text">Create Draw</span>
+          <span class="admin-link__chev" aria-hidden="true">›</span>
         </a>
 
-        <a class="ad-link" href="{% url 'create_ticket_draw' %}">
-          <span class="ad-link__icon" aria-hidden="true">+</span>
-          <span class="ad-link__text">Create Draw</span>
-          <span class="ad-link__chev" aria-hidden="true">›</span>
+        <a class="admin-link" href="{% url 'ticket_upload' %}">
+          <span class="admin-link__icon" aria-hidden="true">🎟️</span>
+          <span class="admin-link__text">Ticket Upload</span>
+          <span class="admin-link__chev" aria-hidden="true">›</span>
         </a>
 
-        <a class="ad-link" href="{% url 'ticket_upload' %}">
-          <span class="ad-link__icon" aria-hidden="true">🎟️</span>
-          <span class="ad-link__text">Ticket Upload</span>
-          <span class="ad-link__chev" aria-hidden="true">›</span>
-        </a>
-
-       <a class="ad-link" href="{% url 'admin_reports' %}">
-        <span class="ad-link__icon" aria-hidden="true">📊</span>
-        <span class="ad-link__text">View Reports</span>
-        <span class="ad-link__chev" aria-hidden="true">›</span>
+       <a class="admin-link" href="{% url 'admin_reports' %}">
+        <span class="admin-link__icon" aria-hidden="true">📊</span>
+        <span class="admin-link__text">View Reports</span>
+        <span class="admin-link__chev" aria-hidden="true">›</span>
        </a>
 
-       <a class="ad-link" href="{% url 'admin_email' %}">
-        <span class="ad-link__icon" aria-hidden="true">✉️</span>
-        <span class="ad-link__text">Manage Email Templates</span>
-        <span class="ad-link__chev" aria-hidden="true">›</span>
+       <a class="admin-link" href="{% url 'admin_email' %}">
+        <span class="admin-link__icon" aria-hidden="true">✉️</span>
+        <span class="admin-link__text">Manage Email Templates</span>
+        <span class="admin-link__chev" aria-hidden="true">›</span>
        </a>
 
-      <a class="ad-link" href="{% url 'export_suggestions_excel' %}">
-        <span class="ad-link__icon" aria-hidden="true">📥</span>
-        <span class="ad-link__text">Export Suggestions (Excel)</span>
-        <span class="ad-link__chev" aria-hidden="true">›</span>
+      <a class="admin-link" href="{% url 'export_suggestions_excel' %}">
+        <span class="admin-link__icon" aria-hidden="true">📥</span>
+        <span class="admin-link__text">Export Suggestions (Excel)</span>
+        <span class="admin-link__chev" aria-hidden="true">›</span>
        </a>
 
-       <a class="ad-link" href="{% url 'discount_codes' %}">
-        <span class="ad-link__icon" aria-hidden="true">🎟️</span>
-        <span class="ad-link__text">Discount Codes</span>
-        <span class="ad-link__chev" aria-hidden="true">›</span>
+       <a class="admin-link" href="{% url 'discount_codes' %}">
+        <span class="admin-link__icon" aria-hidden="true">🎟️</span>
+        <span class="admin-link__text">Discount Codes</span>
+        <span class="admin-link__chev" aria-hidden="true">›</span>
       </a>
 
-      <a class="ad-link" href="{% url 'manage_terms_and_conditions' %}">
-        <span class="ad-link__icon" aria-hidden="true">⚖️</span>
-        <span class="ad-link__text">Manage Terms & Conditions</span>
-        <span class="ad-link__chev" aria-hidden="true">›</span>
+      <a class="admin-link" href="{% url 'manage_terms_and_conditions' %}">
+        <span class="admin-link__icon" aria-hidden="true">⚖️</span>
+        <span class="admin-link__text">Manage Terms & Conditions</span>
+        <span class="admin-link__chev" aria-hidden="true">›</span>
       </a>
       </div>
     </div>
 
   </aside>
+</section>
+
+<section id="calendar" class="admin-calendar" aria-label="Calendar of events">
+  {% include 'fergusonbequest/calendar.html' %}
 </section>
 
 {% endblock %}

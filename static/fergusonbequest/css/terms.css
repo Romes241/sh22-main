@@ -74,6 +74,20 @@
   margin-bottom: 0;
 }
 
+.terms-block > div {
+  line-height: 1.7;
+  color: #222;
+  font-size: 0.9rem;
+}
+
+.terms-block > div p {
+  margin: 0 0 10px 0;
+}
+
+.terms-block > div p:last-child {
+  margin-bottom: 0;
+}
+
 .terms-block strong {
   color: #001a80;
   font-weight: 700;

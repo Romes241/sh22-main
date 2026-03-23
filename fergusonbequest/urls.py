@@ -51,6 +51,7 @@ urlpatterns = [
 
     # Admin dashboard
     path("admin-dashboard/", views.admin_dashboard, name="admin_dashboard"),
+    path("admin-dashboard/<int:year>/<int:month>/", views.admin_dashboard, name="admin_dashboard"),
     path("admin-dashboard/management/", views.admin_management, name="admin_management"),
     path("admin-dashboard/management/draw/<int:draw_id>/run/", views.run_draw, name="run_draw"),
     path("admin-dashboard/management/draws/<int:draw_id>/delete/", views.mng_delete_draw, name="mng_delete_draw"),

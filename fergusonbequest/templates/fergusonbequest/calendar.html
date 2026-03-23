@@ -13,9 +13,9 @@
 <div class="calendar-header">
  <h2 class="fb-h2">{{ month_name }} {{ year }}</h2>
  <div class="nav">
-  <a href="{% url 'dashboard' prev_year prev_month %}">&laquo; Previous</a>
-  <a href="{% url 'dashboard' %}">Current Month</a>
-  <a href="{% url 'dashboard' next_year next_month %}">Next &raquo;</a>
+  <a href="{% url url_name prev_year prev_month %}#calendar">&laquo; Previous</a>
+  <a href="{% url url_name %}#calendar">Current Month</a>
+  <a href="{% url url_name next_year next_month %}#calendar">Next &raquo;</a>
   </div>
 
 </div>
