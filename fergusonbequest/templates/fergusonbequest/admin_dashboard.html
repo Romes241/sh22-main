@@ -116,6 +116,12 @@
         <span class="admin-link__text">Manage Terms & Conditions</span>
         <span class="admin-link__chev" aria-hidden="true">›</span>
       </a>
+
+      <a class="admin-link" href="{% url 'manage_main_page_content' %}">
+        <span class="admin-link__icon" aria-hidden="true">🖼️</span>
+        <span class="admin-link__text">Manage Main Page Content</span>
+        <span class="admin-link__chev" aria-hidden="true">›</span>
+      </a>
       </div>
     </div>
 
@@ -126,4 +132,21 @@
   {% include 'fergusonbequest/calendar.html' %}
 </section>
 
+<a href="#calendar" class="calendar-hint">
+  ↓ View Calendar
+</a>
+
+<script>
+  const hint = document.querySelector('.calendar-hint');
+
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 150) {
+      hint.style.opacity = '0';
+      hint.style.pointerEvents = 'none';
+    } else {
+      hint.style.opacity = '1';
+      hint.style.pointerEvents = 'auto';
+    }
+  });
+</script>
 {% endblock %}

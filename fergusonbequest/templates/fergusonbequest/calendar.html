@@ -1,27 +1,31 @@
-
 {% load static %}
 
 {% block extra_css %}
   <link rel="stylesheet" type="text/css" href="{% static 'fergusonbequest/css/calendar.css' %}">
 {% endblock %}
 
-
-
 {% block content %}
-
 
 <div class="calendar-header">
  <h2 class="fb-h2">{{ month_name }} {{ year }}</h2>
  <div class="nav">
-  <a href="{% url url_name prev_year prev_month %}#calendar">&laquo; Previous</a>
-  <a href="{% url url_name %}#calendar">Current Month</a>
-  <a href="{% url url_name next_year next_month %}#calendar">Next &raquo;</a>
-  </div>
+  {% if prev_year and prev_month %}
+    <a href="{% url url_name prev_year prev_month %}#calendar">&laquo; Previous</a>
+  {% else %}
+    <a href="{% url url_name %}#calendar">&laquo; Previous</a>
+  {% endif %}
 
+  <a href="{% url url_name %}#calendar">Current Month</a>
+
+  {% if next_year and next_month %}
+    <a href="{% url url_name next_year next_month %}#calendar">Next &raquo;</a>
+  {% else %}
+    <a href="{% url url_name %}#calendar">Next &raquo;</a>
+  {% endif %}
+ </div>
 </div>
 
 <div class="calendar-legend">
-
   <div class="legend-group">
     <span class="legend-title">Event type:</span>
 
@@ -34,10 +38,20 @@
       <span class="legend-box attraction"></span>
       Attraction
     </span>
+
+    {% if user and not user.is_staff %}
+      <span class="legend-item">
+        <span class="legend-box booking-draw"></span>
+        Your ticket draw bookings
+      </span>
+
+      <span class="legend-item">
+        <span class="legend-box booking-attraction"></span>
+        Your attraction bookings
+      </span>
+    {% endif %}
   </div>
-
 </div>
-
 
 <div class="day-of-week-header">
   <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
@@ -48,24 +62,32 @@
     {% for week in weeks %}
       <tr>
         {% for day in week %}
-          <td class="
-              {% if day.month != month %}muted{% endif %} 
-              {% if day.date == today %}today{% endif %}"
-              >
+          <td class="{% if day.date.month != month %}muted{% endif %} {% if day.date == today %}today{% endif %}">
             <div class="daynum">{{ day.date.day }}</div>
 
             {% if day.events %}
               {% for event in day.events %}
-              <a href="{% if event.event_type == 'attraction' %}{% url 'attraction' event.object.attraction.pk %}{% elif event.event_type == 'ticket_draw' %}{% url 'ticket_draw_detail' event.object.ticket_draw.slug %}{% endif %}"
-              class = "event {{ event.event_type }}">
-                
-                  <strong>{% if event.event_type == 'attraction' %}{{ event.object.attraction.name }}{% elif event.event_type == 'ticket_draw' %}{{ event.object.ticket_draw.name }}{% endif %}</strong>      
-                         
-              </a>
+                <a href="{% if event.event_type == 'attraction' %}{% url 'attraction' event.object.attraction.pk %}
+                         {% elif event.event_type == 'ticket_draw' %}{% url 'ticket_draw_detail' event.object.ticket_draw.slug %}
+                         {% elif event.event_type == 'attraction_booking' or event.event_type == 'ticket_draw_booking' %}{% url 'booking_history' %}
+                         {% endif %}"
+                   class="event {{ event.event_type }}">
+
+                  <strong>
+                    {% if event.event_type == 'attraction' %}
+                      {{ event.object.attraction.name }}
+                    {% elif event.event_type == 'ticket_draw' %}
+                      {{ event.object.ticket_draw.name }}
+                    {% elif event.event_type == 'attraction_booking' %}
+                      Booked: {{ event.object.attraction.name }}
+                    {% elif event.event_type == 'ticket_draw_booking' %}
+                      Booked: {{ event.object.ticket_draw.name }}
+                    {% endif %}
+                  </strong>
+                </a>
               {% endfor %}
             {% endif %}
           </td>
-          
         {% endfor %}
       </tr>
     {% endfor %}

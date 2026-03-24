@@ -38,6 +38,7 @@ from .forms import (
     EmailAuthenticationForm,
     FeedbackEmailTemplateForm,
     BookingFeedbackForm,
+    MainPageContentForm,
 )
 from .forms_suggestions import AttractionSuggestionForm
 from .models import (
@@ -51,22 +52,14 @@ from .models import (
     AttractionSuggestion,
     AttractionWaitlistEntry,
     DiscountCode,
-    EmailTemplate, BookingTicket,
     EmailTemplate,
+    BookingTicket,
     FeedbackEmailTemplate,
     BookingFeedback,
-)
-
-from .forms import (
-    BookingForm,
-    AttractionCreateForm,
-    TicketDrawCreateForm,
-    EmailAuthenticationForm,
-    FeedbackEmailTemplateForm
+    MainPageContent,
 )
 
 from .forms_discount_codes import DiscountCodeForm
-from .forms_suggestions import AttractionSuggestionForm
 
 User = get_user_model()
 
@@ -305,17 +298,25 @@ def calculate_remaining_allowance(user, attraction_type="regular"):
 def add_events(objects, events_by_day, start, end, event_type):
     """Add booking_open / booking_close events for calendar display."""
     for obj in objects:
-        date_value = getattr(obj, "date", None)
-        if not date_value:
+        if hasattr(obj, "date"):
+            event_date = obj.date
+        elif hasattr(obj, "slot") and obj.slot:
+            event_date = obj.slot.date
+        else:
             continue
-        event_date = date_value
+
+        if not event_date:
+            continue
+
         if start <= event_date <= end:
             events_by_day.setdefault(event_date.day, []).append(
                 {"object": obj, "event_type": event_type}
             )
 
+    
 
-def get_calendar(year=None, month=None):
+
+def get_calendar(year=None, month=None, user=None):
     """
     Build calendar data for dashboard/calendar template rendering.
     Returns a dict (NOT a rendered response), so it can be merged into context via **calendar_data.
@@ -342,6 +343,10 @@ def get_calendar(year=None, month=None):
     events_by_day = {}
     add_events(VisitSlot.objects.all(), events_by_day, start, end, "attraction")
     add_events(TicketDrawVisitSlot.objects.all(), events_by_day, start, end, "ticket_draw")
+
+    if user and not user.is_staff:
+        add_events(Booking.objects.filter(user=user), events_by_day, start, end, "attraction_booking")
+        add_events(TicketDrawBooking.objects.filter(user=user), events_by_day, start, end, "ticket_draw_booking")
 
     weeks = []
     for i in range(0, len(month_days), 7):
@@ -523,9 +528,9 @@ def _get_featured_attractions(limit=4):
         {
             "title": attr.name,
             "subtitle": (attr.description[:100] if attr.description else (attr.location or "Book now to visit")),
-            "image": (attr.image.name if getattr(attr, "image", None) else "fergusonbequest/img/placeholder.jpg"),
+            "image_url": (attr.image.url if getattr(attr, "image", None) else None),
             "id": attr.id,
-            "url": f"/attraction/{attr.id}/book/",
+            "url": f"/attraction/{attr.id}/",
         }
         for attr in top_booked
     ]
@@ -535,28 +540,45 @@ def _get_featured_attractions(limit=4):
 
 def home(request):
     featured_attractions = _get_featured_attractions()
-    
-    return render(request, "fergusonbequest/home_logged_in.html", {"featured_attractions": featured_attractions})
+    main_page_content = MainPageContent.get()
 
+    template = (
+        "fergusonbequest/home_logged_in.html"
+        if request.user.is_authenticated
+        else "fergusonbequest/home.html"
+    )
 
+    return render(
+        request,
+        template,
+        {
+            "featured_attractions": featured_attractions,
+            "main_page_content": main_page_content,
+        },
+    )
 
 
 @login_required
 def dashboard_view(request, year=None, month=None):
     featured_attractions = _get_featured_attractions()
+    main_page_content = MainPageContent.get()
 
-    calendar_data = get_calendar(year, month)
+    calendar_data = get_calendar(year, month, request.user)
     return render(
         request,
         "fergusonbequest/dashboard.html",
-        {"featured_attractions": featured_attractions, 
-         "url_name": "dashboard",
-         **calendar_data},
+        {
+            "featured_attractions": featured_attractions,
+            "main_page_content": main_page_content,
+            "url_name": "dashboard",
+            **calendar_data,
+        },
     )
 
 
 def calendar_view(request, year=None, month=None):
     context = get_calendar(year, month)
+    context["url_name"] = "dashboard"
     return render(request, "fergusonbequest/calendar.html", context)
 
 
@@ -789,9 +811,9 @@ def booking_view(request, attraction_pk):
     booking.full_name = f"{user.first_name} {user.last_name}".strip()
     booking.email = user.email
 
-    visit_datetime = datetime.datetime.combine(
+    visit_datetime = datetime.combine(
         booking.slot.date,
-        datetime.datetime.min.time(),
+        datetime.min.time(),
     )
     
     # Make it timezone-aware if needed
@@ -1888,7 +1910,33 @@ def admin_dashboard(request, year=None, month=None):
     now = timezone.now()
     today = timezone.localdate()
 
-    active_draws_count = sum(1 for d in TicketDraw.objects.all() if _call_is_open(d, now))
+    # same logic as ticket_upload
+    def is_ticketed(obj):
+        if not obj:
+            return False
+
+        return bool(
+            obj.ticket_sent
+            or obj.ticket_code
+            or getattr(obj, "ticket_qr_value", "")
+            or getattr(obj, "generic_booking_code", "")
+            or getattr(obj, "ticket_instructions", "")
+            or getattr(obj, "box_office_notes", "")
+            or obj.tickets.exists()
+            or obj.ticket_type in {
+                "box_office",
+                "codes",
+                "pdf_template",
+                "pdf_template_random",
+                "qr_individual",
+                "instructions",
+                "booking_code",
+            }
+        )
+
+    active_draws_count = sum(
+        1 for d in TicketDraw.objects.all() if _call_is_open(d, now)
+    )
 
     open_venues_count = (
         VisitSlot.objects
@@ -1898,11 +1946,16 @@ def admin_dashboard(request, year=None, month=None):
         .count()
     )
 
-    bookings_count = Booking.objects.filter(cancelled=False).count()
-    bookings_needing_tickets_count = Booking.objects.filter(
-        cancelled=False,
-        ticket_sent=False
-    ).aggregate(total=Sum("num_tickets"))["total"] or 0
+    bookings = Booking.objects.filter(cancelled=False)
+
+    bookings_count = bookings.count()
+
+    # count ONLY unticketed
+    bookings_needing_tickets_count = sum(
+        (b.num_tickets or 1)
+        for b in bookings
+        if not is_ticketed(b)
+    )
 
     calendar_data = get_calendar(year, month)
 
@@ -3637,8 +3690,14 @@ def ticket_upload(request):
     venue_id = (request.GET.get("venue") or "").strip()
     sort = (request.GET.get("sort") or "date_desc").strip()
     kind = (request.GET.get("kind") or "").strip()
+    ticket_status = (request.GET.get("ticket_status") or "").strip()
     show_all = request.GET.get("show_all") == "1"
+    start = (request.GET.get("start") or "").strip()
+    end = (request.GET.get("end") or "").strip()
     today = timezone.localdate()
+
+    start_date = parse_date(start) if start else None
+    end_date = parse_date(end) if end else None
 
     converted_booking_ids = TicketDrawBooking.objects.filter(
         converted_booking__isnull=False
@@ -3653,23 +3712,23 @@ def ticket_upload(request):
         if not obj:
             return False
 
-        return bool(
-            obj.ticket_sent
-            or obj.ticket_code
-            or getattr(obj, "ticket_qr_value", "")
-            or getattr(obj, "generic_booking_code", "")
-            or getattr(obj, "ticket_instructions", "")
-            or obj.tickets.exists()
-            or obj.ticket_type in {
+        return any([
+            obj.ticket_sent,
+            obj.ticket_code,
+            getattr(obj, "ticket_qr_value", ""),
+            getattr(obj, "generic_booking_code", ""),
+            getattr(obj, "ticket_instructions", ""),
+            getattr(obj, "box_office_notes", ""),
+            hasattr(obj, "tickets") and obj.tickets.exists(),
+            obj.ticket_type in {
                 "box_office",
                 "codes",
                 "pdf_template",
-                "pdf_template_random",
                 "qr_individual",
                 "instructions",
                 "booking_code",
-            }
-        )
+            },
+        ])
 
     venues = []
 
@@ -3747,6 +3806,14 @@ def ticket_upload(request):
             converted_booking__isnull=False,
         )
     )
+
+    if start_date:
+        attraction_qs = attraction_qs.filter(slot__date__gte=start_date)
+        draw_qs = draw_qs.filter(slot__date__gte=start_date)
+
+    if end_date:
+        attraction_qs = attraction_qs.filter(slot__date__lte=end_date)
+        draw_qs = draw_qs.filter(slot__date__lte=end_date)
 
     if q:
         attraction_qs = attraction_qs.filter(
@@ -3859,9 +3926,9 @@ def ticket_upload(request):
 
     all_rows = []
     for row in raw_rows:
-        if kind == "ticketed" and not row["ticket_sent"]:
+        if ticket_status == "ticketed" and not row["ticket_sent"]:
             continue
-        if kind == "unticketed" and row["ticket_sent"]:
+        if ticket_status == "unticketed" and row["ticket_sent"]:
             continue
 
         counts = grouped_counts.get(row["group_key"], {"ticketed": 0, "total": 0})
@@ -3936,12 +4003,28 @@ def ticket_upload(request):
             "venue_id": venue_id,
             "sort": sort,
             "kind": kind,
+            "ticket_status": ticket_status,
             "show_all": show_all,
+            "start": start,
+            "end": end,
             "ticket_view_url_template": reverse("ticket_view", args=["999999"]),
             "venue_ticketed": venue_ticketed,
             "venue_total": venue_total,
         },
     )
+# ticket redirection state helper
+def _ticket_upload_redirect_with_state(request):
+    params = request.GET.copy()
+
+    for key in ["page", "q", "venue", "sort", "kind", "ticket_status", "start", "end"]:
+        value = request.POST.get(key)
+        if value not in (None, ""):
+            params[key] = value
+
+    query_string = params.urlencode()
+    base_url = reverse("ticket_upload")
+    return redirect(f"{base_url}?{query_string}" if query_string else base_url)
+
 # Returns all uploaded ticket file URLs for a booking or accepted draw booking as JSON
 @login_required
 def ticket_list(request, booking_id):
@@ -4000,20 +4083,20 @@ def ticket_upload_send(request):
 
     if not booking.ticket_type:
         messages.error(request, "No ticket configured for this booking.")
-        return redirect("ticket_upload")
+        return _ticket_upload_redirect_with_state(request)
 
     booking.ticket_sent = True
     booking.ticket_sent_at = timezone.now()
     booking.save(update_fields=["ticket_sent", "ticket_sent_at"])
 
     messages.success(request, f"Ticket marked as sent for booking #{booking.id}.")
-    return redirect("ticket_upload")
+    return _ticket_upload_redirect_with_state(request)
 
 # Redirects back to the main ticket upload page when viewing all rows
 @staff_member_required
 @require_http_methods(["POST"])
 def ticket_upload_view_all(request):
-    return redirect("ticket_upload")
+    return _ticket_upload_redirect_with_state(request)
 
 # Builds the best available ticket response for a booking
 def _ticket_response_for_booking(booking):
@@ -4178,8 +4261,7 @@ def venue_distribute_tickets(request):
         venue_id = int(venue_id)
     except ValueError:
         messages.error(request, "Invalid venue selected.")
-        return redirect("ticket_upload")
-
+        return _ticket_upload_redirect_with_state(request)
     # Inputs
     codes_file = request.FILES.get("codes_file")
     codes_text = request.POST.get("codes_text")
@@ -4192,8 +4274,7 @@ def venue_distribute_tickets(request):
 
     if not ticket_type:
         messages.error(request, "No ticket type selected.")
-        return redirect("ticket_upload")
-
+        return _ticket_upload_redirect_with_state(request)
     def parse_codes():
         codes = []
 
@@ -4244,7 +4325,7 @@ def venue_distribute_tickets(request):
             
             if not bookings:
                 messages.info(request, "No unsent draw bookings found for this venue.")
-                return redirect("ticket_upload")
+                return _ticket_upload_redirect_with_state(request)
         else:
             # lock only unsent bookings for this venue
             bookings = list(
@@ -4261,7 +4342,7 @@ def venue_distribute_tickets(request):
 
         if not bookings:
             messages.info(request, "No unsent bookings found for this venue.")
-            return redirect("ticket_upload")
+            return _ticket_upload_redirect_with_state(request)
 
         total_needed = sum(max(1, b.num_tickets or 1) for b in bookings)
 
@@ -4271,7 +4352,7 @@ def venue_distribute_tickets(request):
 
             if not codes:
                 messages.error(request, "No codes provided.")
-                return redirect("ticket_upload")
+                return _ticket_upload_redirect_with_state(request)
 
             to_assign = min(len(codes), total_needed)
             extra = max(0, len(codes) - to_assign)
@@ -4293,7 +4374,7 @@ def venue_distribute_tickets(request):
             if extra:
                 messages.info(request, f"{extra} extra code(s) ignored.")
 
-            return redirect("ticket_upload")
+            return _ticket_upload_redirect_with_state(request)
 
         # PDF upload (applies to ALL unsent)
         if ticket_type in {"pdf_template", "pdf_template_random"}:
@@ -4305,7 +4386,7 @@ def venue_distribute_tickets(request):
 
             if not files:
                 messages.error(request, "Please upload at least one PDF.")
-                return redirect("ticket_upload")
+                return _ticket_upload_redirect_with_state(request)
 
             generate_codes = bool(request.POST.get("pdf_generate_codes"))
             raw_codes = (request.POST.get("pdf_codes_bulk") or "").strip()
@@ -4317,7 +4398,7 @@ def venue_distribute_tickets(request):
                     f"You uploaded {len(files)} PDF file(s) but entered {len(manual_codes)} code(s). "
                     "Please provide one code per PDF, in the same order."
                 )
-                return redirect("ticket_upload")
+                return _ticket_upload_redirect_with_state(request)
 
             used = set(
                 BookingTicket.objects.exclude(ticket_code__isnull=True)
@@ -4362,14 +4443,14 @@ def venue_distribute_tickets(request):
             if extra:
                 messages.info(request, f"{extra} extra file(s) ignored.")
 
-            return redirect("ticket_upload")
+            return _ticket_upload_redirect_with_state(request)
 
         # QR bulk individual files (applies to ALL unsent)
         if ticket_type == "qr_individual":
             files = request.FILES.getlist("qr_files")
             if not files:
                 messages.error(request, "Please upload at least one QR file.")
-                return redirect("ticket_upload")
+                return _ticket_upload_redirect_with_state(request)
 
             raw_qr_values = (request.POST.get("ticket_qr_values_bulk") or "").strip()
             qr_values = [line.strip() for line in raw_qr_values.splitlines() if line.strip()]
@@ -4380,7 +4461,7 @@ def venue_distribute_tickets(request):
                     f"You uploaded {len(files)} QR file(s) but entered {len(qr_values)} QR value(s). "
                     "Please provide one QR value per file, in the same order."
                 )
-                return redirect("ticket_upload")
+                return _ticket_upload_redirect_with_state(request)
 
             to_assign = min(len(files), total_needed)
             extra = max(0, len(files) - to_assign)
@@ -4406,13 +4487,13 @@ def venue_distribute_tickets(request):
                 messages.info(request, f"{remaining} booking(s) still need tickets.")
             if extra:
                 messages.info(request, f"{extra} extra file(s) ignored.")
-            return redirect("ticket_upload")
+            return _ticket_upload_redirect_with_state(request)
 
         if ticket_type == "booking_code":
             code = (request.POST.get("booking_code_bulk") or "").strip()
             if not code:
                 messages.error(request, "Please enter a booking code.")
-                return redirect("ticket_upload")
+                return _ticket_upload_redirect_with_state(request)
 
             def apply_fn(b, idx):
                 b.ticket_type = "booking_code"
@@ -4426,14 +4507,14 @@ def venue_distribute_tickets(request):
                 for db in draw_bookings:
                     send_draw_booking_email_ticket_distribution(db)
 
-            return redirect("ticket_upload")
+            return _ticket_upload_redirect_with_state(request)
 
         # instructions (applies to ALL unsent)
         if ticket_type == "instructions":
             instructions = (request.POST.get("instructions") or "").strip()
             if not instructions:
                 messages.error(request, "Please enter instructions.")
-                return redirect("ticket_upload")
+                return _ticket_upload_redirect_with_state(request)
 
             def apply_fn(b, idx):
                 b.ticket_type = "instructions"
@@ -4446,7 +4527,7 @@ def venue_distribute_tickets(request):
                 for db in draw_bookings:
                     send_draw_booking_email_ticket_distribution(db)
 
-            return redirect("ticket_upload")
+            return _ticket_upload_redirect_with_state(request)
 
         # Box office (applies to ALL unsent)
         if ticket_type == "box_office":
@@ -4475,8 +4556,7 @@ def venue_distribute_tickets(request):
                 for db in draw_bookings:
                     send_draw_booking_email_ticket_distribution(db)
 
-            return redirect("ticket_upload")
-
+            return _ticket_upload_redirect_with_state(request)
 # Assigns or uploads ticket data for a single booking or accepted draw booking
 @staff_member_required
 @require_POST
@@ -4487,11 +4567,10 @@ def individual_booking(request):
 
     if not booking_id:
         messages.error(request, "Missing booking id.")
-        return redirect("ticket_upload")
-
+        return _ticket_upload_redirect_with_state(request)
     if not ticket_type:
         messages.error(request, "No ticket type selected.")
-        return redirect("ticket_upload")
+        return _ticket_upload_redirect_with_state(request)
 
     is_draw = False
     draw_booking = None
@@ -4502,7 +4581,7 @@ def individual_booking(request):
 
         if not draw_booking.converted_booking:
             messages.error(request, "This draw entry has not been accepted yet.")
-            return redirect("ticket_upload")
+            return _ticket_upload_redirect_with_state(request)
 
         booking = draw_booking.converted_booking
     else:
@@ -4532,7 +4611,7 @@ def individual_booking(request):
         code = (request.POST.get("booking_code") or "").strip()
         if not code:
             messages.error(request, "Please enter a booking code.")
-            return redirect("ticket_upload")
+            return _ticket_upload_redirect_with_state(request)
 
         booking.ticket_type = "booking_code"
         booking.generic_booking_code = code
@@ -4549,14 +4628,14 @@ def individual_booking(request):
             send_draw_booking_email_ticket_distribution(draw_booking)
 
         messages.success(request, f"Booking code set for booking #{booking.id}.")
-        return redirect("ticket_upload")
+        return _ticket_upload_redirect_with_state(request)
 
     # Staff-card instructions
     if ticket_type == "instructions":
         text = (request.POST.get("instructions") or "").strip()
         if not text:
             messages.error(request, "Please enter instructions.")
-            return redirect("ticket_upload")
+            return _ticket_upload_redirect_with_state(request)
 
         booking.ticket_type = "instructions"
         booking.ticket_instructions = text
@@ -4572,14 +4651,14 @@ def individual_booking(request):
             send_draw_booking_email_ticket_distribution(draw_booking)
 
         messages.success(request, f"Instructions set for booking #{booking.id}.")
-        return redirect("ticket_upload")
-    # qr individually sent
+        return _ticket_upload_redirect_with_state(request)
+        # qr individually sent
     if ticket_type == "qr_individual":
         files = qr_files_individual or ([] if not request.FILES.get("qr_file") else [request.FILES.get("qr_file")])
 
         if not files:
             messages.error(request, "Please upload at least one QR ticket file.")
-            return redirect("ticket_upload")
+            return _ticket_upload_redirect_with_state(request)
 
         if len(files) != requested_num_tickets:
             messages.error(
@@ -4587,7 +4666,7 @@ def individual_booking(request):
                 f"This booking requires {requested_num_tickets} ticket(s). "
                 f"You uploaded {len(files)} file(s). Please upload exactly {requested_num_tickets}."
             )
-            return redirect("ticket_upload")
+            return _ticket_upload_redirect_with_state(request)
 
         raw_qr_values = (request.POST.get("ticket_qr_values_individual") or "").strip()
         qr_values = [line.strip() for line in raw_qr_values.splitlines() if line.strip()]
@@ -4598,7 +4677,7 @@ def individual_booking(request):
                 f"You uploaded {len(files)} QR ticket file(s) but entered {len(qr_values)} QR value(s). "
                 "Please enter one QR value per file."
             )
-            return redirect("ticket_upload")
+            return _ticket_upload_redirect_with_state(request)
 
         booking.ticket_type = "qr_individual"
         booking.ticket_code = ""
@@ -4623,7 +4702,7 @@ def individual_booking(request):
             send_draw_booking_email_ticket_distribution(draw_booking)
 
         messages.success(request, f"{len(files)} QR ticket(s) uploaded for booking #{booking.id}.")
-        return redirect("ticket_upload")
+        return _ticket_upload_redirect_with_state(request)
 
     # E-ticket codes (one per ticket)
     if ticket_type == "codes":
@@ -4660,7 +4739,7 @@ def individual_booking(request):
 
         if not codes:
             messages.error(request, "Please provide at least one code.")
-            return redirect("ticket_upload")
+            return _ticket_upload_redirect_with_state(request)
 
         if len(codes) != requested_num_tickets:
             messages.error(
@@ -4668,7 +4747,7 @@ def individual_booking(request):
                 f"This booking requires {requested_num_tickets} ticket(s). "
                 f"You entered {len(codes)} code(s). Please enter exactly {requested_num_tickets}."
             )
-            return redirect("ticket_upload")
+            return _ticket_upload_redirect_with_state(request)
 
         booking.ticket_type = "codes"
         booking.ticket_code = "\n".join(codes)
@@ -4697,7 +4776,7 @@ def individual_booking(request):
             send_draw_booking_email_ticket_distribution(draw_booking)
 
         messages.success(request, f"{len(codes)} code(s) assigned for booking #{booking.id}.")
-        return redirect("ticket_upload")
+        return _ticket_upload_redirect_with_state(request)
 
     # PDF template or template + random code
     if ticket_type in {"pdf_template", "pdf_template_random"}:
@@ -4705,7 +4784,7 @@ def individual_booking(request):
 
         if not files:
             messages.error(request, "Please upload at least one PDF/file.")
-            return redirect("ticket_upload")
+            return _ticket_upload_redirect_with_state(request)
 
         if len(files) != requested_num_tickets:
             messages.error(
@@ -4713,7 +4792,7 @@ def individual_booking(request):
                 f"This booking requires {requested_num_tickets} ticket(s). "
                 f"You uploaded {len(files)} file(s). Please upload exactly {requested_num_tickets}."
             )
-            return redirect("ticket_upload")
+            return _ticket_upload_redirect_with_state(request)
 
         generate_codes = bool(request.POST.get("pdf_generate_codes"))
         raw_codes = (request.POST.get("pdf_codes_individual") or "").strip()
@@ -4725,7 +4804,7 @@ def individual_booking(request):
                 f"You uploaded {len(files)} PDF file(s) but entered {len(manual_codes)} code(s). "
                 "Please provide one code per PDF."
             )
-            return redirect("ticket_upload")
+            return _ticket_upload_redirect_with_state(request)
 
         used = set(
             BookingTicket.objects.exclude(ticket_code__isnull=True)
@@ -4766,8 +4845,8 @@ def individual_booking(request):
             send_draw_booking_email_ticket_distribution(draw_booking)
 
         messages.success(request, f"{len(files)} PDF ticket(s) assigned for booking #{booking.id}.")
-        return redirect("ticket_upload")
-    
+        return _ticket_upload_redirect_with_state(request)
+
     if ticket_type == "box_office":
         notes = (request.POST.get("box_office_notes") or "").strip()
 
@@ -4797,7 +4876,7 @@ def individual_booking(request):
             send_draw_booking_email_ticket_distribution(draw_booking)
 
         messages.success(request, f"Box office collection set for booking #{booking.id}.")
-        return redirect("ticket_upload")
+        return _ticket_upload_redirect_with_state(request)
 
 # Clears irrelevant ticket fields so a booking stays consistent with its selected ticket type
 def normalize_ticket_fields(booking):
@@ -4845,7 +4924,7 @@ def ticket_upload_delete(request):
 
         if not draw_booking.converted_booking:
             messages.error(request, "Draw booking has no ticket yet.")
-            return redirect("ticket_upload")
+            return _ticket_upload_redirect_with_state(request)
 
         obj = draw_booking.converted_booking
     else:
@@ -4863,7 +4942,7 @@ def ticket_upload_delete(request):
     obj.save()
 
     messages.success(request, f"Ticket removed for booking #{obj.id}.")
-    return redirect("ticket_upload")
+    return _ticket_upload_redirect_with_state(request)
 
 # Removes ticket data in bulk for selected booking and draw rows from the upload screen
 @staff_member_required
@@ -4872,7 +4951,7 @@ def ticket_upload_bulk_delete(request):
     ids = request.POST.getlist("selected_ids")
     if not ids:
         messages.error(request, "No rows selected.")
-        return redirect("ticket_upload")
+        return _ticket_upload_redirect_with_state(request)
 
     booking_ids = []
     draw_ids = []
@@ -4955,8 +5034,7 @@ def ticket_upload_bulk_delete(request):
     if missing:
         messages.error(request, f"{missing} selected row(s) had no ticket to delete.")
 
-    return redirect("ticket_upload")
-
+    return _ticket_upload_redirect_with_state(request)
 
 @staff_member_required
 def manage_terms_and_conditions(request):
@@ -4983,4 +5061,26 @@ def manage_terms_and_conditions(request):
     return render(request, 'fergusonbequest/manage_terms_and_conditions.html', {
         't_and_c': t_and_c,
     })
-User = get_user_model()
+
+
+@staff_member_required
+def manage_main_page_content(request):
+    content = MainPageContent.get()
+
+    if request.method == 'POST':
+        form = MainPageContentForm(request.POST, request.FILES, instance=content)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Main page content updated successfully.')
+            return redirect('manage_main_page_content')
+    else:
+        form = MainPageContentForm(instance=content)
+
+    return render(
+        request,
+        'fergusonbequest/manage_main_page_content.html',
+        {
+            'form': form,
+            'content': content,
+        },
+    )

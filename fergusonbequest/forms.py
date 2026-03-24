@@ -3,7 +3,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import get_user_model
 from django.forms import ValidationError
 from django.utils.text import slugify
-from .models import Booking, VisitSlot, Attraction, TicketDraw, FeedbackEmailTemplate, BookingFeedback
+from .models import Booking, VisitSlot, Attraction, TicketDraw, FeedbackEmailTemplate, BookingFeedback, MainPageContent
 from django.utils import timezone
 
 User = get_user_model()
@@ -345,4 +345,61 @@ class BookingFeedbackForm(forms.ModelForm):
                     'placeholder': 'Tell us about your experience (optional).',
                 }
             ),
+        }
+
+
+class MainPageContentForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            title_text = (self.instance.left_warning_title or "").strip()
+            body_text = (self.instance.left_warning_body or "").strip()
+            eligibility_text = (self.instance.left_eligibility_text or "").strip()
+
+            first_line = body_text
+            if title_text and title_text not in body_text:
+                first_line = f"{title_text} — {body_text}".strip(" —")
+
+            second_line = eligibility_text
+
+            if not second_line and "\n\n" in first_line:
+                parts = first_line.split("\n\n", 1)
+                first_line = parts[0].strip()
+                second_line = parts[1].strip()
+
+            self.initial['left_warning_body'] = first_line
+            self.initial['left_eligibility_text'] = second_line
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.left_warning_title = ""
+        if commit:
+            instance.save()
+        return instance
+
+    class Meta:
+        model = MainPageContent
+        fields = [
+            'left_intro',
+            'left_bullet_1',
+            'left_bullet_2',
+            'left_bullet_3',
+            'left_warning_body',
+            'left_eligibility_text',
+            'about_heading',
+            'about_paragraph_1',
+            'about_paragraph_2',
+            'about_image',
+        ]
+        widgets = {
+            'left_intro': forms.Textarea(attrs={'rows': 4, 'class': 'mp-edit-field mp-edit-field--intro'}),
+            'left_bullet_1': forms.TextInput(attrs={'class': 'mp-edit-field mp-edit-field--line'}),
+            'left_bullet_2': forms.TextInput(attrs={'class': 'mp-edit-field mp-edit-field--line'}),
+            'left_bullet_3': forms.TextInput(attrs={'class': 'mp-edit-field mp-edit-field--line'}),
+            'left_warning_body': forms.Textarea(attrs={'rows': 2, 'class': 'mp-edit-field mp-edit-field--compact'}),
+            'left_eligibility_text': forms.Textarea(attrs={'rows': 3, 'class': 'mp-edit-field mp-edit-field--compact'}),
+            'about_heading': forms.TextInput(attrs={'class': 'mp-edit-field mp-edit-field--heading'}),
+            'about_paragraph_1': forms.Textarea(attrs={'rows': 6, 'class': 'mp-edit-field mp-edit-field--body'}),
+            'about_paragraph_2': forms.Textarea(attrs={'rows': 6, 'class': 'mp-edit-field mp-edit-field--body'}),
+            'about_image': forms.ClearableFileInput(attrs={'class': 'mp-edit-upload'}),
         }
