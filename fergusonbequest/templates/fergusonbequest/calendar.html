@@ -34,6 +34,18 @@
       <span class="legend-box attraction"></span>
       Attraction
     </span>
+
+    {% if user and not user.is_staff %}
+      <span class="legend-item">
+        <span class="legend-box booking-draw"></span>
+        Your ticket draw bookings
+      </span>
+
+      <span class="legend-item">
+        <span class="legend-box booking-attraction"></span>
+        Your attraction bookings
+      </span>
+    {% endif %}
   </div>
 
 </div>
@@ -49,17 +61,34 @@
       <tr>
         {% for day in week %}
           <td class="
-              {% if day.month != month %}muted{% endif %} 
+              {% if day.date.month != month %}muted{% endif %} 
               {% if day.date == today %}today{% endif %}"
               >
             <div class="daynum">{{ day.date.day }}</div>
 
             {% if day.events %}
               {% for event in day.events %}
-              <a href="{% if event.event_type == 'attraction' %}{% url 'attraction' event.object.attraction.pk %}{% elif event.event_type == 'ticket_draw' %}{% url 'ticket_draw_detail' event.object.ticket_draw.slug %}{% endif %}"
-              class = "event {{ event.event_type }}">
-                
-                  <strong>{% if event.event_type == 'attraction' %}{{ event.object.attraction.name }}{% elif event.event_type == 'ticket_draw' %}{{ event.object.ticket_draw.name }}{% endif %}</strong>      
+                <a  href="{% if event.event_type == 'attraction' %}{% url 'attraction' event.object.attraction.pk %}
+                          {% elif event.event_type == 'ticket_draw' %}{% url 'ticket_draw_detail' event.object.ticket_draw.slug %}
+                          {% elif event.event_type == 'attraction_booking' or event.event_type == 'ticket_draw_booking' %}{% url 'booking_history'  %}
+                          {% endif %}"
+                    class = "event {{ event.event_type }}">
+                  
+                  <strong>
+                    {% if event.event_type == 'attraction' %}
+                        {{ event.object.attraction.name }}
+
+                    {% elif event.event_type == 'ticket_draw' %}
+                        {{ event.object.ticket_draw.name }}
+
+                    {% elif event.event_type == 'attraction_booking' %}
+                        Booked: {{ event.object.attraction.name }}
+
+                    {% elif event.event_type == 'ticket_draw_booking' %}
+                        Booked: {{ event.object.ticket_draw.name }}
+
+                    {% endif %}
+                  </strong>      
                          
               </a>
               {% endfor %}
