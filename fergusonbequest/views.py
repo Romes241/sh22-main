@@ -659,6 +659,15 @@ def attractions_view(request):
         a.sold_out_slots = [s for s in future_slots if s.remaining == 0]
         a.sold_out_slot_count = len(a.sold_out_slots)
 
+        unique_dates = []
+        seen_dates = set()
+        for slot in future_slots:
+            if slot.date not in seen_dates:
+                seen_dates.add(slot.date)
+                unique_dates.append(slot.date.strftime("%d/%m/%Y"))
+
+        a.available_dates_display = ", ".join(unique_dates) if unique_dates else "—"
+
     return render(
         request,
         "fergusonbequest/attractions.html",
@@ -717,6 +726,15 @@ def attraction(request, pk):
         if waitlist_slot:
             on_waitlist = waitlist_slot.id in waitlisted_slot_ids
 
+    unique_dates = []
+    seen_dates = set()
+    for slot in future_slots:
+        if slot.date not in seen_dates:
+            seen_dates.add(slot.date)
+            unique_dates.append(slot.date.strftime("%d/%m/%Y"))
+
+    available_dates_display = ", ".join(unique_dates) if unique_dates else "—"
+
     return render(
         request,
         "fergusonbequest/attraction.html",
@@ -731,6 +749,7 @@ def attraction(request, pk):
             "waitlisted_slot_ids": waitlisted_slot_ids,
             "on_waitlist": on_waitlist,
             "waitlist_slot": waitlist_slot,
+            "available_dates_display": available_dates_display,
         },
     )
 
@@ -738,6 +757,13 @@ def attraction(request, pk):
 def booking_view(request, attraction_pk):
     attraction_obj = get_object_or_404(Attraction, pk=attraction_pk)
     user = request.user
+
+    if user.is_staff or user.is_superuser:
+        messages.error(
+            request,
+            "Admin accounts cannot make attraction bookings. Please use a normal user account."
+        )
+        return redirect("attraction", pk=attraction_obj.pk)
 
     now = timezone.localtime()
 
@@ -1412,6 +1438,7 @@ def ticket_draw_detail(request, slug):
     slots = TicketDrawVisitSlot.objects.filter(
         ticket_draw=draw,
         date__gte=timezone.now().date(),
+        remaining__gt=0,
     ).order_by("date", "time")
 
     return render(
@@ -1592,12 +1619,16 @@ def decline_draw_win(request, pk):
 # -----------------------------
 @login_required
 def waiting_listattraction(request):
-    """Attraction waiting list"""
-    user = request.user
+    if request.user.is_staff or request.user.is_superuser:
+        messages.error(
+            request,
+            "Admin accounts cannot access the attraction waiting list."
+        )
+        return redirect("home")
 
     attraction_waitlist_entries = (
         AttractionWaitlistEntry.objects
-        .filter(user=user, cancelled=False)
+        .filter(user=request.user, cancelled=False)
         .select_related("attraction", "slot")
         .order_by("-created_at")
     )
@@ -1618,6 +1649,23 @@ def waiting_listattraction_join(request, pk=None):
         pk=slot_id
     )
     attraction_obj = slot.attraction
+
+    if request.user.is_staff or request.user.is_superuser:
+        messages.error(
+            request,
+            "Admin accounts cannot join the waiting list. Please use a normal user account."
+        )
+        return redirect("attraction", pk=attraction_obj.pk)
+
+    try:
+        num_tickets = int(request.POST.get("num_tickets", 1))
+    except (TypeError, ValueError):
+        num_tickets = 1
+
+    if num_tickets < 1 or num_tickets > 2:
+        messages.error(request, "You can request 1 or 2 tickets for the waiting list.")
+        return redirect("attraction", pk=attraction_obj.pk)
+
     if slot.remaining > 0:
         messages.error(
             request,
@@ -1632,19 +1680,24 @@ def waiting_listattraction_join(request, pk=None):
     ).first()
 
     if existing:
+        existing.num_tickets = num_tickets
+        existing.save(update_fields=["num_tickets"])
         messages.info(
             request,
-            f"You're already on the waiting list for {attraction_obj.name} on {slot.date} at {slot.time}."
+            f"Your waiting list request for {attraction_obj.name} on {slot.date} at {slot.time} "
+            f"was updated to {num_tickets} ticket(s)."
         )
     else:
         AttractionWaitlistEntry.objects.create(
             user=request.user,
             attraction=attraction_obj,
             slot=slot,
+            num_tickets=num_tickets,
         )
         messages.success(
             request,
-            f"You joined the waiting list for {attraction_obj.name} on {slot.date} at {slot.time}."
+            f"You joined the waiting list for {attraction_obj.name} on {slot.date} at {slot.time} "
+            f"for {num_tickets} ticket(s)."
         )
 
     return redirect("waiting_listattraction")
@@ -1684,6 +1737,9 @@ def reassign_cancelled_attraction_booking(slot, attraction_obj):
     """
     Reassign a newly freed attraction slot to the next eligible user
     on the waiting list for that exact slot.
+
+    FIFO order is preserved by created_at.
+    An entry is only fulfilled if enough tickets are currently available.
     """
     waitlist_entries = (
         AttractionWaitlistEntry.objects
@@ -1697,6 +1753,7 @@ def reassign_cancelled_attraction_booking(slot, attraction_obj):
 
     for entry in waitlist_entries:
         user = entry.user
+        requested_tickets = max(1, getattr(entry, "num_tickets", 1))
 
         # check yearly booking limit
         remaining_allowance = calculate_remaining_allowance(user, "regular")
@@ -1716,21 +1773,24 @@ def reassign_cancelled_attraction_booking(slot, attraction_obj):
 
         # ensure slot is still available
         slot.refresh_from_db()
-        if slot.remaining < 1:
-            return None
+
+        # strict FIFO:
+        # if the first eligible person wants 2 and only 1 is available, stop here.
+        if slot.remaining < requested_tickets:
+            continue
 
         new_booking = Booking.objects.create(
             user=user,
             attraction=attraction_obj,
             slot=slot,
-            num_tickets=1,
+            num_tickets=requested_tickets,
             full_name=f"{user.first_name} {user.last_name}".strip(),
             email=user.email,
             agreed_terms=True,
         )
 
         VisitSlot.objects.filter(pk=slot.pk).update(
-            remaining=F("remaining") - 1
+            remaining=F("remaining") - requested_tickets
         )
 
         entry.cancelled = True
@@ -2336,10 +2396,22 @@ def admin_reports(request):
 
         venue_value = venue if venue else venue_select
         if venue_value:
+            venue_type = None
+            venue_name = venue_value
+
+            if "|||" in venue_value:
+                venue_type, venue_name = venue_value.split("|||", 1)
+
             if is_draw:
-                qs_out = qs_out.filter(ticket_draw__name__icontains=venue_value)
+                qs_out = qs_out.filter(ticket_draw__name__icontains=venue_name)
+                if venue_type:
+                    if venue_type != "Draw":
+                        qs_out = qs_out.none()
             else:
-                qs_out = qs_out.filter(attraction__name__icontains=venue_value)
+                qs_out = qs_out.filter(attraction__name__icontains=venue_name)
+                if venue_type:
+                    if venue_type != "Attraction":
+                        qs_out = qs_out.none()
 
         date_value = specific_date if specific_date else date_select
         if date_value:
@@ -2393,6 +2465,13 @@ def admin_reports(request):
             else:
                 status_text = "Active"
 
+            if status_text == "Completed":
+                used_tickets = b.num_tickets
+            else:
+                used_tickets = 0
+
+            unused_tickets = max(b.num_tickets - used_tickets, 0)
+
             combined.append(
                 {
                     "type": "Draw",
@@ -2406,6 +2485,8 @@ def admin_reports(request):
                     "time": b.slot.time,
                     "ticket_code": get_ticket_reference(b.converted_booking),
                     "num_tickets": b.num_tickets,
+                    "used_tickets": used_tickets,
+                    "unused_tickets": unused_tickets,
                     "status_text": status_text,
                 }
             )
@@ -2418,6 +2499,13 @@ def admin_reports(request):
                 status_text = "Completed"
             else:
                 status_text = "Active"
+
+            if status_text == "Completed":
+                used_tickets = b.num_tickets
+            else:
+                used_tickets = 0
+
+            unused_tickets = max(b.num_tickets - used_tickets, 0)
 
             combined.append(
                 {
@@ -2432,6 +2520,8 @@ def admin_reports(request):
                     "time": b.slot.time,
                     "ticket_code": get_ticket_reference(b),
                     "num_tickets": b.num_tickets,
+                    "used_tickets": used_tickets,
+                    "unused_tickets": unused_tickets,
                     "status_text": status_text,
                 }
             )
@@ -2538,6 +2628,8 @@ def admin_reports(request):
         cancelled_count = sum(1 for b in bookings_list if b["status_text"] == "Cancelled")
 
         total_tickets = sum(b.get("num_tickets", 0) for b in bookings_list)
+        total_used_tickets = sum(b.get("used_tickets", 0) for b in bookings_list)
+        total_unused_tickets = sum(b.get("unused_tickets", 0) for b in bookings_list)
 
         date_range = None
         if bookings_list:
@@ -2545,8 +2637,29 @@ def admin_reports(request):
             date_range = {"start": min(dates), "end": max(dates)}
 
         popularity = {}
+        unused_by_attraction = {}
+
         for b in bookings_list:
-            popularity[b["name"]] = popularity.get(b["name"], 0) + 1
+            name = b["name"]
+            item_type = b["type"]
+            popularity[name] = popularity.get(name, 0) + 1
+
+            key = (item_type, name)
+
+            if key not in unused_by_attraction:
+                unused_by_attraction[key] = {
+                    "type": item_type,
+                    "name": name,
+                    "bookings": 0,
+                    "tickets": 0,
+                    "used_tickets": 0,
+                    "unused_tickets": 0,
+                }
+
+            unused_by_attraction[key]["bookings"] += 1
+            unused_by_attraction[key]["tickets"] += b.get("num_tickets", 0)
+            unused_by_attraction[key]["used_tickets"] += b.get("used_tickets", 0)
+            unused_by_attraction[key]["unused_tickets"] += b.get("unused_tickets", 0)
 
         most_popular = None
         if popularity:
@@ -2556,9 +2669,16 @@ def admin_reports(request):
         unique_users = len(set(b["email"] for b in bookings_list if b["email"]))
         avg_per_user = total / unique_users if unique_users > 0 else 0
 
+        unused_by_attraction_list = sorted(
+            unused_by_attraction.values(),
+            key=lambda x: (-x["unused_tickets"], x["type"], x["name"])
+        )
+
         return {
             "total_bookings": total,
             "total_tickets": total_tickets,
+            "total_used_tickets": total_used_tickets,
+            "total_unused_tickets": total_unused_tickets,
             "attraction_count": attraction_count,
             "draw_count": draw_count,
             "active_count": active_count,
@@ -2568,13 +2688,75 @@ def admin_reports(request):
             "most_popular": most_popular,
             "unique_users": unique_users,
             "avg_per_user": avg_per_user,
+            "unused_by_attraction": unused_by_attraction_list,
         }
 
     statistics = calculate_statistics(combined)
+    unused_by_attraction_list = statistics["unused_by_attraction"]
 
-    venue_list = sorted({b["name"] for b in combined})
+    venue_list = sorted({
+        (f"{b['type']} — {b['name']}", f"{b['type']}|||{b['name']}")
+        for b in combined
+    })
     date_list = sorted({b["date"] for b in combined}, reverse=True)
     time_list = sorted({b["time"] for b in combined if b["time"]})
+
+    if export_type == "unused_csv":
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="unused_tickets_by_venue_type.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow([
+            "Type",
+            "Attraction/Draw",
+            "Bookings",
+            "Tickets",
+            "Used Tickets",
+            "Unused Tickets",
+        ])
+
+        for row in unused_by_attraction_list:
+            writer.writerow([
+                row["type"],
+                row["name"],
+                row["bookings"],
+                row["tickets"],
+                row["used_tickets"],
+                row["unused_tickets"],
+            ])
+
+        return response
+
+    if export_type == "unused_excel":
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Unused by Type"
+
+        ws.append([
+            "Type",
+            "Attraction/Draw",
+            "Bookings",
+            "Tickets",
+            "Used Tickets",
+            "Unused Tickets",
+        ])
+
+        for row in unused_by_attraction_list:
+            ws.append([
+                row["type"],
+                row["name"],
+                row["bookings"],
+                row["tickets"],
+                row["used_tickets"],
+                row["unused_tickets"],
+            ])
+
+        response = HttpResponse(
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response["Content-Disposition"] = 'attachment; filename="unused_tickets_by_venue_type.xlsx"'
+        wb.save(response)
+        return response
 
     return render(
         request,

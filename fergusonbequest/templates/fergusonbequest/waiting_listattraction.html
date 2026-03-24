@@ -17,6 +17,7 @@
         <tr>
           <th>Attraction</th>
           <th>Location</th>
+          <th>Tickets Requested</th>
           <th>Joined Date</th>
           <th>Action</th>
         </tr>
@@ -31,22 +32,27 @@
             </a>
           </td>
           <td>{{ entry.attraction.location }}</td>
+          <td>{{ entry.num_tickets }}</td>
           <td>{{ entry.created_at|date:"d/m/Y H:i" }}</td>
-
           <td class="wl-actions">
             <form method="POST" action="{% url 'waiting_listattraction_leave' entry.slot.pk %}">
-            {% csrf_token %}
-              <button type="submit" class="fb-btn fb-btn--primary">Leave waiting list</button>
+              {% csrf_token %}
+              <button type="submit" class="fb-btn fb-btn--primary">
+                Leave waiting list
+              </button>
             </form>
           </td>
         </tr>
         {% empty %}
-          <tr>
-            <td colspan="4" class="wl-empty">You are not on any attraction waiting lists.</td>
-          </tr>
+        <tr>
+          <td colspan="5" class="wl-empty">
+            You are not on any attraction waiting lists.
+          </td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
+
 {% endblock %}

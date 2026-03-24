@@ -100,128 +100,114 @@
 </form>
   <!-- Cards grid-->
   <div class="cards-grid">
-
     {% for a in attractions %}
-      <!--
+     <!--
         Sold out logic:
         - An attraction is sold out if total remaining tickets == 0
         - remaining_total sums ALL VisitSlot.remaining values
       -->
-      <div class="card {% if a.remaining_total == 0 %}soldout{% endif %}">
+  <div class="card {% if a.tickets_left_total == 0 %}soldout{% endif %}">
 
-        <!-- Image area -->
-        <div class="card-image">
+    <div class="card-image">
+      {% if a.image %}
+        <img src="{{ a.image.url }}" alt="{{ a.name }}">
+      {% else %}
+        <div class="image-placeholder">Attraction image</div>
+      {% endif %}
 
-          {% if a.image %}
-            <img src="{{ a.image.url }}" alt="{{ a.name }}">
-          {% else %}
-            <div class="image-placeholder">Attraction image</div>
-          {% endif %}
+      {% if a.tickets_left_total == 0 %}
+        <div class="soldout-overlay">SOLD OUT</div>
+      {% endif %}
+    </div>
 
-          <!-- sold out overlay (total remaining == 0) -->
-          {% if a.remaining_total == 0 %}
-            <div class="soldout-overlay">SOLD OUT</div>
-          {% endif %}
+    <div class="card-body">
+      <p><strong>Name:</strong> {{ a.name }}</p>
+      <p><strong>Available dates:</strong> {{ a.available_dates_display }}</p>
+      <p><strong>Tickets left:</strong> {{ a.tickets_left_total }}</p>
+      <p><strong>Location:</strong> {{ a.location|default:"—" }}</p>
 
-        </div>
+      <div class="card-actions">
+        <a class="btn secondary" href="{% url 'attraction' a.id %}">
+          View Details
+        </a>
 
-        <!-- Card body -->
-        <div class="card-body">
-          <p><strong>Name:</strong> {{ a.name }}</p>
-          <p><strong>Available dates:</strong> —</p>
-          <p><strong>Tickets left:</strong> {{ a.remaining_total }}</p>
-          <p><strong>Location:</strong> {{ a.location|default:"—" }}</p>
+        {% if not request.user.is_staff and not request.user.is_superuser %}
+          {% if a.tickets_left_total == 0 %}
+            {% if a.sold_out_slot_count == 1 %}
+              {% with slot=a.sold_out_slots.0 %}
+              <form method="POST" action="{% url 'waiting_listattraction_join' slot.pk %}" class="waitlist-slot-form">
+                {% csrf_token %}
+                <input type="hidden" name="slot" value="{{ slot.pk }}">
 
-          <!-- Buttons -->
-          <div class="card-actions">
+                <div class="waitlist-slot-actions">
+                  <label for="modal_num_tickets_{{ slot.pk }}">Number of tickets</label>
+                  <select name="num_tickets" id="modal_num_tickets_{{ slot.pk }}" class="waitlist-ticket-select">
+                    <option value="1">1 ticket</option>
+                    <option value="2">2 tickets</option>
+                  </select>
 
-            <a class="btn secondary"
-               href="{% url 'attraction' a.id %}">
-              View Details
-            </a>
-
-              {% if a.remaining_total == 0 %}
-                {% if a.sold_out_slot_count == 1 %}
-
-                  <form method="POST"
-                        action="{% url 'waiting_listattraction_join' a.sold_out_slots.0.pk %}">
-                    {% csrf_token %}
-                    <button type="submit" class="btn outline">Join Waitlist</button>
-                  </form>
-
-                {% elif a.sold_out_slot_count > 1 %}
-
-                  <button type="button"
-                          class="btn outline"
-                          onclick="openWaitlistModal('{{ a.id }}')">
-                    Join Waitlist
-                  </button>
-
-                {% else %}
-
-                  <a class="btn outline" href="{% url 'attraction' a.id %}">
-                    Join Waitlist
-                  </a>
-
-                {% endif %}
-              {% else %}
-
-                <a class="btn primary"
-                   href="{% url 'attraction_book' attraction_pk=a.id %}">
-                  Book now
-                </a>
-
-              {% endif %}
-
-            </div>
-          </div>
-        </div>
-
-        <!-- waitlist modal -->
-        {% if a.remaining_total == 0 and a.sold_out_slot_count > 1 %}
-        <div id="waitlist-modal-{{ a.id }}" class="waitlist-modal" style="display:none;">
-
-          <div class="waitlist-modal-backdrop"
-               onclick="closeWaitlistModal('{{ a.id }}')"></div>
-
-          <div class="waitlist-modal-content">
-
-            <div class="waitlist-modal-header">
-              <h3>Choose a slot for {{ a.name }}</h3>
-              <button class="waitlist-modal-close"
-                      onclick="closeWaitlistModal('{{ a.id }}')">
-                ×
-              </button>
-            </div>
-
-            <div class="waitlist-modal-body">
-
-              {% for slot in a.sold_out_slots %}
-
-              <div class="waitlist-slot-row">
-
-                <div class="waitlist-slot-time">
-                  {{ slot.date|date:"d/m/Y" }} — {{ slot.time|time:"H:i" }}
+                  <button type="submit" class="btn outline">Join Waitlist</button>
                 </div>
+              </form>
+              {% endwith %}
+            {% elif a.sold_out_slot_count > 1 %}
+              <button type="button" class="btn outline" onclick="openWaitlistModal('{{ a.id }}')">
+                Join Waitlist
+              </button>
+            {% endif %}
+          {% else %}
+            <a class="btn primary" href="{% url 'attraction_book' attraction_pk=a.id %}">
+              Book now
+            </a>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
 
-                <form method="POST"
-                      action="{% url 'waiting_listattraction_join' slot.pk %}">
-                  {% csrf_token %}
-                  <button class="btn outline">Join Waitlist</button>
-                </form>
+    {% if a.tickets_left_total == 0 and a.sold_out_slot_count > 1 and not request.user.is_staff and not request.user.is_superuser %}
+    <div id="waitlist-modal-{{ a.id }}" class="waitlist-modal" style="display:none;">
+      <div class="waitlist-modal-backdrop" onclick="closeWaitlistModal('{{ a.id }}')"></div>
 
-              </div>
+      <div class="waitlist-modal-content">
+        <div class="waitlist-modal-header">
+          <h3>Choose a slot for {{ a.name }}</h3>
+          <button type="button" class="waitlist-modal-close" onclick="closeWaitlistModal('{{ a.id }}')">
+            ×
+          </button>
+        </div>
 
-              {% endfor %}
-
+        <div class="waitlist-modal-body">
+          {% for slot in a.sold_out_slots %}
+          <div class="waitlist-slot-row">
+            <div class="waitlist-slot-time">
+              {{ slot.date|date:"d/m/Y" }} — {{ slot.time|time:"H:i" }}
             </div>
 
+            <form method="POST" action="{% url 'waiting_listattraction_join' slot.pk %}" class="waitlist-slot-form">
+              {% csrf_token %}
+              <input type="hidden" name="slot" value="{{ slot.pk }}">
+
+              <div class="waitlist-slot-actions">
+                <label for="modal_num_tickets_{{ slot.pk }}" class="sr-only">Number of tickets</label>
+                <select name="num_tickets" id="modal_num_tickets_{{ slot.pk }}" class="waitlist-ticket-select">
+                  <option value="1">1 ticket</option>
+                  <option value="2">2 tickets</option>
+                </select>
+
+                <button type="submit" class="btn outline">Join Waitlist</button>
+              </div>
+            </form>
           </div>
+          {% endfor %}
         </div>
-        {% endif %}
-    {% empty %}
-      <p class="empty">No attractions match your search.</p>
-    {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+{% empty %}
+  <p class="empty">No attractions match your search.</p>
+{% endfor %}
 
   </div>
 </div>

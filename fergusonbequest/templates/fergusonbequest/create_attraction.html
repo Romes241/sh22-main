@@ -28,13 +28,13 @@
     {% endif %}
     
     <div class="fb-form-group">
-      <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
-      {{ form.name }}
-      {% if form.name.errors %}
-        <div class="fb-form-errors">{{ form.name.errors }}</div>
+      <label for="{{ form.attraction_type.id_for_label }}">{{ form.attraction_type.label }}</label>
+      {{ form.attraction_type }}
+      {% if form.attraction_type.errors %}
+        <div class="fb-form-errors">{{ form.attraction_type.errors }}</div>
       {% endif %}
-      {% if form.name.help_text %}
-        <div class="fb-form-help">{{ form.name.help_text }}</div>
+      {% if form.attraction_type.help_text %}
+        <div class="fb-form-help">{{ form.attraction_type.help_text }}</div>
       {% endif %}
     </div>
     
@@ -46,7 +46,14 @@
           <div class="fb-form-errors">{{ form.location.errors }}</div>
         {% endif %}
       </div>
-      
+
+        <div class="fb-form-group">
+          <label for="{{ form.attraction_type.id_for_label }}">
+            {{ form.attraction_type.label }}
+          </label>
+          {{ form.attraction_type }}
+        </div>
+
       <div class="fb-form-group">
         <label for="{{ form.contact_email.id_for_label }}">{{ form.contact_email.label }}</label>
         {{ form.contact_email }}

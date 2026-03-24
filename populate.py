@@ -25,6 +25,8 @@ from fergusonbequest.models import (
     Booking,
     TicketDrawBooking,
     Profile,
+    BookingFeedback,
+    DiscountCode,
 )
 
 User = get_user_model()
@@ -313,6 +315,55 @@ def create_named_user(username: str):
     profile.save()
     return user
 
+def create_feedback(bookings, limit=10):
+    created = 0
+
+    eligible = [b for b in bookings if not b.cancelled]
+
+    random.shuffle(eligible)
+
+    for booking in eligible:
+        if created >= limit:
+            break
+
+        if hasattr(booking, "feedback_submission"):
+            continue
+
+        BookingFeedback.objects.create(
+            booking=booking,
+            user=booking.user,
+            rating=random.randint(3, 5),
+            comments=random.choice([
+                "Great experience!",
+                "Really enjoyed it",
+                "Would recommend",
+                "Well organised event",
+                "Had a lovely time",
+            ]),
+            staff_full_name=booking.user.get_full_name() or booking.user.username,
+            staff_email=booking.user.email,
+        )
+
+        created += 1
+
+    print(f"Created {created} feedback entries")
+
+def create_discount_codes(limit=10):
+    now = timezone.now()
+
+    for i in range(limit):
+        code = f"TEST{i+1:02d}"
+
+        DiscountCode.objects.get_or_create(
+            code=code,
+            defaults={
+                "is_active": True,
+                "valid_from": now - timedelta(days=1),
+                "valid_until": now + timedelta(days=30),
+            },
+        )
+
+    print(f"Created {limit} discount codes")
 
 def create_random_user(index: int):
     first = random.choice(FIRST_NAMES)
@@ -443,7 +494,7 @@ def create_draws(now, today):
             terms=draw_info["terms"],
         )
 
-        slot_count = random.choice([2, 2, 3])
+        slot_count = 1
         slots = []
         used_offsets = set()
         for _ in range(slot_count):
@@ -468,7 +519,6 @@ def create_draws(now, today):
 
     return draw_lookup, draw_slot_lookup
 
-
 def pick_booking_timestamp(slot_date, now, is_past):
     if is_past:
         days_before = random.randint(3, 21)
@@ -478,19 +528,30 @@ def pick_booking_timestamp(slot_date, now, is_past):
     return now - timedelta(days=random.randint(0, 10), hours=random.randint(0, 23))
 
 
+def force_entire_attraction_sold_out(created_slots, attraction_slug="celtic-park-stadium-tour"):
+    sold_out_slots = []
+
+    for slot in created_slots:
+        if slot.attraction.slug == attraction_slug and slot.date >= timezone.localdate():
+            slot.remaining = 0
+            slot.save(update_fields=["remaining"])
+            sold_out_slots.append(slot)
+
+    return sold_out_slots
+
 def maybe_assign_fake_ticket(is_past, is_cancelled):
     if is_cancelled:
         return None, None, "", ""
 
     roll = random.random()
 
-    if is_past or roll < 0.45:
+    if is_past or roll < 0.35:
         return "codes", make_post_office_code(), "", ""
 
-    if roll < 0.70:
+    if roll < 0.55:
         return "box_office", None, "Show booking reference and staff ID.", ""
 
-    if roll < 0.90:
+    if roll < 0.75:
         return "instructions", None, "", "Show staff ID at entrance. Arrive 15 minutes early."
 
     return None, None, "", ""
@@ -611,9 +672,12 @@ def create_draw_entries(users, draw_lookup, draw_slot_lookup):
 
         for user in entrants:
             slot = random.choice(draw_slots)
-            if slot.remaining <= 0:
+            # keep at least 1 ticket for future manual testing
+            if slot.remaining <= 1:
                 continue
-            num_tickets = min(random.choice([1, 1, 2]), slot.remaining)
+
+            max_bookable = min(2, slot.remaining - 1)
+            num_tickets = random.randint(1, max_bookable)
             if num_tickets <= 0:
                 continue
 
@@ -675,15 +739,34 @@ def create_draw_entries(users, draw_lookup, draw_slot_lookup):
         convert_draw_entry_to_booking(alice_entry)
         total_entries += 2
 
-    # Ensure at least one NON-zoo draw is open
+    # Ensure at least one NON-zoo draw is open and has a bookable slot
     open_draw = (
         TicketDraw.objects
         .exclude(slug="edinburgh-zoo-draw")
         .first()
     )
+
     if open_draw:
-        open_draw.booking_close = timezone.now() + timedelta(days=5)
-        open_draw.save(update_fields=["booking_close"])
+        now = timezone.now()
+        today = timezone.localdate()
+
+        open_draw.booking_open = now - timedelta(days=2)
+        open_draw.booking_close = now + timedelta(days=5)
+        open_draw.save(update_fields=["booking_open", "booking_close"])
+
+        open_slot = (
+            TicketDrawVisitSlot.objects
+            .filter(ticket_draw=open_draw)
+            .order_by("date", "time")
+            .first()
+        )
+
+        if open_slot:
+            if open_slot.date < today:
+                open_slot.date = today + timedelta(days=7)
+            open_slot.remaining = max(2, open_slot.remaining)
+            open_slot.capacity = max(open_slot.capacity, open_slot.remaining)
+            open_slot.save(update_fields=["date", "remaining", "capacity"])
 
     return total_entries
 
@@ -709,9 +792,24 @@ def populate():
     created_slots = create_visit_slots(attractions, today)
     draw_lookup, draw_slot_lookup = create_draws(now, today)
 
-    general_count = create_general_bookings(all_users, created_slots, today, now, exclude_usernames={"alice", "bob"})
+    general_count = create_general_bookings(
+        all_users,
+        created_slots,
+        today,
+        now,
+        exclude_usernames={"alice", "bob"},
+    )
     special_count = create_alice_bob_bookings(alice, bob, created_slots, today, now)
     draw_count = create_draw_entries(all_users, draw_lookup, draw_slot_lookup)
+
+    sold_out_slots = force_entire_attraction_sold_out(
+        created_slots,
+        "celtic-park-stadium-tour",
+    )
+    all_bookings = list(Booking.objects.all())
+
+    create_feedback(all_bookings, limit=10)
+    create_discount_codes(limit=10)
 
     print("Populate complete.")
     print(f"Users created/updated: {len(all_users)}")
@@ -720,12 +818,9 @@ def populate():
     print(f"Ticket draws created: {len(draw_lookup)}")
     print(f"Regular bookings created: {general_count + special_count}")
     print(f"Draw entries created: {draw_count}")
-    print("Test logins:")
-    print("alice@test.com / password123")
-    print("bob@test.com / password123")
-    print("Calendar cap: max 3 attraction slots per day, max 1 draw slot per day")
+    print(f"Forced sold out slots: {len(sold_out_slots)}")
 
-#Unticketed check
+    # Unticketed check
     converted_booking_ids = TicketDrawBooking.objects.filter(
         converted_booking__isnull=False
     ).values_list("converted_booking_id", flat=True)
