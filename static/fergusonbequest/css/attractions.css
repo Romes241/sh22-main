@@ -1,5 +1,5 @@
 .attractions-page {
-  max-width: 1600px;
+  max-width: 1800px;
   margin: 0 auto;
   padding: 32px 24px 48px;
   min-height: 0;
@@ -15,20 +15,22 @@
 .controls {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
 
   margin-bottom: 22px;
-  padding: 12px 14px;
+  padding: 12px 20px;
 
   border: 1px solid #d0d0d0;
   border-radius: 999px;
   background: #eeeeee;
 }
-
 /*  Search  */
 .search-box {
   position: relative;
-  flex: 1 ;
+  flex: 1;
+  min-width: 140px;
   display: flex;
   align-items: center;
 }
@@ -60,6 +62,15 @@
   opacity: 1;
 }
 
+.clear-all {
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-decoration: none;
+  color: #5c35c9;
+  font-weight: 600;
+  padding: 0 4px;
+}
+
 /*  Filters */
 .filter-box {
   position: relative;
@@ -81,12 +92,11 @@
   -webkit-appearance: none;
   -moz-appearance: none;
 
-  padding: 0 46px 0 18px;
+  padding: 0 36px 0 12px;
 
-  /* custom arrow */
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23000' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 22px center;
+  background-position: right 14px center;
   background-size: 12px;
 }
 
