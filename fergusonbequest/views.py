@@ -298,6 +298,9 @@ def calculate_remaining_allowance(user, attraction_type="regular"):
 def add_events(objects, events_by_day, start, end, event_type):
     """Add booking_open / booking_close events for calendar display."""
     for obj in objects:
+        if event_type == "ticket_draw" and not obj.ticket_draw.is_open():
+                continue
+
         if hasattr(obj, "cancelled") and obj.cancelled:
             continue    
 
