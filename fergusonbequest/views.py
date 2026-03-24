@@ -665,7 +665,7 @@ def attraction(request, pk):
     remaining_allowance = 0
     waitlisted_slot_ids = set()
     on_waitlist = False
-    waitlist_slot = available_slots.filter(remaining=0).first()
+    waitlist_slot = sold_out_slots.first()
 
     if request.user.is_authenticated:
         remaining_allowance = calculate_remaining_allowance(
