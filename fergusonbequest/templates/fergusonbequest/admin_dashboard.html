@@ -132,4 +132,21 @@
   {% include 'fergusonbequest/calendar.html' %}
 </section>
 
+<a href="#calendar" class="calendar-hint">
+  ↓ View Calendar
+</a>
+
+<script>
+  const hint = document.querySelector('.calendar-hint');
+
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 150) {
+      hint.style.opacity = '0';
+      hint.style.pointerEvents = 'none';
+    } else {
+      hint.style.opacity = '1';
+      hint.style.pointerEvents = 'auto';
+    }
+  });
+</script>
 {% endblock %}

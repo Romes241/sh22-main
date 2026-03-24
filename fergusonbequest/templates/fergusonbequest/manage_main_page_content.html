@@ -61,8 +61,8 @@
 
   <div class="mp-editor-actions">
     <button type="submit" class="fb-btn fb-btn--primary">💾 Save Changes</button>
-    <a href="{% url 'dashboard' %}" class="fb-btn">Preview Live Dashboard</a>
-    <a href="{% url 'admin_dashboard' %}" class="fb-btn">← Back to Dashboard</a>
+    <a href="{% url 'home' %}" class="fb-btn">Preview Logged-in Homepage</a>
+    <a href="{% url 'admin_dashboard' %}" class="fb-btn">← Back to Admin Dashboard</a>
   </div>
 
   {% if form.errors %}

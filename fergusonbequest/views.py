@@ -429,8 +429,7 @@ class CustomLoginView(LoginView):
     authentication_form = EmailAuthenticationForm
 
     def get_success_url(self):
-        return reverse_lazy("dashboard")
-
+        return reverse_lazy("home")
 
 class RegistrationForm(forms.ModelForm):
     """Registration form for User. Unique email, password confirmation, auto-username."""
@@ -538,22 +537,22 @@ def _get_featured_attractions(limit=4):
 
 def home(request):
     featured_attractions = _get_featured_attractions()
+    main_page_content = MainPageContent.get()
 
-    if request.user.is_authenticated:
-        main_page_content = MainPageContent.get()
-        calendar_data = get_calendar()
-        return render(
-            request,
-            "fergusonbequest/dashboard.html",
-            {
-                "featured_attractions": featured_attractions,
-                "main_page_content": main_page_content,
-                "url_name": "dashboard",
-                **calendar_data,
-            },
-        )
+    template = (
+        "fergusonbequest/home_logged_in.html"
+        if request.user.is_authenticated
+        else "fergusonbequest/home.html"
+    )
 
-    return render(request, "fergusonbequest/home.html", {"featured_attractions": featured_attractions})
+    return render(
+        request,
+        template,
+        {
+            "featured_attractions": featured_attractions,
+            "main_page_content": main_page_content,
+        },
+    )
 
 
 @login_required
@@ -576,6 +575,7 @@ def dashboard_view(request, year=None, month=None):
 
 def calendar_view(request, year=None, month=None):
     context = get_calendar(year, month)
+    context["url_name"] = "dashboard"
     return render(request, "fergusonbequest/calendar.html", context)
 
 
