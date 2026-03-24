@@ -39,6 +39,7 @@ urlpatterns = [
     path("attractions/", views.attractions_view, name="attractions"),
     path("booking-history/", views.booking_history, name="booking_history"),
     path("booking/<int:pk>/cancel/", views.cancel_booking, name="cancel_booking"),
+    path("booking/<int:booking_id>/feedback/", views.submit_booking_feedback, name="submit_booking_feedback"),
 
     # Waiting list (attraction-specific)
     path("waiting-list-attraction/", views.waiting_listattraction, name="waiting_listattraction"),
@@ -57,6 +58,7 @@ urlpatterns = [
     path("admin-dashboard/management/draws/<int:draw_id>/delete/", views.mng_delete_draw, name="mng_delete_draw"),
     path("admin-dashboard/management/attractions/<int:attraction_id>/delete/", views.mng_delete_attraction, name="mng_delete_attraction"),
     path("admin-reports/", views.admin_reports, name="admin_reports"),
+    path("admin-feedback-submissions/", views.admin_feedback_submissions, name="admin_feedback_submissions"),
     path("admin-email/", views.admin_email, name="admin_email"),
     path("admin-terms-and-conditions/", views.manage_terms_and_conditions, name="manage_terms_and_conditions"),
     path("admin-main-page-content/", views.manage_main_page_content, name="manage_main_page_content"),

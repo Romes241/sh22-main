@@ -3,7 +3,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import get_user_model
 from django.forms import ValidationError
 from django.utils.text import slugify
-from .models import Booking, VisitSlot, Attraction, TicketDraw, FeedbackEmailTemplate, MainPageContent
+from .models import Booking, VisitSlot, Attraction, TicketDraw, FeedbackEmailTemplate, BookingFeedback, MainPageContent
 from django.utils import timezone
 
 User = get_user_model()
@@ -261,17 +261,28 @@ class TicketDrawCreateForm(forms.ModelForm):
 
 class FeedbackEmailTemplateForm(forms.ModelForm):
     """Form for editing the feedback email template."""
-    
-    def clean_feedback_url(self):
-        url = self.cleaned_data.get('feedback_url')
-        if not url:
-            raise forms.ValidationError('Please provide a Microsoft Forms URL. Create your feedback form first and paste the link here.')
-        return url
+
+    def clean(self):
+        cleaned_data = super().clean()
+        mode = cleaned_data.get('feedback_mode')
+        feedback_url = (cleaned_data.get('feedback_url') or '').strip()
+
+        if mode == FeedbackEmailTemplate.FEEDBACK_MODE_EXTERNAL and not feedback_url:
+            self.add_error(
+                'feedback_url',
+                'A Microsoft Forms URL is required when external feedback mode is selected.'
+            )
+
+        return cleaned_data
     
     class Meta:
         model = FeedbackEmailTemplate
-        fields = ['enabled', 'subject', 'body', 'feedback_url']
+        fields = [
+            'enabled', 'feedback_mode', 'subject', 'body', 'feedback_url',
+            'expiry_days', 'reminder_enabled', 'reminder_delay_days',
+        ]
         widgets = {
+            'feedback_mode': forms.Select(attrs={'class': 'form-control'}),
             'subject': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'How was your visit to {attraction_name}?'
@@ -285,12 +296,26 @@ class FeedbackEmailTemplateForm(forms.ModelForm):
                 'class': 'form-control',
                 'placeholder': 'https://forms.office.com/...'
             }),
+            'expiry_days': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 1,
+                'max': 90,
+            }),
+            'reminder_delay_days': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 1,
+                'max': 30,
+            }),
         }
         labels = {
             'enabled': 'Enable Feedback Emails',
+            'feedback_mode': 'Feedback Collection Mode',
             'subject': 'Email Subject',
             'body': 'Email Message',
             'feedback_url': 'Microsoft Forms URL',
+            'expiry_days': 'Submission Window (days)',
+            'reminder_enabled': 'Enable Reminder Email',
+            'reminder_delay_days': 'Reminder Delay (days)',
         }
         help_texts = {
             'enabled': 'Check this box to automatically send feedback emails to users after their visits.',
@@ -301,6 +326,25 @@ class FeedbackEmailTemplateForm(forms.ModelForm):
             'expiry_days': 'Users can submit feedback until this many days after the visit ends.',
             'reminder_enabled': 'Send one reminder email if a user has not submitted feedback.',
             'reminder_delay_days': 'Number of days after the first feedback email before sending the reminder.',
+        }
+
+
+class BookingFeedbackForm(forms.ModelForm):
+    class Meta:
+        model = BookingFeedback
+        fields = ['rating', 'comments']
+        widgets = {
+            'rating': forms.Select(
+                choices=[(i, f'{i} / 5') for i in range(1, 6)],
+                attrs={'class': 'form-control'}
+            ),
+            'comments': forms.Textarea(
+                attrs={
+                    'class': 'form-control',
+                    'rows': 6,
+                    'placeholder': 'Tell us about your experience (optional).',
+                }
+            ),
         }
 
 

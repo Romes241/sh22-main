@@ -32,7 +32,7 @@
       </div>
     </a>
 
-    <a class="admin-card" href="/admin/fergusonbequest/booking/">
+    <a class="admin-card" href={% url 'admin_reports' %}>
       <div class="admin-card__icon" aria-hidden="true">📖</div>
       <div class="admin-card__text">
         <div class="admin-card__label">Bookings</div>
@@ -90,6 +90,12 @@
        <a class="admin-link" href="{% url 'admin_email' %}">
         <span class="admin-link__icon" aria-hidden="true">✉️</span>
         <span class="admin-link__text">Manage Email Templates</span>
+        <span class="admin-link__chev" aria-hidden="true">›</span>
+       </a>
+
+      <a class="admin-link" href="{% url 'admin_feedback_submissions' %}">
+        <span class="admin-link__icon" aria-hidden="true">📝</span>
+        <span class="admin-link__text">View Feedback Submissions</span>
         <span class="admin-link__chev" aria-hidden="true">›</span>
        </a>
 

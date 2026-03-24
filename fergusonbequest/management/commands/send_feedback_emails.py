@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from fergusonbequest.models import Booking, FeedbackEmailTemplate, EmailTemplate
+from fergusonbequest.models import Booking, FeedbackEmailTemplate, EmailTemplate, BookingFeedback
 from fergusonbequest.views import send_feedback_email_request
 from datetime import timedelta
 
@@ -52,38 +52,58 @@ class Command(BaseCommand):
         
         completed_bookings = Booking.objects.filter(
             cancelled=False,
-            slot__date__lt=now.date()
+            slot__date__lte=now.date()
         ).select_related('slot', 'attraction', 'user')
         
-        eligible_bookings = []
-        for booking in completed_bookings:
+        initial_bookings = []
+        reminder_bookings = []
 
-            if not force and booking.feedback_email_sent:
+        for booking in completed_bookings:
+            slot_time = booking.slot.time or timezone.datetime.max.time().replace(microsecond=0)
+            slot_datetime = timezone.make_aware(
+                timezone.datetime.combine(booking.slot.date, slot_time)
+            )
+            if booking.attraction.duration_minutes:
+                slot_datetime += timedelta(minutes=booking.attraction.duration_minutes)
+
+            if now < slot_datetime:
                 continue
 
-            if booking.slot.time:
-                slot_datetime = timezone.make_aware(
-                    timezone.datetime.combine(booking.slot.date, booking.slot.time)
-                )
-                if booking.attraction.duration_minutes:
-                    slot_datetime += timedelta(minutes=booking.attraction.duration_minutes)
-                
-                if now >= slot_datetime:
-                    eligible_bookings.append(booking)
-            else:
+            expiry_deadline = slot_datetime + timedelta(days=template.expiry_days)
+            if now > expiry_deadline:
+                continue
 
-                eligible_bookings.append(booking)
-        
-        if not eligible_bookings:
+            if BookingFeedback.objects.filter(booking_id=booking.id).exists():
+                continue
+
+            if force:
+                initial_bookings.append(booking)
+                continue
+
+            if not booking.feedback_email_sent:
+                initial_bookings.append(booking)
+                continue
+
+            if (
+                template.reminder_enabled
+                and not booking.feedback_reminder_sent
+                and booking.feedback_email_sent_at
+                and now >= booking.feedback_email_sent_at + timedelta(days=template.reminder_delay_days)
+            ):
+                reminder_bookings.append(booking)
+
+        if not initial_bookings and not reminder_bookings:
             self.stdout.write(self.style.SUCCESS('No eligible bookings found for feedback emails.'))
             return
-        
-        self.stdout.write(f'Found {len(eligible_bookings)} booking(s) eligible for feedback emails.')
+
+        self.stdout.write(
+            f'Found {len(initial_bookings)} initial email(s) and {len(reminder_bookings)} reminder(s) eligible.'
+        )
         
         sent_count = 0
         error_count = 0
         
-        for booking in eligible_bookings:
+        for booking in initial_bookings:
             if dry_run:
                 self.stdout.write(
                     f'[DRY RUN] Would send feedback email to {booking.email} for booking #{booking.id}'
@@ -91,10 +111,11 @@ class Command(BaseCommand):
                 sent_count += 1
             else:
                 try:
-                    send_feedback_email_request(booking, template.feedback_url)
+                    send_feedback_email_request(booking, template.feedback_url, template=template)
                     
                     booking.feedback_email_sent = True
-                    booking.save(update_fields=['feedback_email_sent'])
+                    booking.feedback_email_sent_at = now
+                    booking.save(update_fields=['feedback_email_sent', 'feedback_email_sent_at'])
                     
                     self.stdout.write(
                         self.style.SUCCESS(f'Sent feedback email to {booking.email} for booking #{booking.id}')
@@ -106,6 +127,31 @@ class Command(BaseCommand):
                         self.style.ERROR(f'Failed to send email to {booking.email}: {str(e)}')
                     )
                     error_count += 1
+
+        for booking in reminder_bookings:
+            if dry_run:
+                self.stdout.write(
+                    f'[DRY RUN] Would send feedback reminder to {booking.email} for booking #{booking.id}'
+                )
+                sent_count += 1
+                continue
+
+            try:
+                send_feedback_email_request(booking, template.feedback_url, template=template)
+
+                booking.feedback_reminder_sent = True
+                booking.feedback_reminder_sent_at = now
+                booking.save(update_fields=['feedback_reminder_sent', 'feedback_reminder_sent_at'])
+
+                self.stdout.write(
+                    self.style.SUCCESS(f'Sent feedback reminder to {booking.email} for booking #{booking.id}')
+                )
+                sent_count += 1
+            except Exception as e:
+                self.stdout.write(
+                    self.style.ERROR(f'Failed to send reminder to {booking.email}: {str(e)}')
+                )
+                error_count += 1
 
         if dry_run:
             self.stdout.write(
