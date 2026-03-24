@@ -443,7 +443,7 @@ def create_draws(now, today):
             terms=draw_info["terms"],
         )
 
-        slot_count = random.choice([2, 2, 3])
+        slot_count = 1
         slots = []
         used_offsets = set()
         for _ in range(slot_count):
@@ -467,7 +467,6 @@ def create_draws(now, today):
         draw_slot_lookup[draw.slug] = slots
 
     return draw_lookup, draw_slot_lookup
-
 
 def pick_booking_timestamp(slot_date, now, is_past):
     if is_past:
@@ -495,13 +494,13 @@ def maybe_assign_fake_ticket(is_past, is_cancelled):
 
     roll = random.random()
 
-    if is_past or roll < 0.45:
+    if is_past or roll < 0.35:
         return "codes", make_post_office_code(), "", ""
 
-    if roll < 0.70:
+    if roll < 0.55:
         return "box_office", None, "Show booking reference and staff ID.", ""
 
-    if roll < 0.90:
+    if roll < 0.75:
         return "instructions", None, "", "Show staff ID at entrance. Arrive 15 minutes early."
 
     return None, None, "", ""
