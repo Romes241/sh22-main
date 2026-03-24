@@ -2367,10 +2367,22 @@ def admin_reports(request):
 
         venue_value = venue if venue else venue_select
         if venue_value:
+            venue_type = None
+            venue_name = venue_value
+
+            if "|||" in venue_value:
+                venue_type, venue_name = venue_value.split("|||", 1)
+
             if is_draw:
-                qs_out = qs_out.filter(ticket_draw__name__icontains=venue_value)
+                qs_out = qs_out.filter(ticket_draw__name__icontains=venue_name)
+                if venue_type:
+                    if venue_type != "Draw":
+                        qs_out = qs_out.none()
             else:
-                qs_out = qs_out.filter(attraction__name__icontains=venue_value)
+                qs_out = qs_out.filter(attraction__name__icontains=venue_name)
+                if venue_type:
+                    if venue_type != "Attraction":
+                        qs_out = qs_out.none()
 
         date_value = specific_date if specific_date else date_select
         if date_value:
@@ -2424,6 +2436,13 @@ def admin_reports(request):
             else:
                 status_text = "Active"
 
+            if status_text == "Completed":
+                used_tickets = b.num_tickets
+            else:
+                used_tickets = 0
+
+            unused_tickets = max(b.num_tickets - used_tickets, 0)
+
             combined.append(
                 {
                     "type": "Draw",
@@ -2437,6 +2456,8 @@ def admin_reports(request):
                     "time": b.slot.time,
                     "ticket_code": get_ticket_reference(b.converted_booking),
                     "num_tickets": b.num_tickets,
+                    "used_tickets": used_tickets,
+                    "unused_tickets": unused_tickets,
                     "status_text": status_text,
                 }
             )
@@ -2449,6 +2470,13 @@ def admin_reports(request):
                 status_text = "Completed"
             else:
                 status_text = "Active"
+
+            if status_text == "Completed":
+                used_tickets = b.num_tickets
+            else:
+                used_tickets = 0
+
+            unused_tickets = max(b.num_tickets - used_tickets, 0)
 
             combined.append(
                 {
@@ -2463,6 +2491,8 @@ def admin_reports(request):
                     "time": b.slot.time,
                     "ticket_code": get_ticket_reference(b),
                     "num_tickets": b.num_tickets,
+                    "used_tickets": used_tickets,
+                    "unused_tickets": unused_tickets,
                     "status_text": status_text,
                 }
             )
@@ -2569,6 +2599,8 @@ def admin_reports(request):
         cancelled_count = sum(1 for b in bookings_list if b["status_text"] == "Cancelled")
 
         total_tickets = sum(b.get("num_tickets", 0) for b in bookings_list)
+        total_used_tickets = sum(b.get("used_tickets", 0) for b in bookings_list)
+        total_unused_tickets = sum(b.get("unused_tickets", 0) for b in bookings_list)
 
         date_range = None
         if bookings_list:
@@ -2576,8 +2608,29 @@ def admin_reports(request):
             date_range = {"start": min(dates), "end": max(dates)}
 
         popularity = {}
+        unused_by_attraction = {}
+
         for b in bookings_list:
-            popularity[b["name"]] = popularity.get(b["name"], 0) + 1
+            name = b["name"]
+            item_type = b["type"]
+            popularity[name] = popularity.get(name, 0) + 1
+
+            key = (item_type, name)
+
+            if key not in unused_by_attraction:
+                unused_by_attraction[key] = {
+                    "type": item_type,
+                    "name": name,
+                    "bookings": 0,
+                    "tickets": 0,
+                    "used_tickets": 0,
+                    "unused_tickets": 0,
+                }
+
+            unused_by_attraction[key]["bookings"] += 1
+            unused_by_attraction[key]["tickets"] += b.get("num_tickets", 0)
+            unused_by_attraction[key]["used_tickets"] += b.get("used_tickets", 0)
+            unused_by_attraction[key]["unused_tickets"] += b.get("unused_tickets", 0)
 
         most_popular = None
         if popularity:
@@ -2587,9 +2640,16 @@ def admin_reports(request):
         unique_users = len(set(b["email"] for b in bookings_list if b["email"]))
         avg_per_user = total / unique_users if unique_users > 0 else 0
 
+        unused_by_attraction_list = sorted(
+            unused_by_attraction.values(),
+            key=lambda x: (-x["unused_tickets"], x["type"], x["name"])
+        )
+
         return {
             "total_bookings": total,
             "total_tickets": total_tickets,
+            "total_used_tickets": total_used_tickets,
+            "total_unused_tickets": total_unused_tickets,
             "attraction_count": attraction_count,
             "draw_count": draw_count,
             "active_count": active_count,
@@ -2599,13 +2659,75 @@ def admin_reports(request):
             "most_popular": most_popular,
             "unique_users": unique_users,
             "avg_per_user": avg_per_user,
+            "unused_by_attraction": unused_by_attraction_list,
         }
 
     statistics = calculate_statistics(combined)
+    unused_by_attraction_list = statistics["unused_by_attraction"]
 
-    venue_list = sorted({b["name"] for b in combined})
+    venue_list = sorted({
+        (f"{b['type']} — {b['name']}", f"{b['type']}|||{b['name']}")
+        for b in combined
+    })
     date_list = sorted({b["date"] for b in combined}, reverse=True)
     time_list = sorted({b["time"] for b in combined if b["time"]})
+
+    if export_type == "unused_csv":
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="unused_tickets_by_venue_type.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow([
+            "Type",
+            "Attraction/Draw",
+            "Bookings",
+            "Tickets",
+            "Used Tickets",
+            "Unused Tickets",
+        ])
+
+        for row in unused_by_attraction_list:
+            writer.writerow([
+                row["type"],
+                row["name"],
+                row["bookings"],
+                row["tickets"],
+                row["used_tickets"],
+                row["unused_tickets"],
+            ])
+
+        return response
+
+    if export_type == "unused_excel":
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Unused by Type"
+
+        ws.append([
+            "Type",
+            "Attraction/Draw",
+            "Bookings",
+            "Tickets",
+            "Used Tickets",
+            "Unused Tickets",
+        ])
+
+        for row in unused_by_attraction_list:
+            ws.append([
+                row["type"],
+                row["name"],
+                row["bookings"],
+                row["tickets"],
+                row["used_tickets"],
+                row["unused_tickets"],
+            ])
+
+        response = HttpResponse(
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response["Content-Disposition"] = 'attachment; filename="unused_tickets_by_venue_type.xlsx"'
+        wb.save(response)
+        return response
 
     return render(
         request,

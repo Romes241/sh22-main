@@ -37,12 +37,13 @@
       <button id="statistics-btn" class="fb-btn fb-btn--primary" type="button">Statistics</button>
   </div>
 
-  <div class="ar-export">
-      <span>Export to</span>
-      <a href="?{{ request.GET.urlencode }}&export=excel" class="fb-btn fb-btn--primary">Excel</a>
-      <a href="?{{ request.GET.urlencode }}&export=csv" class="fb-btn fb-btn--primary">CSV</a>
-
-  </div>
+<div class="ar-export">
+    <span>Export to</span>
+    <a href="?{{ request.GET.urlencode }}&export=excel" class="fb-btn fb-btn--primary">Excel</a>
+    <a href="?{{ request.GET.urlencode }}&export=csv" class="fb-btn fb-btn--primary">CSV</a>
+    <a href="?{{ request.GET.urlencode }}&export=unused_excel" class="fb-btn fb-btn--primary">Unused by Attraction (Excel)</a>
+    <a href="?{{ request.GET.urlencode }}&export=unused_csv" class="fb-btn fb-btn--primary">Unused by Attraction (CSV)</a>
+</div>
 
 
 </div>
@@ -194,10 +195,10 @@
 
         <select id="id_venue_select" name="venue_select">
           <option value="">All</option>
-          {% for v in venue_list %}
-            <option value="{{ v }}"
-              {% if request.GET.venue_select == v %}selected{% endif %}>
-              {{ v }}
+          {% for label, value in venue_list %}
+            <option value="{{ value }}"
+              {% if request.GET.venue_select == value %}selected{% endif %}>
+              {{ label }}
             </option>
           {% endfor %}
         </select>
@@ -369,7 +370,17 @@
           <div class="ar-stat-number">{{ statistics.draw_count }}</div>
           <div class="ar-stat-label">Ticket Draws</div>
         </div>
-        
+        <!-- Ticket unused -->
+        <div class="ar-stat-card">
+          <div class="ar-stat-number">{{ statistics.total_used_tickets }}</div>
+          <div class="ar-stat-label">Used Tickets</div>
+        </div>
+
+        <div class="ar-stat-card">
+          <div class="ar-stat-number">{{ statistics.total_unused_tickets }}</div>
+          <div class="ar-stat-label">Unused Tickets</div>
+        </div>
+
         <!-- By Status -->
         <div class="ar-stat-card ar-stat-card--active">
           <div class="ar-stat-number">{{ statistics.active_count }}</div>
