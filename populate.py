@@ -118,6 +118,17 @@ ATTRACTION_DATA = [
         "per_year_limit": 10,
     },
     {
+        "slug": "botanic-gardens-tour",
+        "name": "Botanic Gardens Tour",
+        "location": "Edinburgh",
+        "image": "images/garden-tour.jpg",
+        "description": "Guided seasonal tour with glasshouses and garden highlights.",
+        "terms": "Guided tours run in all weather conditions. Please wear appropriate footwear. Please read the general Ferguson Bequest Terms & Conditions before booking.",
+        "duration_minutes": 90,
+        "contact_email": "events@rbge.org.uk",
+        "per_year_limit": 2,
+    },
+    {
         "slug": "ghostbusters-screening",
         "name": "Ghostbusters Screening",
         "location": "Glasgow",
