@@ -197,11 +197,11 @@ This project was developed collaboratively:
 
 ## 📬 Contact
 
-[fergusonbequest@glasgow.ac.uk](mailto:fergusonbequest@glasgow.ac.uk)
-https://www.gla.ac.uk/myglasgow/humanresources/staffbenefits/fergusonbequest/
+contact **fergusonbequest@glasgow.ac.uk** or visit **University of Glasgow – Ferguson Bequest**
 
 ---
 
 ## 📄 License
 
-Academic coursework project – University of Glasgow
+This project is licensed under the MIT License – see the [LICENSE](LICENSE) file for details.  
+Copyright (c) 2025 Group SH22, University of Glasgow
