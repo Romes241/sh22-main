@@ -525,9 +525,9 @@ def _get_featured_attractions(limit=4):
         {
             "title": attr.name,
             "subtitle": (attr.description[:100] if attr.description else (attr.location or "Book now to visit")),
-            "image": (attr.image.name if getattr(attr, "image", None) else "fergusonbequest/img/placeholder.jpg"),
+            "image_url": (attr.image.url if getattr(attr, "image", None) else None),
             "id": attr.id,
-            "url": f"/attraction/{attr.id}/book/",
+            "url": f"/attraction/{attr.id}/",
         }
         for attr in top_booked
     ]

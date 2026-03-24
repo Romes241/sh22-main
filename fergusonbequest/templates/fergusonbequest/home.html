@@ -55,9 +55,15 @@
           {% for attraction in featured_attractions %}
           <figure class="fb-slide {% if forloop.first %}is-active{% endif %}"
                   data-book-url="{{ attraction.url }}">
-            <img src="{% static attraction.image %}"
-                 alt="{{ attraction.title }}"
-                 class="fb-slide-image">
+                    {% if attraction.image_url %}
+                      <img src="{{ attraction.image_url }}"
+                           alt="{{ attraction.title }}"
+                           class="fb-slide-image">
+                    {% else %}
+                      <img src="{% static 'fergusonbequest/img/placeholder.jpg' %}"
+                           alt="{{ attraction.title }}"
+                           class="fb-slide-image">
+                    {% endif %}
             <figcaption class="fb-slide-caption">
               <h3>{{ attraction.title }}</h3>
               <p>{{ attraction.subtitle }}</p>
