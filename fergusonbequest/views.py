@@ -295,9 +295,14 @@ def calculate_remaining_allowance(user, attraction_type="regular"):
     return 0
 
 
-def add_events(objects, events_by_day, start, end, event_type):
+def add_events(objects, events_by_day, start, end, event_type, user=None):
     """Add booking_open / booking_close events for calendar display."""
     for obj in objects:
+        is_staff = user and user.is_staff
+        
+        if event_type == "ticket_draw" and not is_staff and not obj.ticket_draw.is_open():
+            continue
+
         if hasattr(obj, "cancelled") and obj.cancelled:
             continue    
 
@@ -347,7 +352,7 @@ def get_calendar(year=None, month=None, user=None):
     start, end = month_days[0], month_days[-1]
 
     events_by_day = {}
-    add_events(VisitSlot.objects.all(), events_by_day, start, end, "attraction")
+    add_events(VisitSlot.objects.all(), events_by_day, start, end, "attraction", user=user)
     add_events(TicketDrawVisitSlot.objects.all(), events_by_day, start, end, "ticket_draw")
 
     if user and not user.is_staff:
@@ -1965,7 +1970,7 @@ def admin_dashboard(request, year=None, month=None):
         if not is_ticketed(b)
     )
 
-    calendar_data = get_calendar(year, month)
+    calendar_data = get_calendar(year, month, request.user)
 
     return render(
         request,
