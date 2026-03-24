@@ -861,6 +861,8 @@ def booking_view(request, attraction_pk):
             booking.save()
             VisitSlot.objects.filter(pk=slot.pk).update(remaining=F("remaining") - booking.num_tickets)
 
+        send_attraction_booking_email_confirmation(booking)
+        
         messages.success(request, "Booking confirmed!")
         return redirect("booking_history")
 
