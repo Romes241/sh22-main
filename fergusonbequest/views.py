@@ -393,7 +393,7 @@ def assign_next_winner(draw: TicketDraw):
 
         # Check if winner has exceeded 72 hour deadline
         elif draw.winner_selected_at:
-            deadline = draw.winner_selected_at + datetime.timedelta(hours=72)
+            deadline = draw.winner_selected_at + timedelta(hours=72)
             if timezone.now() > deadline:
                 winner.cancelled = True
                 winner.save(update_fields=["cancelled"])
@@ -2954,7 +2954,7 @@ def send_draw_booking_email_ticket_distribution(draw_booking):
 
 # Ticket Draw Winner (Accept or Decline, 3 day deadline)
 def send_draw_booking_email_winner(draw_booking):
-    deadline = timezone.now() + datetime.timedelta(hours=72)
+    deadline = timezone.now() + timedelta(hours=72)
 
     context = get_email_context(draw_booking=draw_booking, winner_deadline=deadline)
     send_template_email(
@@ -2976,7 +2976,7 @@ def send_attraction_booking_email_ticket_reallocaton(booking):
 
 # Ticket Draw Redraw Winner
 def send_draw_booking_email_redraw_winner(draw_booking):
-    deadline = timezone.now() + datetime.timedelta(hours=72)
+    deadline = timezone.now() + timedelta(hours=72)
 
     context = get_email_context(draw_booking=draw_booking, winner_deadline=deadline)
     send_template_email(
