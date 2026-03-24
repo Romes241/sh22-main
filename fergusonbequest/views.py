@@ -1431,6 +1431,7 @@ def ticket_draw_detail(request, slug):
     slots = TicketDrawVisitSlot.objects.filter(
         ticket_draw=draw,
         date__gte=timezone.now().date(),
+        remaining__gt=0,
     ).order_by("date", "time")
 
     return render(

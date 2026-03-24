@@ -621,9 +621,12 @@ def create_draw_entries(users, draw_lookup, draw_slot_lookup):
 
         for user in entrants:
             slot = random.choice(draw_slots)
-            if slot.remaining <= 0:
+            # keep at least 1 ticket for future manual testing
+            if slot.remaining <= 1:
                 continue
-            num_tickets = min(random.choice([1, 1, 2]), slot.remaining)
+
+            max_bookable = min(2, slot.remaining - 1)
+            num_tickets = random.randint(1, max_bookable)
             if num_tickets <= 0:
                 continue
 
@@ -685,15 +688,34 @@ def create_draw_entries(users, draw_lookup, draw_slot_lookup):
         convert_draw_entry_to_booking(alice_entry)
         total_entries += 2
 
-    # Ensure at least one NON-zoo draw is open
+    # Ensure at least one NON-zoo draw is open and has a bookable slot
     open_draw = (
         TicketDraw.objects
         .exclude(slug="edinburgh-zoo-draw")
         .first()
     )
+
     if open_draw:
-        open_draw.booking_close = timezone.now() + timedelta(days=5)
-        open_draw.save(update_fields=["booking_close"])
+        now = timezone.now()
+        today = timezone.localdate()
+
+        open_draw.booking_open = now - timedelta(days=2)
+        open_draw.booking_close = now + timedelta(days=5)
+        open_draw.save(update_fields=["booking_open", "booking_close"])
+
+        open_slot = (
+            TicketDrawVisitSlot.objects
+            .filter(ticket_draw=open_draw)
+            .order_by("date", "time")
+            .first()
+        )
+
+        if open_slot:
+            if open_slot.date < today:
+                open_slot.date = today + timedelta(days=7)
+            open_slot.remaining = max(2, open_slot.remaining)
+            open_slot.capacity = max(open_slot.capacity, open_slot.remaining)
+            open_slot.save(update_fields=["date", "remaining", "capacity"])
 
     return total_entries
 

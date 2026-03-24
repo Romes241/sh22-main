@@ -117,12 +117,12 @@
 
           <div class="td-stat-box">
               <span class="td-row-label td-stat-label-small">SELECT NUMBER OF TICKETS</span>
-              <input type="number" id="ticket-count" name="num_tickets"
-                     value="{% if remaining_allowance > 0 %}1{% else %}0{% endif %}"
-                     min="1"
-                     max="{{ remaining_allowance }}"
-                     class="td-ticket-input"
-                 {% if remaining_allowance <= 0 or not slots %}disabled{% endif %}>
+                <input type="number" id="ticket-count" name="num_tickets"
+                  value="{% if remaining_allowance > 0 and slots %}1{% else %}0{% endif %}"
+                  min="{% if remaining_allowance > 0 and slots %}1{% else %}0{% endif %}"
+                  max="{% if remaining_allowance > 0 and slots %}{{ remaining_allowance }}{% else %}0{% endif %}"
+                  class="td-ticket-input"
+                  {% if remaining_allowance <= 0 or not slots %}disabled{% endif %}>
           </div>
 
             {% if remaining_allowance > 0 and slots %}
