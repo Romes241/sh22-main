@@ -422,9 +422,9 @@ def assign_next_winner(draw: TicketDraw):
         draw.winner_booking = random.choice(entries)
         draw.winner_selected_at = timezone.now()
 
-        send_draw_booking_email_redraw_winner(draw.winner_booking)
-
     draw.save(update_fields=["winner_booking", "winner_selected_at"])
+
+    send_draw_booking_email_redraw_winner(draw.winner_booking)
 
 
 # -----------------------------
@@ -862,7 +862,7 @@ def booking_view(request, attraction_pk):
             VisitSlot.objects.filter(pk=slot.pk).update(remaining=F("remaining") - booking.num_tickets)
 
         send_attraction_booking_email_confirmation(booking)
-        
+
         messages.success(request, "Booking confirmed!")
         return redirect("booking_history")
 
@@ -2068,6 +2068,8 @@ def run_draw(request, draw_id):
 
     winner = draw.winner_booking
     winner_name = winner.full_name or (winner.user.get_username() if winner.user else "Winner")
+
+    send_draw_booking_email_winner(draw.winner_booking)
 
     messages.success(request, f"Winner selected: {winner_name}")
     return redirect(f"{reverse('admin_management')}?tab=draws")
