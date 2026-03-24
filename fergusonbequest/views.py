@@ -295,9 +295,14 @@ def calculate_remaining_allowance(user, attraction_type="regular"):
     return 0
 
 
-def add_events(objects, events_by_day, start, end, event_type):
+def add_events(objects, events_by_day, start, end, event_type, user=None):
     """Add booking_open / booking_close events for calendar display."""
     for obj in objects:
+        is_staff = user and user.is_staff
+        
+        if event_type == "ticket_draw" and not is_staff and not obj.ticket_draw.is_open():
+            continue
+
         if hasattr(obj, "cancelled") and obj.cancelled:
             continue    
 
@@ -347,7 +352,7 @@ def get_calendar(year=None, month=None, user=None):
     start, end = month_days[0], month_days[-1]
 
     events_by_day = {}
-    add_events(VisitSlot.objects.all(), events_by_day, start, end, "attraction")
+    add_events(VisitSlot.objects.all(), events_by_day, start, end, "attraction", user=user)
     add_events(TicketDrawVisitSlot.objects.all(), events_by_day, start, end, "ticket_draw")
 
     if user and not user.is_staff:
@@ -422,9 +427,9 @@ def assign_next_winner(draw: TicketDraw):
         draw.winner_booking = random.choice(entries)
         draw.winner_selected_at = timezone.now()
 
-        send_draw_booking_email_redraw_winner(draw.winner_booking)
-
     draw.save(update_fields=["winner_booking", "winner_selected_at"])
+
+    send_draw_booking_email_redraw_winner(draw.winner_booking)
 
 
 # -----------------------------
@@ -886,6 +891,8 @@ def booking_view(request, attraction_pk):
 
             booking.save()
             VisitSlot.objects.filter(pk=slot.pk).update(remaining=F("remaining") - booking.num_tickets)
+
+        send_attraction_booking_email_confirmation(booking)
 
         messages.success(request, "Booking confirmed!")
         return redirect("booking_history")
@@ -2023,7 +2030,7 @@ def admin_dashboard(request, year=None, month=None):
         if not is_ticketed(b)
     )
 
-    calendar_data = get_calendar(year, month)
+    calendar_data = get_calendar(year, month, request.user)
 
     return render(
         request,
@@ -2126,6 +2133,8 @@ def run_draw(request, draw_id):
 
     winner = draw.winner_booking
     winner_name = winner.full_name or (winner.user.get_username() if winner.user else "Winner")
+
+    send_draw_booking_email_winner(draw.winner_booking)
 
     messages.success(request, f"Winner selected: {winner_name}")
     return redirect(f"{reverse('admin_management')}?tab=draws")
