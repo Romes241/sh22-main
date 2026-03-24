@@ -100,10 +100,13 @@ class AttractionCreateForm(forms.ModelForm):
         model = Attraction
         fields = [
             'name', 'location', 'image', 'description', 
-            'contact_email', 'terms', 'booking_open', 
+            'contact_email', 'terms', 'booking_open', 'attraction_type',
             'booking_close', 'per_year_limit'
         ]
         widgets = {
+            'attraction_type': forms.Select(attrs={
+                'class': 'form-control'
+            }),
             'name': forms.TextInput(attrs={
                 'placeholder': 'Enter Title',
                 'class': 'form-control'
