@@ -567,6 +567,54 @@ class TermsAndConditions(models.Model):
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
 
+
+class MainPageContent(models.Model):
+    """Singleton model for editable authenticated main-page content blocks."""
+
+    left_intro = models.TextField(
+        default=(
+            "The Ferguson Bequest gives University of Glasgow staff exclusive "
+            "access to attractions and event ticket draws throughout the year."
+        )
+    )
+    left_bullet_1 = models.CharField(max_length=255, default="Apply for up to three attractions per calendar year")
+    left_bullet_2 = models.CharField(max_length=255, default="Enter multiple ticket draws and win once per year")
+    left_bullet_3 = models.CharField(max_length=255, default="View all your bookings in Booking History")
+    left_warning_title = models.CharField(max_length=200, default="Please apply carefully")
+    left_warning_body = models.TextField(default="bookings can’t be cancelled once submitted.")
+    left_eligibility_text = models.TextField(
+        default="Eligible for University of Glasgow staff with an active contract of employment. Honorary, affiliate, and casual staff are not eligible."
+    )
+
+    about_heading = models.CharField(max_length=200, default="About the Ferguson Bequest")
+    about_paragraph_1 = models.TextField(
+        default=(
+            "Professor in Public Health and President of the University Athletics Football Club, "
+            "Professor Thomas Ferguson authored classic studies on the origin of Scotland’s social "
+            "and health services. In 1977 he bequeathed his estate to the University, with the "
+            "instruction that the money be used to foster the social side of University life for "
+            "its (then) 2,100 staff."
+        )
+    )
+    about_paragraph_2 = models.TextField(
+        default=(
+            "The University Court established a committee (the Ferguson Bequest Committee) to "
+            "administer the funds. Various corporate memberships and theatre ticket draws are "
+            "administered by the Court Office on behalf of the Ferguson Bequest Committee."
+        )
+    )
+    about_image = models.ImageField(upload_to="images/", blank=True, null=True)
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return "Main Page Content"
+
+    @classmethod
+    def get(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
 class FeedbackEmailTemplate(models.Model):
     """Stores the email template for feedback requests. Only one instance should exist."""
 

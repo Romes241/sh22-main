@@ -38,6 +38,7 @@ from .forms import (
     EmailAuthenticationForm,
     FeedbackEmailTemplateForm,
     BookingFeedbackForm,
+    MainPageContentForm,
 )
 from .forms_suggestions import AttractionSuggestionForm
 from .models import (
@@ -51,22 +52,14 @@ from .models import (
     AttractionSuggestion,
     AttractionWaitlistEntry,
     DiscountCode,
-    EmailTemplate, BookingTicket,
     EmailTemplate,
+    BookingTicket,
     FeedbackEmailTemplate,
     BookingFeedback,
-)
-
-from .forms import (
-    BookingForm,
-    AttractionCreateForm,
-    TicketDrawCreateForm,
-    EmailAuthenticationForm,
-    FeedbackEmailTemplateForm
+    MainPageContent,
 )
 
 from .forms_discount_codes import DiscountCodeForm
-from .forms_suggestions import AttractionSuggestionForm
 
 User = get_user_model()
 
@@ -545,23 +538,39 @@ def _get_featured_attractions(limit=4):
 
 def home(request):
     featured_attractions = _get_featured_attractions()
-    
-    return render(request, "fergusonbequest/home_logged_in.html", {"featured_attractions": featured_attractions})
 
+    if request.user.is_authenticated:
+        main_page_content = MainPageContent.get()
+        calendar_data = get_calendar()
+        return render(
+            request,
+            "fergusonbequest/dashboard.html",
+            {
+                "featured_attractions": featured_attractions,
+                "main_page_content": main_page_content,
+                "url_name": "dashboard",
+                **calendar_data,
+            },
+        )
 
+    return render(request, "fergusonbequest/home.html", {"featured_attractions": featured_attractions})
 
 
 @login_required
 def dashboard_view(request, year=None, month=None):
     featured_attractions = _get_featured_attractions()
+    main_page_content = MainPageContent.get()
 
     calendar_data = get_calendar(year, month, request.user)
     return render(
         request,
         "fergusonbequest/dashboard.html",
-        {"featured_attractions": featured_attractions, 
-         "url_name": "dashboard",
-         **calendar_data},
+        {
+            "featured_attractions": featured_attractions,
+            "main_page_content": main_page_content,
+            "url_name": "dashboard",
+            **calendar_data,
+        },
     )
 
 
@@ -4986,4 +4995,26 @@ def manage_terms_and_conditions(request):
     return render(request, 'fergusonbequest/manage_terms_and_conditions.html', {
         't_and_c': t_and_c,
     })
-User = get_user_model()
+
+
+@staff_member_required
+def manage_main_page_content(request):
+    content = MainPageContent.get()
+
+    if request.method == 'POST':
+        form = MainPageContentForm(request.POST, request.FILES, instance=content)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Main page content updated successfully.')
+            return redirect('manage_main_page_content')
+    else:
+        form = MainPageContentForm(instance=content)
+
+    return render(
+        request,
+        'fergusonbequest/manage_main_page_content.html',
+        {
+            'form': form,
+            'content': content,
+        },
+    )

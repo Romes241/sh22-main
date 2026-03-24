@@ -61,6 +61,7 @@ urlpatterns = [
     path("admin-feedback-submissions/", views.admin_feedback_submissions, name="admin_feedback_submissions"),
     path("admin-email/", views.admin_email, name="admin_email"),
     path("admin-terms-and-conditions/", views.manage_terms_and_conditions, name="manage_terms_and_conditions"),
+    path("admin-main-page-content/", views.manage_main_page_content, name="manage_main_page_content"),
 
     # Admin create/edit
     path("manage-feedback-email/", views.manage_feedback_email, name="manage_feedback_email"),

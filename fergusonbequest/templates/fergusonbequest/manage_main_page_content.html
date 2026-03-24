@@ -1,0 +1,78 @@
+{% extends 'fergusonbequest/base.html' %}
+{% load static %}
+
+{% block title %}Manage Main Page Content - Ferguson Bequest{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'fergusonbequest/css/home.css' %}?v=2">
+  <link rel="stylesheet" href="{% static 'fergusonbequest/css/manage_main_page_content.css' %}">
+{% endblock %}
+
+{% block content %}
+<h1 class="fb-heading">🖼️ Edit Main Page Content</h1>
+
+<p class="mp-editor-hint">Click directly on any text field below to edit the left panel and bottom about panel.</p>
+
+<form method="post" enctype="multipart/form-data" class="mp-editor-form">
+  {% csrf_token %}
+
+  <section class="mp-editor-left-wrap">
+    <article class="fb-home-card fb-home-card--left mp-editor-left-card">
+      <p class="fb-home-text mp-editor-text-strong">{{ form.left_intro }}</p>
+
+      <div class="fb-home-youcan-row">
+        <p class="fb-home-youcan-label">You can:</p>
+        <ul class="fb-home-list mp-editor-list">
+          <li>{{ form.left_bullet_1 }}</li>
+          <li>{{ form.left_bullet_2 }}</li>
+          <li>{{ form.left_bullet_3 }}</li>
+        </ul>
+      </div>
+
+      <div class="fb-home-warning">
+        <div class="fb-home-warning-icon">⚠</div>
+        <div class="fb-home-warning-body mp-editor-warning-body">
+          <p>{{ form.left_warning_body }}</p>
+          <p>{{ form.left_eligibility_text }}</p>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <hr class="fb-divider">
+
+  <h2 class="fb-subheading">{{ form.about_heading }}</h2>
+  <section class="fb-about">
+    <div class="fb-about__text">
+      <p>{{ form.about_paragraph_1 }}</p>
+      <p>{{ form.about_paragraph_2 }}</p>
+    </div>
+
+    <div class="fb-about__image mp-editor-image-wrap">
+      <img src="{% if content.about_image %}{{ content.about_image.url }}{% else %}{% static 'fergusonbequest/img/Ferquest_commite.jpg' %}{% endif %}" alt="Current about image preview">
+    </div>
+  </section>
+
+  <section class="fb-home-card mp-editor-upload-card">
+    <h3 class="fb-subheading mp-editor-upload-heading">About Image Upload</h3>
+    <p class="mp-editor-upload-hint">Upload a replacement image for the bottom panel.</p>
+    <div class="mp-editor-upload-field">{{ form.about_image }}</div>
+  </section>
+
+  <div class="mp-editor-actions">
+    <button type="submit" class="fb-btn fb-btn--primary">💾 Save Changes</button>
+    <a href="{% url 'dashboard' %}" class="fb-btn">Preview Live Dashboard</a>
+    <a href="{% url 'admin_dashboard' %}" class="fb-btn">← Back to Dashboard</a>
+  </div>
+
+  {% if form.errors %}
+  <ul class="mp-errorlist">
+    {% for field, errors in form.errors.items %}
+      {% for error in errors %}
+        <li>{{ error }}</li>
+      {% endfor %}
+    {% endfor %}
+  </ul>
+  {% endif %}
+</form>
+{% endblock %}
