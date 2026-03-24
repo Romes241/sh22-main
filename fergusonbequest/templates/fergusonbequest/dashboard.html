@@ -1,7 +1,7 @@
 {% extends "fergusonbequest/base.html" %}
 {% load static %}
 
-{% block title %}Home – Ferguson Bequest{% endblock %}
+{% block title %}Dashboard – Ferguson Bequest{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'fergusonbequest/css/home.css' %}?v=2">
@@ -40,30 +40,38 @@
 
     <div class="fb-home-slider-frame">
       <div id="fb-slider" class="fb-slider">
-        {% for attraction in featured_attractions %}
-        <figure class="fb-slide {% if forloop.first %}is-active{% endif %}" data-book-url="{{ attraction.url }}">
-          <img src="{% static attraction.image %}" alt="{{ attraction.title }}" class="fb-slide-image">
-          <figcaption class="fb-slide-caption">
-            <h3>{{ attraction.title }}</h3>
-            <p>{{ attraction.subtitle }}</p>
-          </figcaption>
-        </figure>
-        {% endfor %}
+        {% if featured_attractions %}
+          {% for attraction in featured_attractions %}
+          <figure class="fb-slide {% if forloop.first %}is-active{% endif %}" data-book-url="{{ attraction.url }}">
+            <img src="{% static attraction.image %}" alt="{{ attraction.title }}" class="fb-slide-image">
+            <figcaption class="fb-slide-caption">
+              <h3>{{ attraction.title }}</h3>
+              <p>{{ attraction.subtitle }}</p>
+            </figcaption>
+          </figure>
+          {% endfor %}
+        {% else %}
+          <p class="bh-muted">No featured attractions yet.</p>
+        {% endif %}
       </div>
 
+      {% if featured_attractions %}
       <button type="button" class="fb-slider-arrow fb-slider-arrow--prev" aria-label="Previous attraction">‹</button>
       <button type="button" class="fb-slider-arrow fb-slider-arrow--next" aria-label="Next attraction">›</button>
 
       <div class="fb-home-slider-footer">
-        <a id="fb-book-btn" href="#" class="fb-btn fb-btn--primary" target="_self" rel="noopener">Book now</a>
+        <a id="fb-book-btn" href="{{ featured_attractions.0.url }}" class="fb-btn fb-btn--primary" target="_self" rel="noopener">Book now</a>
       </div>
+      {% endif %}
     </div>
 
+    {% if featured_attractions %}
     <div class="fb-home-dots">
       {% for attraction in featured_attractions %}
       <span class="fb-dot {% if forloop.first %}fb-dot--active{% endif %}"></span>
       {% endfor %}
     </div>
+    {% endif %}
   </section>
 </section>
 
@@ -93,4 +101,3 @@
   {% include 'fergusonbequest/calendar.html' with url_name='dashboard' %}
 </section>
 {% endblock %}
-
