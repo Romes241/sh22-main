@@ -88,6 +88,8 @@ CUSTOMER HANDOVER DOCUMENT
 - Automated processes require setup (scheduler)
 - Uses a lightweight database (SQLite)
 - Not designed for very high traffic
+- Ticket draw acceptance deadline is fixed at 3 days after selection and cannot be changed.
+- Users can apply for 1–2 attraction tickets at a time, and this limit is not configurable.
 
 ` ` `
 
