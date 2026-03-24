@@ -45,8 +45,9 @@ dist/
 *.pot
 *.pyc
 db.sqlite3
-media/
-staticfiles/
+media/*
+!media/images/
+!media/images/*staticfiles/
 *.sql
 *.sqlite
 

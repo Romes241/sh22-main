@@ -47,6 +47,15 @@
 
     <a class="tu-btn tu-btn--chip tu-btn--clear" href="{% url 'ticket_upload' %}">Clear</a>
   </div>
+
+  {% if show_all %}
+    <input type="hidden" name="show_all" value="1">
+  {% endif %}
+  <input type="hidden" name="kind" value="{{ kind|default:'' }}">
+  <input type="hidden" name="ticket_status" value="{{ ticket_status|default:'' }}">
+  <input type="hidden" name="start" value="{{ start|default:'' }}">
+  <input type="hidden" name="end" value="{{ end|default:'' }}">
+  <input type="hidden" name="sort" value="{{ sort|default:'' }}">
 </form>
 <!-- Advanced Filters Modal -->
 <div id="advanced-filters-modal" class="tu-advanced-modal" aria-hidden="true">
@@ -64,6 +73,15 @@
           <option value="draw" {% if kind == 'draw' %}selected{% endif %}>Draws Only</option>
         </select>
       </div>
+
+        <div class="tu-advanced-row">
+          <label for="id_ticket_status">Ticket status</label>
+          <select id="id_ticket_status" name="ticket_status">
+            <option value="">All</option>
+            <option value="ticketed" {% if ticket_status == "ticketed" %}selected{% endif %}>Ticketed</option>
+            <option value="unticketed" {% if ticket_status == "unticketed" %}selected{% endif %}>Unticketed</option>
+          </select>
+        </div>
 
       <div class="tu-advanced-row">
         <label for="id_start">Start date</label>
@@ -102,36 +120,36 @@
         </select>
       </div>
 
-      {% if show_all %}
-        <input type="hidden" name="all" value="1">
-      {% endif %}
+    {% if show_all %}
+      <input type="hidden" name="show_all" value="1">
+    {% endif %}
 
       <div class="tu-advanced-actions">
         <button type="submit" class="tu-btn tu-btn--chip">Apply filters</button>
-        <a class="tu-btn tu-btn--clear" href="{% url 'ticket_upload' %}{% if show_all %}?all=1{% endif %}">Reset</a>
-        <button type="button" id="advanced-filters-close" class="tu-btn tu-btn--chip">Close</button>
+        <a class="tu-btn tu-btn--clear" href="{% url 'ticket_upload' %}{% if show_all %}?show_all=1{% endif %}">Reset</a>
+          <button type="button" id="advanced-filters-close" class="tu-btn tu-btn--chip">Close</button>
       </div>
     </form>
   </div>
 </div>
 
-    <aside class="tu-side">
-    {% if show_all %}
-    <a class="tu-btn tu-btn--side"
-       href="{% url 'ticket_upload' %}?q={{ q|urlencode }}&venue={{ venue_id|urlencode }}&sort={{ sort|urlencode }}">
-       Show less
-    </a>
-    {% else %}
-    <a class="tu-btn tu-btn--side"
-       href="{% url 'ticket_upload' %}?q={{ q|urlencode }}&venue={{ venue_id|urlencode }}&sort={{ sort|urlencode }}&show_all=1">
-       Manage Tickets
-    </a>
-    {% endif %}
+<aside class="tu-side">
+  {% if show_all %}
+  <a class="tu-btn tu-btn--side"
+     href="{% url 'ticket_upload' %}?q={{ q|urlencode }}&venue={{ venue_id|urlencode }}&sort={{ sort|urlencode }}&kind={{ kind|urlencode }}&ticket_status={{ ticket_status|urlencode }}&start={{ start|urlencode }}&end={{ end|urlencode }}&page={{ page_obj.number }}">
+     Show less
+  </a>
+  {% else %}
+  <a class="tu-btn tu-btn--side"
+     href="{% url 'ticket_upload' %}?q={{ q|urlencode }}&venue={{ venue_id|urlencode }}&sort={{ sort|urlencode }}&kind={{ kind|urlencode }}&ticket_status={{ ticket_status|urlencode }}&start={{ start|urlencode }}&end={{ end|urlencode }}&page={{ page_obj.number }}&show_all=1">
+     Manage Tickets
+  </a>
+  {% endif %}
 
-      <button class="tu-btn tu-btn--side" type="button" onclick="openUploadModal()">
-        Venue Distribute Tickets
-      </button>
-    </aside>
+  <button class="tu-btn tu-btn--side" type="button" onclick="openUploadModal()">
+    Venue Distribute Tickets
+  </button>
+</aside>
 
   <div class="tu-main">
  <div class="tu-card">
@@ -400,7 +418,6 @@
   {% endif %}
 </div>
 <!-- Pagination Controls -->
-<!-- Pagination Controls -->
 <div class="tu-pagination">
 
   <div class="tu-pagination-info">
@@ -411,7 +428,7 @@
 
     {% if page_obj.has_previous %}
       <a class="tu-pagination-btn"
-         href="?q={{ q|urlencode }}&venue={{ venue_id|urlencode }}&sort={{ sort|urlencode }}&kind={{ kind|urlencode }}{% if show_all %}&all=1{% endif %}&page={{ page_obj.previous_page_number }}">
+         href="?q={{ q|urlencode }}&venue={{ venue_id|urlencode }}&sort={{ sort|urlencode }}&kind={{ kind|urlencode }}&ticket_status={{ ticket_status|urlencode }}&start={{ start|urlencode }}&end={{ end|urlencode }}{% if show_all %}&show_all=1{% endif %}&page={{ page_obj.previous_page_number }}">
         ← Previous
       </a>
     {% else %}
@@ -429,7 +446,7 @@
 
         {% elif num >= page_obj.number|add:-2 and num <= page_obj.number|add:2 %}
           <a class="tu-pagination-page"
-             href="?q={{ q|urlencode }}&venue={{ venue_id|urlencode }}&sort={{ sort|urlencode }}&kind={{ kind|urlencode }}{% if show_all %}&all=1{% endif %}&page={{ num }}">
+             href="?q={{ q|urlencode }}&venue={{ venue_id|urlencode }}&sort={{ sort|urlencode }}&kind={{ kind|urlencode }}&ticket_status={{ ticket_status|urlencode }}&start={{ start|urlencode }}&end={{ end|urlencode }}{% if show_all %}&show_all=1{% endif %}&page={{ num }}">
             {{ num }}
           </a>
 
@@ -441,7 +458,7 @@
 
     {% if page_obj.has_next %}
       <a class="tu-pagination-btn"
-         href="?q={{ q|urlencode }}&venue={{ venue_id|urlencode }}&sort={{ sort|urlencode }}&kind={{ kind|urlencode }}{% if show_all %}&all=1{% endif %}&page={{ page_obj.next_page_number }}">
+         href="?q={{ q|urlencode }}&venue={{ venue_id|urlencode }}&sort={{ sort|urlencode }}&kind={{ kind|urlencode }}&ticket_status={{ ticket_status|urlencode }}&start={{ start|urlencode }}&end={{ end|urlencode }}{% if show_all %}&show_all=1{% endif %}&page={{ page_obj.next_page_number }}">
         Next →
       </a>
     {% else %}
@@ -449,6 +466,8 @@
     {% endif %}
 
   </div>
+
+</div>
 
 </div>
 
@@ -679,8 +698,9 @@
     </div>
   </div>
 </div>
+</div>
 
 <!-- Ticket View modal -->
   {% include "fergusonbequest/_ticket_popup.html" with ticket_view_url_template=ticket_view_url_template %}
   <script src="{% static 'fergusonbequest/js/ticket_upload.js' %}"></script>
-  {% endblock %}
+{% endblock %}

@@ -13,7 +13,6 @@ class CarouselFunctionalityTests(TestCase):
     """Tests for the featured attractions carousel on the home."""
 
     def setUp(self):
-        """Set up test user and sample attractions."""
         self.username = unique_username()
         self.email = unique_email()
         self.password = "TestPass123"
@@ -132,9 +131,9 @@ class CarouselFunctionalityTests(TestCase):
         resp = self.client.get(reverse('home'))
         
         # Check that booking URLs are present for each attraction
-        self.assertContains(resp, f'data-book-url="/attraction/{self.attraction1.id}/book/"')
-        self.assertContains(resp, f'data-book-url="/attraction/{self.attraction2.id}/book/"')
-        self.assertContains(resp, f'data-book-url="/attraction/{self.attraction3.id}/book/"')
+        self.assertContains(resp, f'data-book-url="/attraction/{self.attraction1.id}/"')
+        self.assertContains(resp, f'data-book-url="/attraction/{self.attraction2.id}/"')
+        self.assertContains(resp, f'data-book-url="/attraction/{self.attraction3.id}/"')
 
     def test_carousel_has_book_now_button(self):
         """Carousel should have a 'Book now' button with correct ID.
@@ -275,7 +274,7 @@ class CarouselFunctionalityTests(TestCase):
 
         Expected output:
         - featured_attractions is a list
-        - Each item has keys: title, subtitle, image, id, url
+        - Each item has keys: title, subtitle, image_url, id, url
 
         Pass: data structure matches expected format.
         Fail: data is missing required fields.
@@ -293,7 +292,7 @@ class CarouselFunctionalityTests(TestCase):
             first_attraction = featured_attractions[0]
             self.assertIn('title', first_attraction)
             self.assertIn('subtitle', first_attraction)
-            self.assertIn('image', first_attraction)
+            self.assertIn('image_url', first_attraction)
             self.assertIn('id', first_attraction)
             self.assertIn('url', first_attraction)
 
