@@ -21,18 +21,17 @@
 
   <div class="layout">
 
-    <!-- LEFT PANEL -->
     <div class="panel left-panel">
 
-        <div class="left-title">{{ attraction.name|default:"Attraction Name" }}</div>
+      <div class="left-title">{{ attraction.name|default:"Attraction Name" }}</div>
 
-        <div class="image-box">
-          {% if attraction.image %}
-            <img class="image-inner" src="{{ attraction.image.url }}" alt="{{ attraction.name }}">
-          {% else %}
-            <div class="image-inner">Attraction Image</div>
-          {% endif %}
-        </div>
+      <div class="image-box">
+        {% if attraction.image %}
+          <img class="image-inner" src="{{ attraction.image.url }}" alt="{{ attraction.name }}">
+        {% else %}
+          <div class="image-inner">Attraction Image</div>
+        {% endif %}
+      </div>
 
       {% if attraction.location %}
         <a class="location-row location-link"
@@ -50,25 +49,30 @@
 
     </div>
 
-    <!-- RIGHT COLUMN -->
     <div class="right-col">
 
       <div class="panel">
-          <div class="panel-heading">Details</div>
+        <div class="panel-heading">Details</div>
 
         <div class="panel-body">
-        <div class="detail-line">
+          <div class="detail-line">
             <strong>Available dates:</strong>
-            {{ available_slots.0.date|date:"d/m/Y" }}
-        </div>
-            <div class="detail-line">
+            {% if available_slots %}
+              {{ available_slots.0.date|date:"d/m/Y" }}
+            {% else %}
+              —
+            {% endif %}
+          </div>
+
+          <div class="detail-line">
             <strong>Duration:</strong>
             {% if attraction.duration_minutes %}
               {{ attraction.duration_minutes }} minutes
             {% else %}
               —
             {% endif %}
-            </div>
+          </div>
+
           <div class="detail-line">
             <strong>Description:</strong> {{ attraction.description|default:"—" }}
           </div>
@@ -78,85 +82,39 @@
           <div class="detail-line">
             <strong>Contact:</strong> {{ attraction.contact_email|default:"—" }}
           </div>
-        </div>
-      </div>
 
-      <div class="panel">
-          <div class="panel-heading">Reserve Attraction</div>
-
-        <div class="panel-body">
           {% if has_bookable_slots %}
-            {% if remaining_allowance is not None %}
-              <div class="allowance">Your remaining allowance: {{ remaining_allowance }}/3 attractions this year</div>
-            {% else %}
-              <div class="allowance">Your remaining allowance: —/3 attractions this year</div>
-            {% endif %}
-
-            <form method="GET"
-                  action="{% url 'attraction_book' attraction_pk=attraction.pk %}"
-                  novalidate>
-                <div class="form-line {% if form and form.errors.slot %}fb-form-row--error{% endif %}">
-                  <label for="slot-select">Select date & time:</label>
-
-                  <select id="slot-select" name="slot">
-                    <option value="" selected disabled>Choose a slot</option>
-
-                    {% for s in bookable_slots %}
-                      <option value="{{ s.id }}">
-                        {{ s.date|date:"d/m/Y" }} — {{ s.time|time:"H:i" }} ({{ s.remaining }} left)
-                      </option>
-                    {% endfor %}
-                  </select>
-
-                  {% if form and form.errors.slot %}
-                    <div class="fb-field-error">
-                      {{ form.errors.slot|striptags }}
-                    </div>
-                  {% endif %}
-                </div>
-              <button class="btn primary" type="submit" id="book-btn" >
+            <div class="book-btn-container">
+              <a href="{% url 'attraction_book' attraction_pk=attraction.pk %}" class="book-now-link">
                 Book now
-              </button>
-            </form>
-            {% elif user.is_authenticated and available_slots %}
-
-            <div class="waitlist-section">
-
-              <p class="detail-line waitlist-text">
-                Sold out slots can be joined individually.
-              </p>
-
-              <form method="POST" action="{% url 'waiting_listattraction_join' available_slots.0.pk %}">
-                {% csrf_token %}
-
-                <label for="waitlist-slot">Select slot:</label>
-
-                <select name="slot" id="waitlist-slot" required>
-                  <option value="">Choose slot</option>
-
-                  {% for slot in available_slots %}
-                    {% if slot.remaining == 0 %}
-                      <option value="{{ slot.pk }}">
-                        {{ slot.date|date:"d/m/Y" }} — {{ slot.time|time:"H:i" }}
-                      </option>
-                    {% endif %}
-                  {% endfor %}
-
-                </select>
-
-                <button class="btn primary" type="submit">
-                  Join Waiting List
-                </button>
-
-              </form>
-
+              </a>
             </div>
+
+          {% elif user.is_authenticated and is_sold_out and waitlist_slot %}
+            <div style="margin-top: 16px;">
+              {% if on_waitlist %}
+                <p class="detail-line" style="margin-bottom: 10px; color: #065f46;">You're on this waiting list.</p>
+                <form method="POST" action="{% url 'waiting_listattraction_leave' waitlist_slot.pk %}">
+                  {% csrf_token %}
+                  <button class="btn primary" type="submit">Leave Waiting List</button>
+                </form>
+              {% else %}
+                <p class="detail-line" style="margin-bottom: 10px;">This attraction is sold out. Join the waiting list to be notified if spots open.</p>
+                <form method="POST" action="{% url 'waiting_listattraction_join' waitlist_slot.pk %}">
+                  {% csrf_token %}
+                  <button class="btn primary" type="submit">Join Waiting List</button>
+                </form>
+              {% endif %}
+            </div>
+
           {% else %}
-            <div class="detail-line">No future slots available for booking.</div>
+            <div class="detail-line" style="margin-top: 16px;">No future slots available for booking.</div>
           {% endif %}
         </div>
       </div>
+
     </div>
   </div>
 </div>
+
 {% endblock %}
