@@ -162,7 +162,15 @@
             <input type="date" name="slot_date[]" class="form-control" value="{{ slot.date }}">
             <input type="time" name="slot_time[]" class="form-control" value="{{ slot.time }}">
             <input type="number" name="slot_capacity[]" class="form-control" min="1" value="{{ slot.capacity|default:'20' }}" placeholder="Capacity">
+          </div>
+        {% endfor %}
+      </div>
+      <div class="fb-form-help">Ticket draws support one visit slot only.</div>
+    </div>
 
+      <div class="fb-form-actions">
+        <button type="submit" class="fb-btn fb-btn--primary fb-btn-submit">Save Changes</button>
+        <a href="{% url 'admin_dashboard' %}" class="fb-btn-cancel">Cancel</a>
       </div>
     </form>
   </div>
