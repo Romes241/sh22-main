@@ -71,15 +71,32 @@ body{
   gap:24px;
 }
 
-.fb-header__nav a{
+.fb-header__nav a, .fb-header__nav-button{
   color:#fff;
   font-weight:700;
+  font-size:inherit;
+  font-family:inherit;
+  line-height:inherit;
   text-decoration:none;
   white-space:nowrap;
+  background:none;
+  border:none;
+  padding:0;
+  margin:0;
+  cursor:pointer;
+  appearance:none;
+  -webkit-appearance:none;
+  -moz-appearance:none;
 }
 
-.fb-header__nav a:hover{
+.fb-header__nav a:hover, .fb-header__nav-button:hover{
   text-decoration:underline;
+}
+
+.fb-header__logout-form{
+  margin:0;
+  display:flex;
+  align-items:center;
 }
 
 .fb-container{

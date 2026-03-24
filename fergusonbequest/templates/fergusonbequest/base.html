@@ -61,9 +61,9 @@
         <a href="{% url 'dashboard' %}">Dashboard</a>
         <a href="{% url 'terms_and_conditions' %}">Terms &amp; Conditions</a>
       {% endif %}
-      <form method="post" action="{% url 'logout' %}" style="display: inline; margin: 0;">
+      <form method="post" action="{% url 'logout' %}" class="fb-header__logout-form">
         {% csrf_token %}
-        <button type="submit" style="background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 0; text-decoration: underline;">Logout</button>
+        <button type="submit" class="fb-header__nav-button">Logout</button>
       </form>
     {% else %}
       <a href="{% url 'login' %}">Login</a>
