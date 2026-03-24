@@ -533,20 +533,10 @@ def _get_featured_attractions(limit=4):
 
 def home(request):
     featured_attractions = _get_featured_attractions()
+    
+    return render(request, "fergusonbequest/home_logged_in.html", {"featured_attractions": featured_attractions})
 
-    if request.user.is_authenticated:
-        calendar_data = get_calendar()
-        return render(
-            request,
-            "fergusonbequest/dashboard.html",
-            {
-                "featured_attractions": featured_attractions,
-                "url_name": "dashboard",
-                **calendar_data,
-            },
-        )
 
-    return render(request, "fergusonbequest/home.html", {"featured_attractions": featured_attractions})
 
 
 @login_required
