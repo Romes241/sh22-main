@@ -792,9 +792,9 @@ def booking_view(request, attraction_pk):
     booking.full_name = f"{user.first_name} {user.last_name}".strip()
     booking.email = user.email
 
-    visit_datetime = datetime.datetime.combine(
+    visit_datetime = datetime.combine(
         booking.slot.date,
-        datetime.datetime.min.time(),
+        datetime.min.time(),
     )
     
     # Make it timezone-aware if needed
