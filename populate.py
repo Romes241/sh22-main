@@ -478,6 +478,17 @@ def pick_booking_timestamp(slot_date, now, is_past):
     return now - timedelta(days=random.randint(0, 10), hours=random.randint(0, 23))
 
 
+def force_entire_attraction_sold_out(created_slots, attraction_slug="celtic-park-stadium-tour"):
+    sold_out_slots = []
+
+    for slot in created_slots:
+        if slot.attraction.slug == attraction_slug and slot.date >= timezone.localdate():
+            slot.remaining = 0
+            slot.save(update_fields=["remaining"])
+            sold_out_slots.append(slot)
+
+    return sold_out_slots
+
 def maybe_assign_fake_ticket(is_past, is_cancelled):
     if is_cancelled:
         return None, None, "", ""
@@ -709,9 +720,20 @@ def populate():
     created_slots = create_visit_slots(attractions, today)
     draw_lookup, draw_slot_lookup = create_draws(now, today)
 
-    general_count = create_general_bookings(all_users, created_slots, today, now, exclude_usernames={"alice", "bob"})
+    general_count = create_general_bookings(
+        all_users,
+        created_slots,
+        today,
+        now,
+        exclude_usernames={"alice", "bob"},
+    )
     special_count = create_alice_bob_bookings(alice, bob, created_slots, today, now)
     draw_count = create_draw_entries(all_users, draw_lookup, draw_slot_lookup)
+
+    sold_out_slots = force_entire_attraction_sold_out(
+        created_slots,
+        "celtic-park-stadium-tour",
+    )
 
     print("Populate complete.")
     print(f"Users created/updated: {len(all_users)}")
@@ -720,12 +742,9 @@ def populate():
     print(f"Ticket draws created: {len(draw_lookup)}")
     print(f"Regular bookings created: {general_count + special_count}")
     print(f"Draw entries created: {draw_count}")
-    print("Test logins:")
-    print("alice@test.com / password123")
-    print("bob@test.com / password123")
-    print("Calendar cap: max 3 attraction slots per day, max 1 draw slot per day")
+    print(f"Forced sold out slots: {len(sold_out_slots)}")
 
-#Unticketed check
+    # Unticketed check
     converted_booking_ids = TicketDrawBooking.objects.filter(
         converted_booking__isnull=False
     ).values_list("converted_booking_id", flat=True)

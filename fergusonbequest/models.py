@@ -514,6 +514,11 @@ class AttractionWaitlistEntry(models.Model):
         blank=True,
     )
 
+    num_tickets = models.PositiveSmallIntegerField(
+        default=1,
+        validators=[MinValueValidator(1), MaxValueValidator(2)]
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled = models.BooleanField(default=False)
     notified = models.BooleanField(default=False)
@@ -529,8 +534,7 @@ class AttractionWaitlistEntry(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.user.username} → {self.attraction.name} waitlist"
-
+        return f"{self.user.username} → {self.attraction.name} waitlist ({self.num_tickets})"
 
 class TermsAndConditions(models.Model):
     """Singleton model to store editable Terms & Conditions content."""

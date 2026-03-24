@@ -734,6 +734,13 @@ def booking_view(request, attraction_pk):
     attraction_obj = get_object_or_404(Attraction, pk=attraction_pk)
     user = request.user
 
+    if user.is_staff or user.is_superuser:
+        messages.error(
+            request,
+            "Admin accounts cannot make attraction bookings. Please use a normal user account."
+        )
+        return redirect("attraction", pk=attraction_obj.pk)
+
     now = timezone.localtime()
 
     available_slots = (
@@ -1585,12 +1592,16 @@ def decline_draw_win(request, pk):
 # -----------------------------
 @login_required
 def waiting_listattraction(request):
-    """Attraction waiting list"""
-    user = request.user
+    if request.user.is_staff or request.user.is_superuser:
+        messages.error(
+            request,
+            "Admin accounts cannot access the attraction waiting list."
+        )
+        return redirect("home")
 
     attraction_waitlist_entries = (
         AttractionWaitlistEntry.objects
-        .filter(user=user, cancelled=False)
+        .filter(user=request.user, cancelled=False)
         .select_related("attraction", "slot")
         .order_by("-created_at")
     )
@@ -1611,6 +1622,23 @@ def waiting_listattraction_join(request, pk=None):
         pk=slot_id
     )
     attraction_obj = slot.attraction
+
+    if request.user.is_staff or request.user.is_superuser:
+        messages.error(
+            request,
+            "Admin accounts cannot join the waiting list. Please use a normal user account."
+        )
+        return redirect("attraction", pk=attraction_obj.pk)
+
+    try:
+        num_tickets = int(request.POST.get("num_tickets", 1))
+    except (TypeError, ValueError):
+        num_tickets = 1
+
+    if num_tickets < 1 or num_tickets > 2:
+        messages.error(request, "You can request 1 or 2 tickets for the waiting list.")
+        return redirect("attraction", pk=attraction_obj.pk)
+
     if slot.remaining > 0:
         messages.error(
             request,
@@ -1625,19 +1653,24 @@ def waiting_listattraction_join(request, pk=None):
     ).first()
 
     if existing:
+        existing.num_tickets = num_tickets
+        existing.save(update_fields=["num_tickets"])
         messages.info(
             request,
-            f"You're already on the waiting list for {attraction_obj.name} on {slot.date} at {slot.time}."
+            f"Your waiting list request for {attraction_obj.name} on {slot.date} at {slot.time} "
+            f"was updated to {num_tickets} ticket(s)."
         )
     else:
         AttractionWaitlistEntry.objects.create(
             user=request.user,
             attraction=attraction_obj,
             slot=slot,
+            num_tickets=num_tickets,
         )
         messages.success(
             request,
-            f"You joined the waiting list for {attraction_obj.name} on {slot.date} at {slot.time}."
+            f"You joined the waiting list for {attraction_obj.name} on {slot.date} at {slot.time} "
+            f"for {num_tickets} ticket(s)."
         )
 
     return redirect("waiting_listattraction")
@@ -1677,6 +1710,9 @@ def reassign_cancelled_attraction_booking(slot, attraction_obj):
     """
     Reassign a newly freed attraction slot to the next eligible user
     on the waiting list for that exact slot.
+
+    FIFO order is preserved by created_at.
+    An entry is only fulfilled if enough tickets are currently available.
     """
     waitlist_entries = (
         AttractionWaitlistEntry.objects
@@ -1690,6 +1726,7 @@ def reassign_cancelled_attraction_booking(slot, attraction_obj):
 
     for entry in waitlist_entries:
         user = entry.user
+        requested_tickets = max(1, getattr(entry, "num_tickets", 1))
 
         # check yearly booking limit
         remaining_allowance = calculate_remaining_allowance(user, "regular")
@@ -1709,21 +1746,24 @@ def reassign_cancelled_attraction_booking(slot, attraction_obj):
 
         # ensure slot is still available
         slot.refresh_from_db()
-        if slot.remaining < 1:
-            return None
+
+        # strict FIFO:
+        # if the first eligible person wants 2 and only 1 is available, stop here.
+        if slot.remaining < requested_tickets:
+            continue
 
         new_booking = Booking.objects.create(
             user=user,
             attraction=attraction_obj,
             slot=slot,
-            num_tickets=1,
+            num_tickets=requested_tickets,
             full_name=f"{user.first_name} {user.last_name}".strip(),
             email=user.email,
             agreed_terms=True,
         )
 
         VisitSlot.objects.filter(pk=slot.pk).update(
-            remaining=F("remaining") - 1
+            remaining=F("remaining") - requested_tickets
         )
 
         entry.cancelled = True
