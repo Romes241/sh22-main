@@ -32,7 +32,7 @@
       </div>
     </a>
 
-    <a class="admin-card" href="/admin/fergusonbequest/booking/">
+    <a class="admin-card" href={% url 'admin_reports' %}>
       <div class="admin-card__icon" aria-hidden="true">📖</div>
       <div class="admin-card__text">
         <div class="admin-card__label">Bookings</div>
@@ -40,11 +40,12 @@
       </div>
     </a>
 
-    <a class="admin-card" href="/admin/fergusonbequest/ticketdrawbooking/">
-      <div class="admin-card__icon" aria-hidden="true">🕒</div>
+
+    <a class="admin-card" href="{% url 'ticket_upload' %}">
+      <div class="admin-card__icon" aria-hidden="true">🎫</div>
       <div class="admin-card__text">
-        <div class="admin-card__label">Pending Requests</div>
-        <div class="admin-card__value">{{ pending_requests_count }}</div>
+        <div class="admin-card__label">Unassigned Tickets</div>
+        <div class="admin-card__value">{{ bookings_needing_tickets_count }}</div>
       </div>
     </a>
   </div>
@@ -92,6 +93,12 @@
         <span class="admin-link__chev" aria-hidden="true">›</span>
        </a>
 
+      <a class="admin-link" href="{% url 'admin_feedback_submissions' %}">
+        <span class="admin-link__icon" aria-hidden="true">📝</span>
+        <span class="admin-link__text">View Feedback Submissions</span>
+        <span class="admin-link__chev" aria-hidden="true">›</span>
+       </a>
+
       <a class="admin-link" href="{% url 'export_suggestions_excel' %}">
         <span class="admin-link__icon" aria-hidden="true">📥</span>
         <span class="admin-link__text">Export Suggestions (Excel)</span>
@@ -99,7 +106,7 @@
        </a>
 
        <a class="admin-link" href="{% url 'discount_codes' %}">
-        <span class="admin-link__icon" aria-hidden="true">🎟️</span>
+        <span class="admin-link__icon" aria-hidden="true">🏷️</span>
         <span class="admin-link__text">Discount Codes</span>
         <span class="admin-link__chev" aria-hidden="true">›</span>
       </a>

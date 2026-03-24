@@ -1,7 +1,7 @@
 from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth import get_user_model
-from fergusonbequest.models import Attraction, VisitSlot
+from fergusonbequest.models import Attraction, VisitSlot, Booking
 from .utils import unique_email, unique_username
 from datetime import datetime, timedelta
 from django.utils import timezone
@@ -330,3 +330,75 @@ class CarouselFunctionalityTests(TestCase):
         
         featured_attractions = resp.context['featured_attractions']
         self.assertLessEqual(len(featured_attractions), 4)
+
+    def test_carousel_prioritises_most_booked_then_falls_back_alphabetical(self):
+        """Most-booked attractions should appear first, then alphabetical fallback fills remaining slots."""
+        attraction4 = Attraction.objects.create(
+            name="Kelvingrove Museum",
+            slug="kelvingrove-museum",
+            location="Glasgow",
+            description="Art gallery and museum.",
+            attraction_type='regular'
+        )
+
+        slot_for_top = VisitSlot.objects.create(
+            attraction=self.attraction2,
+            date=timezone.now().date() + timedelta(days=3),
+            capacity=20,
+            remaining=20,
+        )
+
+        user2 = User.objects.create_user(
+            username=unique_username(),
+            email=unique_email(),
+            password="TestPass123",
+        )
+        user3 = User.objects.create_user(
+            username=unique_username(),
+            email=unique_email(),
+            password="TestPass123",
+        )
+
+        Booking.objects.create(
+            attraction=self.attraction2,
+            slot=slot_for_top,
+            full_name="User One",
+            email=self.user.email,
+            user=self.user,
+            num_tickets=1,
+            cancelled=False,
+        )
+        Booking.objects.create(
+            attraction=self.attraction2,
+            slot=slot_for_top,
+            full_name="User Two",
+            email=user2.email,
+            user=user2,
+            num_tickets=1,
+            cancelled=False,
+        )
+
+        slot_cancelled = VisitSlot.objects.create(
+            attraction=self.attraction1,
+            date=timezone.now().date() + timedelta(days=4),
+            capacity=20,
+            remaining=20,
+        )
+        Booking.objects.create(
+            attraction=self.attraction1,
+            slot=slot_cancelled,
+            full_name="User Three",
+            email=user3.email,
+            user=user3,
+            num_tickets=1,
+            cancelled=True,
+        )
+
+        self.client.login(username=self.username, password=self.password)
+        resp = self.client.get(reverse('home'))
+        featured_attractions = resp.context['featured_attractions']
+        titles = [item['title'] for item in featured_attractions]
+
+        self.assertEqual(titles[0], self.attraction2.name)
+        self.assertEqual(titles[1:], sorted([self.attraction1.name, self.attraction3.name, attraction4.name]))
+

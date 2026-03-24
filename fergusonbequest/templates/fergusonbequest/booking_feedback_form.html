@@ -1,0 +1,74 @@
+{% extends 'fergusonbequest/base.html' %}
+{% load static %}
+
+{% block title %}Submit Feedback – Ferguson Bequest{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'fergusonbequest/css/booking_page.css' %}">
+{% endblock %}
+
+{% block content %}
+<h1 class="fb-h1">Share your feedback</h1>
+
+<div class="fb-card" style="max-width: 760px; margin: 0 auto;">
+  <p><strong>Attraction:</strong> {{ booking.attraction.name }}</p>
+  <p><strong>Visit date:</strong> {{ booking.slot.date }}{% if booking.slot.time %} at {{ booking.slot.time }}{% endif %}</p>
+  <p><strong>Submission window:</strong> {{ feedback_window_days }} day{{ feedback_window_days|pluralize }} after your visit.</p>
+
+  {% if form.non_field_errors %}
+    <div class="fb-alert fb-alert--error" role="alert">
+      {% for err in form.non_field_errors %}
+        <div>{{ err }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <form method="post" class="fb-form-grid" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="token" value="{{ token }}">
+
+    <div class="fb-form-row fb-form-row--inline {% if form.rating.errors %}fb-form-row--error{% endif %}">
+      <label class="fb-label" for="{{ form.rating.id_for_label }}">{{ form.rating.label }}</label>
+      <div class="fb-field">
+        {{ form.rating }}
+        {% if form.rating.errors %}
+          <div class="fb-field-error">
+            {% for err in form.rating.errors %}
+              <div>{{ err }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="fb-form-row fb-form-row--inline {% if form.comments.errors %}fb-form-row--error{% endif %}">
+      <label class="fb-label" for="{{ form.comments.id_for_label }}">{{ form.comments.label }}</label>
+      <div class="fb-field">
+        {{ form.comments }}
+        {% if form.comments.errors %}
+          <div class="fb-field-error">
+            {% for err in form.comments.errors %}
+              <div>{{ err }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="fb-form-row fb-form-row--inline">
+      <label class="fb-label">Staff details</label>
+      <div class="fb-field">
+        <div class="fb-readonly">{{ request.user.get_full_name|default:request.user.username }} · {{ request.user.email }}</div>
+        {% if staff_guid or staff_department %}
+          <div class="fb-form-help">{{ staff_guid }}{% if staff_guid and staff_department %} · {% endif %}{{ staff_department }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="mt-4" style="display:flex; gap:12px; flex-wrap:wrap;">
+      <button type="submit" class="fb-btn fb-btn--primary">Submit feedback</button>
+      <a href="{% url 'booking_history' %}" class="fb-btn">Back to bookings</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

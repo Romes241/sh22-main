@@ -224,6 +224,71 @@ def populate():
         booking_close=dt(20),
     )
 
+    science_attr = Attraction.objects.create(
+        slug="glasgow-science-centre",
+        name="Glasgow Science Centre",
+        location="Glasgow",
+        image="fergusonbequest/img/science_centre.jpg",
+        description="Interactive science exhibits, IMAX cinema, and hands-on learning for all ages.",
+        duration_minutes=150,
+        contact_email="info@gsc.org.uk",
+        per_year_limit=4,
+        booking_open=dt(-10),
+        booking_close=dt(12),
+    )
+
+    football_attr = Attraction.objects.create(
+        slug="celtic-park-stadium-tour",
+        name="Celtic Park Stadium Tour",
+        location="Glasgow",
+        image="fergusonbequest/img/celtic_park.jpg",
+        description="Behind-the-scenes tour of Celtic Park including dressing rooms and pitch access.",
+        duration_minutes=90,
+        contact_email="tours@celticfc.co.uk",
+        per_year_limit=2,
+        booking_open=dt(-6),
+        booking_close=dt(14),
+    )
+
+    castle_attr = Attraction.objects.create(
+        slug="edinburgh-castle-entry",
+        name="Edinburgh Castle Entry",
+        location="Edinburgh",
+        image="fergusonbequest/img/edinburgh_castle.jpg",
+        description="Historic castle with panoramic views and Scottish crown jewels.",
+        duration_minutes=180,
+        contact_email="info@edinburghcastle.scot",
+        per_year_limit=3,
+        booking_open=dt(-8),
+        booking_close=dt(10),
+    )
+
+    trampoline_attr = Attraction.objects.create(
+        slug="flipout-trampoline-park",
+        name="Flip Out Trampoline Park",
+        location="Glasgow",
+        image="fergusonbequest/img/flipout.jpg",
+        description="Indoor trampoline park with foam pits and obstacle courses.",
+        duration_minutes=60,
+        contact_email="info@flipout.co.uk",
+        per_year_limit=5,
+        booking_open=dt(-5),
+        booking_close=dt(15),
+    )
+
+    theatre_attr = Attraction.objects.create(
+        slug="king-theatre-show",
+        name="King’s Theatre Live Show",
+        location="Glasgow",
+        image="fergusonbequest/img/kings_theatre.jpg",
+        description="Live theatre performance including comedy, drama, or touring musicals.",
+        duration_minutes=140,
+        contact_email="boxoffice@kingsglasgow.co.uk",
+        per_year_limit=2,
+        booking_open=dt(-3),
+        booking_close=dt(18),
+    )
+
     # visit slots (past + future)
     slot_data = [
         (zoo_attr, today - timedelta(days=7), time(10, 0), 50, 40),
@@ -232,6 +297,16 @@ def populate():
         (zoo_attr, today + timedelta(days=5), time(10, 0), 50, 25),
         (safari_attr, today + timedelta(days=10), time(11, 0), 30, 15),
         (cinema_attr, today + timedelta(days=5), time(20, 0), 100, 0),
+        (science_attr, today + timedelta(days=2), time(10, 0), 60, 40),
+        (science_attr, today + timedelta(days=6), time(13, 0), 60, 50),
+        (football_attr, today + timedelta(days=4), time(11, 0), 25, 20),
+        (football_attr, today + timedelta(days=9), time(14, 0), 25, 25),
+        (castle_attr, today + timedelta(days=7), time(10, 0), 80, 70),
+        (castle_attr, today + timedelta(days=12), time(12, 0), 80, 80),
+        (trampoline_attr, today + timedelta(days=3), time(15, 0), 40, 35),
+        (trampoline_attr, today + timedelta(days=8), time(16, 0), 40, 40),
+        (theatre_attr, today + timedelta(days=6), time(19, 30), 120, 100),
+        (theatre_attr, today + timedelta(days=13), time(19, 30), 120, 120),
     ]
 
     created_slots = []
