@@ -1,6 +1,6 @@
 TECHNICAL HANDOVER DOCUMENT
 
-1. ## System Overview
+## 1. System Overview
 
   Project Name: Ferguson Bequest System
 
@@ -12,7 +12,7 @@ It supports:
 
 ` ` `
 
-2. ## Tech Stack
+## 2. Tech Stack
 
 - Backend: Django (Python)
 - Database: SQLite (default)
@@ -23,7 +23,7 @@ It supports:
 
 ` ` ` 
 
-3. ## Architecture
+## 3. Architecture
 
 - config/ → Django configuration (settings, URLs)
 - apps/ → Core logic (bookings, attractions, draws)
@@ -39,7 +39,7 @@ It supports:
 
 ` ` `
 
-4. ## Core Feature Logic
+## 4. Core Feature Logic
 
 ### Attractions:
 
@@ -86,11 +86,12 @@ It supports:
 
 ` ` `
 
-5. ## Local Setup
+## 5. Local Setup
 
 #### Clone repo:
-git clone <repo-url>
-cd <repo>
+
+- git clone https://github.com/Romes241/sh22-main.git
+- cd sh22-main
 
 #### Create environment:
 python3 -m venv venv
@@ -119,7 +120,7 @@ python manage.py runserver
 
 ` ` `
 
-6. ## Environment Variables
+## 6. Environment Variables
 
 #### Required:
 - SECRET_KEY
@@ -132,7 +133,7 @@ python manage.py runserver
 
 ` ` `
 
-7. ## Deployment
+## 7. Deployment
 
 The system is deployed as a local Django application to ensure ease of setup and immediate usability.
 
@@ -153,7 +154,7 @@ This also provides a suitable foundation for future integration into existing un
 
 ` ` `
 
-8. ## Background Jobs (Production)
+## 8. Background Jobs (Production)
 
 #### Must be run separately:
 python manage.py run_scheduler
@@ -164,7 +165,7 @@ python manage.py run_scheduler
 
 ` ` `
 
-9. ## Database
+## 9. Database
 
 ##### Default: SQLite
 
@@ -176,7 +177,7 @@ python manage.py run_scheduler
 
 ` ` `
 
-10. ## Security
+## 10. Security
 
 #### Before production:
 - Set DEBUG=False
@@ -186,7 +187,7 @@ python manage.py run_scheduler
 
 ` ` `
 
-11. ## Known Issues
+## 11. Known Issues
 
 - Scheduler not production-ready by default
 - SQLite limitations
@@ -194,7 +195,7 @@ python manage.py run_scheduler
 
 ` ` `
 
-12. ## What Can Be Changed
+## 12. What Can Be Changed
 
 #### Easy:
 - UI/templates
@@ -213,7 +214,7 @@ python manage.py run_scheduler
 
 ` ` `
 
-13. ## Maintenance
+## 13. Maintenance
 
 #### Restart:
 systemctl restart <service>
@@ -226,7 +227,7 @@ journalctl -u <service>
 
 ` ` `
 
-14. ## Future Improvements
+## 14. Future Improvements
 
 - PostgreSQL migration
 - Proper scheduler service
