@@ -1367,23 +1367,37 @@ def ticket_draws_view(request):
 
 
 @login_required
+@login_required
 def ticket_draw_detail(request, slug):
     draw = get_object_or_404(TicketDraw, slug=slug)
+    is_admin_view = request.user.is_staff or request.user.is_superuser
 
-    existing_entries = TicketDrawBooking.objects.filter(
-        user=request.user,
-        ticket_draw=draw,
-        cancelled=False,
-    ).count()
+    existing_entries = 0
+    remaining_allowance = 0
 
-    remaining_allowance = calculate_remaining_allowance(
-        request.user, getattr(draw, "attraction_type", "weekly_event")
-    )
-    draw_limit = getattr(draw, "per_year_limit", MAX_ATTRACTIONS_PER_YEAR)
-    draw_specific_remaining = max(0, draw_limit - existing_entries)
-    remaining_allowance = min(remaining_allowance, draw_specific_remaining)
+    if not is_admin_view:
+        existing_entries = TicketDrawBooking.objects.filter(
+            user=request.user,
+            ticket_draw=draw,
+            cancelled=False,
+        ).count()
+
+        remaining_allowance = calculate_remaining_allowance(
+            request.user,
+            getattr(draw, "attraction_type", "weekly_event")
+        )
+        draw_limit = getattr(draw, "per_year_limit", MAX_ATTRACTIONS_PER_YEAR)
+        draw_specific_remaining = max(0, draw_limit - existing_entries)
+        remaining_allowance = min(remaining_allowance, draw_specific_remaining)
 
     if request.method == "POST":
+        if is_admin_view:
+            messages.error(
+                request,
+                "Admin accounts cannot enter ticket draws. You are in view-only mode."
+            )
+            return redirect("ticket_draw_detail", slug=slug)
+
         if existing_entries > 0:
             messages.error(
                 request,
@@ -1392,9 +1406,21 @@ def ticket_draw_detail(request, slug):
             )
             return redirect("draw_waiting_list")
 
-        num_tickets = int(request.POST.get("num_tickets", 1))
+        try:
+            num_tickets = int(request.POST.get("num_tickets", 1))
+        except (TypeError, ValueError):
+            messages.error(request, "Please select a valid number of tickets.")
+            return redirect("ticket_draw_detail", slug=slug)
+
+        if num_tickets < 1:
+            messages.error(request, "You must request at least 1 ticket.")
+            return redirect("ticket_draw_detail", slug=slug)
+
         if num_tickets > remaining_allowance:
-            messages.error(request, f"Max limit reached. You can only choose up to {remaining_allowance} more tickets.")
+            messages.error(
+                request,
+                f"Max limit reached. You can only choose up to {remaining_allowance} more tickets."
+            )
             return redirect("ticket_draw_detail", slug=slug)
 
         slot_id = request.POST.get("slot_id")
@@ -1407,7 +1433,6 @@ def ticket_draw_detail(request, slug):
             messages.error(request, "Selected date is no longer available. Please choose another date.")
             return redirect("ticket_draw_detail", slug=slug)
 
-        # check draw open
         if not _call_is_open(draw, timezone.now()):
             messages.error(request, "This draw is currently closed.")
             return redirect("ticket_draw_detail", slug=slug)
@@ -1422,7 +1447,7 @@ def ticket_draw_detail(request, slug):
                 ticket_draw=draw,
                 slot=slot,
                 num_tickets=num_tickets,
-                full_name=f"{request.user.first_name} {request.user.last_name}",
+                full_name=f"{request.user.first_name} {request.user.last_name}".strip(),
                 email=request.user.email,
                 agreed_terms=True,
             )
@@ -1438,15 +1463,18 @@ def ticket_draw_detail(request, slug):
     slots = TicketDrawVisitSlot.objects.filter(
         ticket_draw=draw,
         date__gte=timezone.now().date(),
-        remaining__gt=0,
     ).order_by("date", "time")
 
     return render(
         request,
         "fergusonbequest/ticket_draw_detail.html",
-        {"draw": draw, "slots": slots, "remaining_allowance": remaining_allowance},
+        {
+            "draw": draw,
+            "slots": slots,
+            "remaining_allowance": remaining_allowance,
+            "is_admin_view": is_admin_view,
+        },
     )
-
 
 @login_required
 def draw_waiting_list(request):

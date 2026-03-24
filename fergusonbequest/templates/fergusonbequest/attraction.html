@@ -11,13 +11,17 @@
 
 <div class="attraction-page">
 
-  <a class="back-link" href="{% url 'attractions' %}">
-    <span class="back-text">Back to attractions</span> ←
-  </a>
+    <div class="top-bar">
+      <a class="back-link" href="{% url 'attractions' %}">
+        <span class="back-text">← Back to attractions</span>
+      </a>
 
-  {% if user.is_staff %}
-    <a href="{% url 'edit_attraction' attraction.pk %}" style="margin-left: auto; margin-top: -40px;">Edit</a>
-  {% endif %}
+      {% if user.is_staff %}
+        <a href="{% url 'edit_attraction' attraction.pk %}" class="header-btn">
+          Edit
+        </a>
+      {% endif %}
+    </div>
 
   <div class="layout">
 
@@ -78,15 +82,15 @@
             <strong>Contact:</strong> {{ attraction.contact_email|default:"—" }}
           </div>
 
-          {% if has_bookable_slots %}
-            <div class="book-btn-container">
-              <a href="{% url 'attraction_book' attraction_pk=attraction.pk %}" class="book-now-link">
-                Book now
-              </a>
-            </div>
+            {% if has_bookable_slots and not user.is_staff %}
+              <div class="book-btn-container">
+                <a href="{% url 'attraction_book' attraction_pk=attraction.pk %}" class="book-now-link">
+                  Book now
+                </a>
+              </div>
 
-          {% elif user.is_authenticated and is_sold_out and waitlist_slot %}
-            <div style="margin-top: 16px;">
+            {% elif user.is_authenticated and not user.is_staff and is_sold_out and waitlist_slot %}
+                <div style="margin-top: 16px;">
               {% if on_waitlist %}
                 <p class="detail-line" style="margin-bottom: 10px; color: #065f46;">You're on this waiting list.</p>
                 <form method="POST" action="{% url 'waiting_listattraction_leave' waitlist_slot.pk %}">
@@ -101,10 +105,13 @@
                 </form>
               {% endif %}
             </div>
-
-          {% else %}
-            <div class="detail-line" style="margin-top: 16px;">No future slots available for booking.</div>
+        {% else %}
+          {% if not user.is_staff %}
+            <div class="detail-line" style="margin-top: 16px;">
+              No future slots available for booking.
+            </div>
           {% endif %}
+        {% endif %}
         </div>
       </div>
 

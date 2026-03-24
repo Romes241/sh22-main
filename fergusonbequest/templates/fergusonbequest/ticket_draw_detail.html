@@ -17,13 +17,19 @@
           {% endfor %}
         </div>
     {% endif %}
-  <nav class="td-back-nav">
-    <a href="{% url 'ticket_draws' %}" class="td-back-link">&larr; Back to all ticket draws</a>
-    {% if user.is_staff %}
-      <a href="{% url 'edit_ticket_draw' draw.pk %}" class="td-edit-link">Edit</a>
-    {% endif %}
-  </nav>
+    <div class="top-bar">
+        <a href="{% url 'ticket_draws' %}" class="back-link">
+        &larr; Back to all ticket draws
+        </a>
 
+        {% if user.is_staff %}
+          <div class="td-edit-row">
+            <a href="{% url 'edit_ticket_draw' draw.pk %}" class="header-btn">
+                Edit
+            </a>
+          </div>
+        {% endif %}
+    </div>
   <div class="td-main-grid">
 
     <div class="td-identity-card">
@@ -82,58 +88,70 @@
         </div>
       </div>
 
-      <form method="POST" action="" class="td-selection-grid">
-        {% csrf_token %}
-        <div class="td-date-box">
-          <p class="td-date-label">Select Entry Date</p>
-          <div class="td-calendar-icon">🗓️</div>
-          <select id="slot-selector" name="slot_id" class="td-selector" {% if not slots %}disabled{% endif %}>
-            {% for s in slots %}
-              <option value="{{ s.id }}" data-remaining="{{ s.remaining }}">
-                {{ s.date|date:"D, M d" }} {% if s.time %}({{ s.time|time:"H:i" }}){% endif %}
-              </option>
-            {% empty %}
-              <option disabled>No dates available</option>
-            {% endfor %}
-          </select>
-          {% if not slots %}
-            <p class="td-no-slots-note">No dates have been added for this draw yet.</p>
-          {% endif %}
-        </div>
-
-        <div class="td-action-panel">
-          <div class="td-stat-box">
-            <span class="td-row-label td-stat-label-small">Availability</span>
-            <span id="tickets-left" class="td-tickets-count-display">--</span>
-          </div>
-
-          <div class="td-allowance-msg">
-            {% if remaining_allowance > 0 %}
-                You can choose a maximum of {{ remaining_allowance }} ticket(s)
-            {% else %}
-                You have reached the maximum number of tickets for this draw
+        {% if not user.is_staff %}
+        <form method="POST" action="" class="td-selection-grid">
+          {% csrf_token %}
+          <div class="td-date-box">
+            <p class="td-date-label">Select Entry Date</p>
+            <div class="td-calendar-icon">🗓️</div>
+            <select id="slot-selector" name="slot_id" class="td-selector" {% if not slots %}disabled{% endif %}>
+              {% for s in slots %}
+                <option value="{{ s.id }}" data-remaining="{{ s.remaining }}">
+                  {{ s.date|date:"D, M d" }} {% if s.time %}({{ s.time|time:"H:i" }}){% endif %}
+                </option>
+              {% empty %}
+                <option disabled>No dates available</option>
+              {% endfor %}
+            </select>
+            {% if not slots %}
+              <p class="td-no-slots-note">No dates have been added for this draw yet.</p>
             {% endif %}
           </div>
 
-          <div class="td-stat-box">
-              <span class="td-row-label td-stat-label-small">SELECT NUMBER OF TICKETS</span>
-                <input type="number" id="ticket-count" name="num_tickets"
-                  value="{% if remaining_allowance > 0 and slots %}1{% else %}0{% endif %}"
-                  min="{% if remaining_allowance > 0 and slots %}1{% else %}0{% endif %}"
-                  max="{% if remaining_allowance > 0 and slots %}{{ remaining_allowance }}{% else %}0{% endif %}"
-                  class="td-ticket-input"
-                  {% if remaining_allowance <= 0 or not slots %}disabled{% endif %}>
-          </div>
+          <div class="td-action-panel">
+            <div class="td-stat-box">
+              <span class="td-row-label td-stat-label-small">Availability</span>
+              <span id="tickets-left" class="td-tickets-count-display">--</span>
+            </div>
+
+            <div class="td-allowance-msg">
+              {% if remaining_allowance > 0 %}
+                  You can choose a maximum of {{ remaining_allowance }} ticket(s)
+              {% else %}
+                  You have reached the maximum number of tickets for this draw
+              {% endif %}
+            </div>
+
+            <div class="td-stat-box">
+                <span class="td-row-label td-stat-label-small">SELECT NUMBER OF TICKETS</span>
+                  <input type="number" id="ticket-count" name="num_tickets"
+                    value="{% if remaining_allowance > 0 and slots %}1{% else %}0{% endif %}"
+                    min="{% if remaining_allowance > 0 and slots %}1{% else %}0{% endif %}"
+                    max="{% if remaining_allowance > 0 and slots %}{{ remaining_allowance }}{% else %}0{% endif %}"
+                    class="td-ticket-input"
+                    {% if remaining_allowance <= 0 or not slots %}disabled{% endif %}>
+            </div>
 
             {% if remaining_allowance > 0 and slots %}
               <button type="submit" class="td-submit-btn">Enter Draw</button>
-          {% else %}
+            {% else %}
               <button type="button" class="td-submit-btn" disabled>
                 {% if not slots %}No dates available{% else %}Limit Reached{% endif %}
               </button>
-          {% endif %}
+            {% endif %}
+          </div>
+        </form>
+
+        {% else %}
+        <!-- Admin view (NO entry allowed) -->
+        <div class="td-selection-grid">
+          <div class="td-action-panel">
+            <div class="td-allowance-msg">
+              Admin accounts cannot enter ticket draws.
+            </div>
+          </div>
         </div>
-      </form>
+        {% endif %}
     </div>
   </div>
 </div>

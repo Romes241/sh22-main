@@ -10,14 +10,21 @@
     <div class="td-header">
       <h1 class="td-title">Ticket Draws</h1>
 
-      <div style="display: flex; gap: 12px;">
-        {% if user.is_staff %}
-        <a href="{% url 'create_ticket_draw' %}" class="fb-btn fb-btn--primary">Create Draw</a>
-        {% endif %}
-        <a class="td-waitlist-btn" href="{% url 'draw_waiting_list' %}">
-          Waitlist Status
-        </a>
-      </div>
+        <div style="display: flex; gap: 12px; align-items: center;">
+
+          {% if user.is_staff %}
+            <!-- Admins: only can see Create Draw -->
+            <a href="{% url 'create_ticket_draw' %}" class="fb-btn fb-btn--primary">
+              Create Draw
+            </a>
+          {% else %}
+            <!-- Normal users: only can see Waitlist Status -->
+            <a href="{% url 'draw_waiting_list' %}" class="td-waitlist-btn">
+              Waitlist Status
+            </a>
+          {% endif %}
+
+        </div>
     </div>
 
   <div class="td-scroll">
