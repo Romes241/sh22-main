@@ -192,6 +192,7 @@ python manage.py run_scheduler
 - Scheduler not production-ready by default
 - SQLite limitations
 - Email depends on SMTP reliability
+- Logo does not use the official UofG logo
 
 ` ` `
 
