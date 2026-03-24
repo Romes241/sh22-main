@@ -25,6 +25,8 @@ from fergusonbequest.models import (
     Booking,
     TicketDrawBooking,
     Profile,
+    BookingFeedback,
+    DiscountCode,
 )
 
 User = get_user_model()
@@ -313,6 +315,55 @@ def create_named_user(username: str):
     profile.save()
     return user
 
+def create_feedback(bookings, limit=10):
+    created = 0
+
+    eligible = [b for b in bookings if not b.cancelled]
+
+    random.shuffle(eligible)
+
+    for booking in eligible:
+        if created >= limit:
+            break
+
+        if hasattr(booking, "feedback_submission"):
+            continue
+
+        BookingFeedback.objects.create(
+            booking=booking,
+            user=booking.user,
+            rating=random.randint(3, 5),
+            comments=random.choice([
+                "Great experience!",
+                "Really enjoyed it",
+                "Would recommend",
+                "Well organised event",
+                "Had a lovely time",
+            ]),
+            staff_full_name=booking.user.get_full_name() or booking.user.username,
+            staff_email=booking.user.email,
+        )
+
+        created += 1
+
+    print(f"Created {created} feedback entries")
+
+def create_discount_codes(limit=10):
+    now = timezone.now()
+
+    for i in range(limit):
+        code = f"TEST{i+1:02d}"
+
+        DiscountCode.objects.get_or_create(
+            code=code,
+            defaults={
+                "is_active": True,
+                "valid_from": now - timedelta(days=1),
+                "valid_until": now + timedelta(days=30),
+            },
+        )
+
+    print(f"Created {limit} discount codes")
 
 def create_random_user(index: int):
     first = random.choice(FIRST_NAMES)
@@ -755,6 +806,10 @@ def populate():
         created_slots,
         "celtic-park-stadium-tour",
     )
+    all_bookings = list(Booking.objects.all())
+
+    create_feedback(all_bookings, limit=10)
+    create_discount_codes(limit=10)
 
     print("Populate complete.")
     print(f"Users created/updated: {len(all_users)}")
