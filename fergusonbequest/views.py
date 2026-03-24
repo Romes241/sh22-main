@@ -1406,6 +1406,11 @@ def ticket_draw_detail(request, slug):
             )
             return redirect("draw_waiting_list")
 
+        agreed_terms = request.POST.get("agreed_terms") == "true"
+        if not agreed_terms:
+            messages.error(request, "You must agree to the terms and conditions before entering the draw.")
+            return redirect("ticket_draw_detail", slug=slug)
+
         try:
             num_tickets = int(request.POST.get("num_tickets", 1))
         except (TypeError, ValueError):
