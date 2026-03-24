@@ -654,6 +654,15 @@ def attractions_view(request):
         a.sold_out_slots = [s for s in future_slots if s.remaining == 0]
         a.sold_out_slot_count = len(a.sold_out_slots)
 
+        unique_dates = []
+        seen_dates = set()
+        for slot in future_slots:
+            if slot.date not in seen_dates:
+                seen_dates.add(slot.date)
+                unique_dates.append(slot.date.strftime("%d/%m/%Y"))
+
+        a.available_dates_display = ", ".join(unique_dates) if unique_dates else "—"
+
     return render(
         request,
         "fergusonbequest/attractions.html",
@@ -712,6 +721,15 @@ def attraction(request, pk):
         if waitlist_slot:
             on_waitlist = waitlist_slot.id in waitlisted_slot_ids
 
+    unique_dates = []
+    seen_dates = set()
+    for slot in future_slots:
+        if slot.date not in seen_dates:
+            seen_dates.add(slot.date)
+            unique_dates.append(slot.date.strftime("%d/%m/%Y"))
+
+    available_dates_display = ", ".join(unique_dates) if unique_dates else "—"
+
     return render(
         request,
         "fergusonbequest/attraction.html",
@@ -726,6 +744,7 @@ def attraction(request, pk):
             "waitlisted_slot_ids": waitlisted_slot_ids,
             "on_waitlist": on_waitlist,
             "waitlist_slot": waitlist_slot,
+            "available_dates_display": available_dates_display,
         },
     )
 

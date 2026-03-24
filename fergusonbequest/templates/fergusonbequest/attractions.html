@@ -122,7 +122,7 @@
 
     <div class="card-body">
       <p><strong>Name:</strong> {{ a.name }}</p>
-      <p><strong>Available dates:</strong> —</p>
+      <p><strong>Available dates:</strong> {{ a.available_dates_display }}</p>
       <p><strong>Tickets left:</strong> {{ a.tickets_left_total }}</p>
       <p><strong>Location:</strong> {{ a.location|default:"—" }}</p>
 

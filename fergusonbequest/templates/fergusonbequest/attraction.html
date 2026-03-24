@@ -55,14 +55,9 @@
         <div class="panel-heading">Details</div>
 
         <div class="panel-body">
-          <div class="detail-line">
-            <strong>Available dates:</strong>
-            {% if available_slots %}
-              {{ available_slots.0.date|date:"d/m/Y" }}
-            {% else %}
-              —
-            {% endif %}
-          </div>
+            <div class="detail-line">
+              <strong>Available dates:</strong> {{ available_dates_display }}
+            </div>
 
           <div class="detail-line">
             <strong>Duration:</strong>
