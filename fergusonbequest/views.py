@@ -286,12 +286,12 @@ def calculate_remaining_allowance(user, attraction_type="regular"):
     if attraction_type == "weekly_event":
         used = TicketDrawBooking.objects.filter(
             user=user,
-            cancelled=False,
+            # only count actual wins
+            is_accepted=True,
             created_at__year=year,
             ticket_draw__attraction_type="weekly_event",
         ).count()
         return max(0, MAX_ATTRACTIONS_PER_YEAR - used)
-
     return 0
 
 
@@ -414,10 +414,21 @@ def assign_next_winner(draw: TicketDraw):
                 return
 
     # Get all active entries (not cancelled, not accepted)
+    year = timezone.now().year
+    already_won_this_year = TicketDrawBooking.objects.filter(
+        is_accepted=True,
+        created_at__year=year,
+        ticket_draw__attraction_type="weekly_event",
+    ).values_list("user_id", flat=True)
+
     entries = list(
-        TicketDrawBooking.objects.filter(ticket_draw=draw, cancelled=False, is_accepted=False).select_related("user",
-                                                                                                              "ticket_draw",
-                                                                                                              "slot")
+        TicketDrawBooking.objects.filter(
+            ticket_draw=draw,
+            cancelled=False,
+            is_accepted=False,
+        ).exclude(
+            user_id__in=already_won_this_year,
+        ).select_related("user", "ticket_draw", "slot")
     )
 
     if not entries:
@@ -3902,7 +3913,7 @@ def get_email_context(booking=None, draw_booking=None, user=None, **kwargs):
 
     context.update(kwargs)
 
-    if context.get("winner_deadline") and isinstance(context["winner_deadline"], datetime.datetime):
+    if context.get("winner_deadline") and isinstance(context["winner_deadline"], datetime):
         context["winner_deadline"] = context["winner_deadline"].strftime("%d/%m/%Y %H:%M")
         context["winner_deadline_days"] = 3
 
