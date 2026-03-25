@@ -363,19 +363,32 @@ def create_feedback(bookings, limit=10):
 def create_discount_codes(limit=10):
     now = timezone.now()
 
-    for i in range(limit):
-        code = f"TEST{i+1:02d}"
+    CODES = [
+        ("GLASGOW10", "Glasgow Life Museums", "10% off entry to all Glasgow Life museums including Kelvingrove and the Riverside Museum."),
+        ("SECC2026",  "SEC Glasgow Discount", "£5 off tickets to selected events at the SEC Centre and OVO Hydro."),
+        ("NTS15OFF",  "National Trust Scotland", "15% off annual membership with the National Trust for Scotland."),
+        ("EDICASUAL", "Edinburgh Leisure", "Free day pass for Edinburgh Leisure centres, including pools and gyms."),
+        ("HERITAGE20", "Historic Environment Scotland", "20% off entry to Historic Environment Scotland sites including Edinburgh Castle."),
+        ("CINEWORLD",  "Cineworld Staff Rate", "Staff-rate cinema tickets at any Cineworld in Scotland — show your staff ID."),
+        ("VWILDLIFE",  "Scottish Wildlife Trust", "Free guest pass to any Scottish Wildlife Trust nature reserve event."),
+        ("RGBGARDEN", "Royal Botanic Garden", "Complimentary entry to the Royal Botanic Garden Edinburgh glasshouses."),
+        ("SCICENTRE",  "Glasgow Science Centre", "Buy one get one free on adult tickets at Glasgow Science Centre."),
+        ("FALKIRK25",  "The Falkirk Wheel", "25% off a Falkirk Wheel boat trip — valid for up to 4 people."),
+    ]
 
+    for i, (code, title, description) in enumerate(CODES):
         DiscountCode.objects.get_or_create(
             code=code,
             defaults={
+                "title": title,
+                "description": description,
                 "is_active": True,
                 "valid_from": now - timedelta(days=1),
                 "valid_until": now + timedelta(days=30),
             },
         )
 
-    print(f"Created {limit} discount codes")
+    print(f"Created {len(CODES)} discount codes")
 
 def create_random_user(index: int):
     first = random.choice(FIRST_NAMES)
