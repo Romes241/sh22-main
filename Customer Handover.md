@@ -45,6 +45,38 @@ The system can send:
 - reminder emails
 - feedback request emails
 
+### Feedback System
+The system supports two feedback flows:
+
+- External feedback (user-facing):
+	- users receive a feedback request email after a booking workflow
+	- they submit responses through a user-facing feedback link/form
+
+- Internal feedback (staff/admin-facing):
+	- users submit feedback through the built-in in-app form
+	- admins can view submissions in the admin feedback submissions area
+	- this supports internal monitoring and follow up
+
+How admins switch mode and configure it:
+- go to the feedback email settings page (`Manage Feedback Emails`, or feedback settings in `Admin Email`)
+- set `Feedback Collection Mode` to:
+	- `Internal` to use the built-in in-app feedback form
+	- `External` to use an external Microsoft Forms link
+- if `External` is selected, a valid Microsoft Forms URL must be entered before saving
+
+Where each flow is accessed:
+- Internal mode:
+	- users access feedback from their feedback email link (or booking history when available)
+	- admins review submitted feedback in `Admin Feedback Submissions`
+- External mode:
+	- users are sent to the configured Microsoft Forms URL
+	- responses are stored in Microsoft Forms (not the in-app feedback submissions list)
+
+How feedback delivery is controlled:
+- feedback request emails depend on the configured email backend/provider
+- feedback wording/content depends on configured email templates
+- if email is not configured for live delivery, external feedback requests will not reach users
+
 ## 3. Admin Capabilities
 
 Administrators can:
@@ -74,6 +106,16 @@ To run the system, the client will need:
 - a configured email service if live emails are required
 
 The current handover version is best suited to local, internal, or low-scale deployment unless further infrastructure work is carried out.
+
+## 5.1 Operational Dependencies (Important)
+
+In addition to hosting and database setup, the following operational services/configuration are required for full behaviour:
+
+- scheduler/background jobs must be running for timed actions (for example reminders, ticket/feedback sends, expiry checks)
+- email backend/provider must be configured for live outgoing email
+- environment variables must be present for deployment configuration
+
+If these are not configured, the site can still run, but time-based automation and live email-dependent workflows will be limited.
 
 ## 6. Deployment Summary
 
