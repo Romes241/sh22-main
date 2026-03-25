@@ -27,6 +27,7 @@ from fergusonbequest.models import (
     Profile,
     BookingFeedback,
     DiscountCode,
+    AttractionSuggestion,
 )
 
 User = get_user_model()
@@ -90,6 +91,7 @@ ATTRACTION_DATA = [
         "location": "Edinburgh",
         "image": "images/edinburgh_zoo.jpg",
         "description": "A large zoo with a wide range of animals and family-friendly attractions.",
+        "terms": "Entry tickets must be used on the selected date only. Children must be accompanied by an adult at all times. Please read the general Ferguson Bequest Terms & Conditions before booking.",
         "duration_minutes": 180,
         "contact_email": "info@edinburghzoo.org.uk",
         "per_year_limit": 3,
@@ -100,6 +102,7 @@ ATTRACTION_DATA = [
         "location": "Stirling",
         "image": "images/blair_drumond.jpg",
         "description": "A family safari park with animal exhibits, adventure play areas, and outdoor activities.",
+        "terms": "Staff ID required. Tickets are non-transferable. Please arrive 15 minutes before your booked slot. Please read the general Ferguson Bequest Terms & Conditions before booking.",
         "duration_minutes": 180,
         "contact_email": "info@blairdrummond.com",
         "per_year_limit": 5,
@@ -110,9 +113,21 @@ ATTRACTION_DATA = [
         "location": "Glasgow",
         "image": "images/glasgow_clan.jpg",
         "description": "Live ice hockey matches in Glasgow with an exciting arena atmosphere.",
+        "terms": "Late entry may be restricted during play. Tickets are valid for the specified match only. Please read the general Ferguson Bequest Terms & Conditions before booking.",
         "duration_minutes": 150,
         "contact_email": "info@clanihc.com",
         "per_year_limit": 10,
+    },
+    {
+        "slug": "botanic-gardens-tour",
+        "name": "Botanic Gardens Tour",
+        "location": "Edinburgh",
+        "image": "images/garden-tour.jpg",
+        "description": "Guided seasonal tour with glasshouses and garden highlights.",
+        "terms": "Guided tours run in all weather conditions. Please wear appropriate footwear. Please read the general Ferguson Bequest Terms & Conditions before booking.",
+        "duration_minutes": 90,
+        "contact_email": "events@rbge.org.uk",
+        "per_year_limit": 2,
     },
     {
         "slug": "ghostbusters-screening",
@@ -120,6 +135,7 @@ ATTRACTION_DATA = [
         "location": "Glasgow",
         "image": "images/ghostbusters.jpg",
         "description": "A special screening event for Ghostbusters with a cinema-style viewing experience.",
+        "terms": "No outside food or drink permitted. Seating is allocated on arrival. Please read the general Ferguson Bequest Terms & Conditions before booking.",
         "duration_minutes": 120,
         "contact_email": "events@glasgowcinema.co.uk",
         "per_year_limit": 2,
@@ -130,6 +146,7 @@ ATTRACTION_DATA = [
         "location": "Glasgow",
         "image": "images/gsc.jpg",
         "description": "Interactive science exhibits, IMAX cinema, and hands-on learning for all ages.",
+        "terms": "Some exhibits may be unavailable due to maintenance. Children must be supervised at all times. Please read the general Ferguson Bequest Terms & Conditions before booking.",
         "duration_minutes": 150,
         "contact_email": "info@gsc.org.uk",
         "per_year_limit": 4,
@@ -140,6 +157,7 @@ ATTRACTION_DATA = [
         "location": "Glasgow",
         "image": "images/celtic-park-stadium-tour.jpg",
         "description": "Behind-the-scenes tour of Celtic Park including dressing rooms and pitch access.",
+        "terms": "Tours may be subject to change due to stadium events. Comfortable footwear is recommended. Please read the general Ferguson Bequest Terms & Conditions before booking.",
         "duration_minutes": 90,
         "contact_email": "tours@celticfc.co.uk",
         "per_year_limit": 2,
@@ -150,6 +168,7 @@ ATTRACTION_DATA = [
         "location": "Edinburgh",
         "image": "images/edinburgh-castle.jpg",
         "description": "Historic castle with panoramic views and Scottish crown jewels.",
+        "terms": "Security checks may apply at entry. Tickets are non-refundable. Please read the general Ferguson Bequest Terms & Conditions before booking.",
         "duration_minutes": 180,
         "contact_email": "info@edinburghcastle.scot",
         "per_year_limit": 3,
@@ -160,6 +179,7 @@ ATTRACTION_DATA = [
         "location": "Glasgow",
         "image": "images/flipout-park.jpg",
         "description": "Indoor trampoline park with foam pits and obstacle courses.",
+        "terms": "Grip socks must be worn at all times. Participants must complete a safety waiver. Please read the general Ferguson Bequest Terms & Conditions before booking.",
         "duration_minutes": 60,
         "contact_email": "info@flipout.co.uk",
         "per_year_limit": 5,
@@ -170,6 +190,7 @@ ATTRACTION_DATA = [
         "location": "Glasgow",
         "image": "images/kings_theatre.jpg",
         "description": "Live theatre performance including comedy, drama, or touring musicals.",
+        "terms": "Latecomers may not be admitted until a suitable break. Mobile phones must be switched off during performances. Please read the general Ferguson Bequest Terms & Conditions before booking.",
         "duration_minutes": 140,
         "contact_email": "boxoffice@kingsglasgow.co.uk",
         "per_year_limit": 2,
@@ -180,6 +201,7 @@ ATTRACTION_DATA = [
         "location": "Glasgow",
         "image": "images/Kelvingrove_gallery.jpg",
         "description": "Museum admission with art, exhibits, and family-friendly galleries.",
+        "terms": "Photography may be restricted in certain exhibits. Bags may be subject to security checks. Please read the general Ferguson Bequest Terms & Conditions before booking.",
         "duration_minutes": 120,
         "contact_email": "info@glasgowlife.org.uk",
         "per_year_limit": 4,
@@ -189,20 +211,11 @@ ATTRACTION_DATA = [
         "name": "Deep Sea World",
         "location": "North Queensferry",
         "image": "images/deep-sea-world.jpg",
-        "description": "Aquarium visit with underwater tunnel and marine life exhibits.",
+        "description": "Aquarium experience with underwater tunnel and marine life exhibits.",
+        "terms": "Children must be supervised at all times. Flash photography is not permitted. Please read the general Ferguson Bequest Terms & Conditions before booking.",
         "duration_minutes": 120,
-        "contact_email": "hello@deepseaworld.com",
+        "contact_email": "info@deepseaworld.com",
         "per_year_limit": 3,
-    },
-    {
-        "slug": "botanic-gardens-tour",
-        "name": "Botanic Gardens Tour",
-        "location": "Edinburgh",
-        "image": "images/garden-tour.jpg",
-        "description": "Guided seasonal tour with glasshouses and garden highlights.",
-        "duration_minutes": 90,
-        "contact_email": "events@rbge.org.uk",
-        "per_year_limit": 2,
     },
 ]
 
@@ -351,19 +364,61 @@ def create_feedback(bookings, limit=10):
 def create_discount_codes(limit=10):
     now = timezone.now()
 
-    for i in range(limit):
-        code = f"TEST{i+1:02d}"
+    CODES = [
+        ("GLASGOW10", "Glasgow Life Museums", "10% off entry to all Glasgow Life museums including Kelvingrove and the Riverside Museum."),
+        ("SECC2026",  "SEC Glasgow Discount", "£5 off tickets to selected events at the SEC Centre and OVO Hydro."),
+        ("NTS15OFF",  "National Trust Scotland", "15% off annual membership with the National Trust for Scotland."),
+        ("EDICASUAL", "Edinburgh Leisure", "Free day pass for Edinburgh Leisure centres, including pools and gyms."),
+        ("HERITAGE20", "Historic Environment Scotland", "20% off entry to Historic Environment Scotland sites including Edinburgh Castle."),
+        ("CINEWORLD",  "Cineworld Staff Rate", "Staff-rate cinema tickets at any Cineworld in Scotland — show your staff ID."),
+        ("VWILDLIFE",  "Scottish Wildlife Trust", "Free guest pass to any Scottish Wildlife Trust nature reserve event."),
+        ("RGBGARDEN", "Royal Botanic Garden", "Complimentary entry to the Royal Botanic Garden Edinburgh glasshouses."),
+        ("SCICENTRE",  "Glasgow Science Centre", "Buy one get one free on adult tickets at Glasgow Science Centre."),
+        ("FALKIRK25",  "The Falkirk Wheel", "25% off a Falkirk Wheel boat trip — valid for up to 4 people."),
+    ]
 
+    for i, (code, title, description) in enumerate(CODES):
         DiscountCode.objects.get_or_create(
             code=code,
             defaults={
+                "title": title,
+                "description": description,
                 "is_active": True,
                 "valid_from": now - timedelta(days=1),
                 "valid_until": now + timedelta(days=30),
             },
         )
 
-    print(f"Created {limit} discount codes")
+    print(f"Created {len(CODES)} discount codes")
+
+def create_suggestions(users):
+    SUGGESTIONS = [
+        ("Edinburgh Castle", "Edinburgh", "https://www.edinburghcastle.scot", "Historic fortress in the heart of Edinburgh.", "A truly iconic Scottish landmark staff would love.", "Pending"),
+        ("Kelvingrove Art Gallery", "Glasgow", "https://www.glasgowlife.org.uk/museums/kelvingrove", "World-class art gallery and museum.", "Free entry and an amazing collection — great for a day out.", "Implemented"),
+        ("Loch Lomond Shores", "Balloch", "https://www.lochlomond-shores.com", "Visitor centre on the banks of Loch Lomond.", "Beautiful scenery, ideal for families.", "In progress"),
+        ("Dynamic Earth", "Edinburgh", "https://www.dynamicearth.co.uk", "Interactive science attraction about Earth's history.", "Educational and fun — perfect team outing.", "Pending"),
+        ("Stirling Castle", "Stirling", "https://www.stirlingcastle.scot", "One of Scotland's grandest castles.", "Stunning views and great history tours.", "Rejected"),
+        ("The Botanics", "Glasgow", "https://www.rbge.org.uk", "Royal Botanic Garden Glasgow.", "Lovely for a relaxing walk, especially in spring.", "Pending"),
+        ("Camera Obscura", "Edinburgh", "https://www.camera-obscura.co.uk", "Optical illusions and visual trickery attraction.", "Quirky and fun, staff really enjoy it.", "Pending"),
+    ]
+
+    staff_users = [u for u in users if not u.is_staff and not u.is_superuser]
+
+    for name, location, url, desc, why, status in SUGGESTIONS:
+        user = random.choice(staff_users)
+        AttractionSuggestion.objects.get_or_create(
+            name=name,
+            defaults={
+                "location": location,
+                "website_url": url,
+                "description": desc,
+                "why_recommended": why,
+                "status": status,
+                "submitted_by": user,
+            }
+        )
+
+    print(f"Created {len(SUGGESTIONS)} attraction suggestions")
 
 def create_random_user(index: int):
     first = random.choice(FIRST_NAMES)
@@ -403,6 +458,7 @@ def create_attractions(now):
                 location=item["location"],
                 image=item["image"],
                 description=item["description"],
+                terms=item.get("terms", ""),
                 duration_minutes=item["duration_minutes"],
                 contact_email=item["contact_email"],
                 per_year_limit=item["per_year_limit"],
@@ -810,6 +866,7 @@ def populate():
 
     create_feedback(all_bookings, limit=10)
     create_discount_codes(limit=10)
+    create_suggestions(all_users)
 
     print("Populate complete.")
     print(f"Users created/updated: {len(all_users)}")

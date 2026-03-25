@@ -135,9 +135,12 @@
           {% if a.tickets_left_total == 0 %}
             {% if a.sold_out_slot_count == 1 %}
               {% with slot=a.sold_out_slots.0 %}
-              <form method="POST" action="{% url 'waiting_listattraction_join' slot.pk %}" class="waitlist-slot-form">
-                {% csrf_token %}
-                <input type="hidden" name="slot" value="{{ slot.pk }}">
+                <form id="waitlistForm_{{ slot.pk }}" method="POST" action="{% url 'waiting_listattraction_join' slot.pk %}" class="waitlist-slot-form">
+                  {% csrf_token %}
+                  <input type="hidden" name="slot" value="{{ slot.pk }}">
+                  <input type="hidden" name="agreed_terms" class="agreed-terms-input" value="false">
+                    {% csrf_token %}
+                    <input type="hidden" name="slot" value="{{ slot.pk }}">
 
                 <div class="waitlist-slot-actions">
                   <label for="modal_num_tickets_{{ slot.pk }}">Number of tickets</label>
@@ -146,7 +149,11 @@
                     <option value="2">2 tickets</option>
                   </select>
 
-                  <button type="submit" class="btn outline">Join Waitlist</button>
+                    <button type="button"
+                            class="btn outline open-terms-modal"
+                            data-target-form="waitlistForm_{{ slot.pk }}">
+                      Join Waitlist
+                    </button>
                 </div>
               </form>
               {% endwith %}
@@ -164,45 +171,66 @@
       </div>
     </div>
 
-    {% if a.tickets_left_total == 0 and a.sold_out_slot_count > 1 and not request.user.is_staff and not request.user.is_superuser %}
-    <div id="waitlist-modal-{{ a.id }}" class="waitlist-modal" style="display:none;">
-      <div class="waitlist-modal-backdrop" onclick="closeWaitlistModal('{{ a.id }}')"></div>
+{% if a.tickets_left_total == 0 and a.sold_out_slot_count > 1 and not request.user.is_staff and not request.user.is_superuser %}
+<div id="waitlist-modal-{{ a.id }}" class="waitlist-modal" style="display:none;">
+  <div class="waitlist-modal-backdrop" onclick="closeWaitlistModal('{{ a.id }}')"></div>
 
-      <div class="waitlist-modal-content">
-        <div class="waitlist-modal-header">
-          <h3>Choose a slot for {{ a.name }}</h3>
-          <button type="button" class="waitlist-modal-close" onclick="closeWaitlistModal('{{ a.id }}')">
-            ×
-          </button>
-        </div>
-
-        <div class="waitlist-modal-body">
-          {% for slot in a.sold_out_slots %}
-          <div class="waitlist-slot-row">
-            <div class="waitlist-slot-time">
-              {{ slot.date|date:"d/m/Y" }} — {{ slot.time|time:"H:i" }}
-            </div>
-
-            <form method="POST" action="{% url 'waiting_listattraction_join' slot.pk %}" class="waitlist-slot-form">
-              {% csrf_token %}
-              <input type="hidden" name="slot" value="{{ slot.pk }}">
-
-              <div class="waitlist-slot-actions">
-                <label for="modal_num_tickets_{{ slot.pk }}" class="sr-only">Number of tickets</label>
-                <select name="num_tickets" id="modal_num_tickets_{{ slot.pk }}" class="waitlist-ticket-select">
-                  <option value="1">1 ticket</option>
-                  <option value="2">2 tickets</option>
-                </select>
-
-                <button type="submit" class="btn outline">Join Waitlist</button>
-              </div>
-            </form>
-          </div>
-          {% endfor %}
-        </div>
-      </div>
+  <div class="waitlist-modal-content">
+    <div class="waitlist-modal-header">
+      <h3>Choose a slot for {{ a.name }}</h3>
+      <button type="button" class="waitlist-modal-close" onclick="closeWaitlistModal('{{ a.id }}')">
+        ×
+      </button>
     </div>
-    {% endif %}
+
+    <div class="waitlist-modal-body">
+      <div class="waitlist-terms-box">
+        <h4>Terms &amp; Conditions</h4>
+        <p>
+          {{ a.terms|default:"Please read the general Ferguson Bequest terms and any attraction-specific conditions before proceeding." }}
+        </p>
+
+        <label class="waitlist-terms-check">
+          <input type="checkbox"
+                 id="agreeTerms_{{ a.id }}"
+                 class="waitlist-terms-checkbox"
+                 data-attraction-id="{{ a.id }}">
+          I have read and agree to these terms.
+        </label>
+      </div>
+
+      {% for slot in a.sold_out_slots %}
+      <div class="waitlist-slot-row">
+        <div class="waitlist-slot-time">
+          {{ slot.date|date:"d/m/Y" }} — {{ slot.time|time:"H:i" }}
+        </div>
+
+        <form id="waitlistForm_{{ slot.pk }}" method="POST" action="{% url 'waiting_listattraction_join' slot.pk %}" class="waitlist-slot-form">
+          {% csrf_token %}
+          <input type="hidden" name="slot" value="{{ slot.pk }}">
+          <input type="hidden" name="agreed_terms" class="agreed-terms-input" value="false">
+
+          <div class="waitlist-slot-actions">
+            <label for="modal_num_tickets_{{ slot.pk }}" class="sr-only">Number of tickets</label>
+            <select name="num_tickets" id="modal_num_tickets_{{ slot.pk }}" class="waitlist-ticket-select">
+              <option value="1">1 ticket</option>
+              <option value="2">2 tickets</option>
+            </select>
+
+            <button type="submit"
+                    class="btn outline waitlist-submit-btn"
+                    data-attraction-id="{{ a.id }}"
+                    disabled>
+              Join Waitlist
+            </button>
+          </div>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
 
   </div>
 {% empty %}
@@ -211,6 +239,32 @@
 
   </div>
 </div>
+<!-- TERMS MODAL -->
+<div id="termsModal" class="terms-modal hidden">
+   <div class="terms-modal-backdrop"></div>
+
+  <div class="terms-content">
+    <h3>Terms & Conditions</h3>
+
+    <div class="terms-box">
+      Please read the general Ferguson Bequest terms and any attraction-specific conditions before proceeding.
+    </div>
+
+    <label class="terms-checkbox">
+      <input type="checkbox" id="agreeTermsCheckbox">
+      I have read and agree to these terms.
+    </label>
+
+    <div class="terms-actions">
+      <button type="button" id="cancelTermsBtn" class="btn secondary">Back</button>
+      <button type="button" id="confirmTermsBtn" class="btn primary" disabled>
+        I agree
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="{% static 'fergusonbequest/js/waitlist_attraction_terms.js' %}"></script>
 <script>
   // Opens and closes the quick waiting list popup for an attraction
   function openWaitlistModal(attractionId) {
@@ -251,5 +305,25 @@
       });
     }
   })();
+
+  document.querySelectorAll(".waitlist-terms-checkbox").forEach((checkbox) => {
+    checkbox.addEventListener("change", function () {
+      const attractionId = this.dataset.attractionId;
+      const buttons = document.querySelectorAll(
+        '.waitlist-submit-btn[data-attraction-id="' + attractionId + '"]'
+      );
+      const agreedInputs = document.querySelectorAll(
+        '#waitlist-modal-' + attractionId + ' .agreed-terms-input'
+      );
+
+      buttons.forEach((btn) => {
+        btn.disabled = !this.checked;
+      });
+
+      agreedInputs.forEach((input) => {
+        input.value = this.checked ? "true" : "false";
+      });
+    });
+  });
 </script>
 {% endblock %}

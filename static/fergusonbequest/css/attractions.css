@@ -5,6 +5,67 @@
   min-height: 0;
 }
 
+/* terms pop up*/
+.hidden {
+  display: none !important;
+}
+
+.waitlist-terms-box {
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid #e3e7f0;
+  border-radius: 14px;
+  background: #f8f9fc;
+}
+
+.waitlist-terms-box h4 {
+  margin: 0 0 8px;
+}
+
+.waitlist-terms-box p {
+  margin: 0 0 10px;
+  line-height: 1.4;
+}
+
+.waitlist-terms-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.waitlist-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}.waitlist-terms-box {
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid #e3e7f0;
+  border-radius: 14px;
+  background: #f8f9fc;
+}
+
+.waitlist-terms-box h4 {
+  margin: 0 0 8px;
+}
+
+.waitlist-terms-box p {
+  margin: 0 0 10px;
+  line-height: 1.4;
+}
+
+.waitlist-terms-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.waitlist-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .page-title {
   margin: 0 0 18px;
   font-size: 44px;

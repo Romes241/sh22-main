@@ -102,11 +102,8 @@
                       {% if d.is_active %}Hide{% else %}Show{% endif %}
                     </button>
                   </form>
-                  <form method="post" action="{% url 'discount_code_delete' d.pk %}" style="display:inline;"
-                        onsubmit="return confirm('Delete code {{ d.code }}? This cannot be undone.');">
-                    {% csrf_token %}
-                    <button type="submit" class="dc-btn-sm dc-btn-sm--delete">Delete</button>
-                  </form>
+                    <button type="button" class="dc-btn-sm dc-btn-sm--delete"
+                            onclick="openDeleteModal('{{ d.pk }}', '{{ d.code }}')">Delete</button>
                 </td>
               </tr>
           {% endfor %}
@@ -119,4 +116,34 @@
   </section>
 
 </div>
+<div id="dcDeleteModal" class="dc-modal">
+  <div class="dc-modal__content">
+    <div class="dc-modal__header">
+      <h3 class="dc-modal__title">Delete Discount Code</h3>
+      <button class="dc-modal__close" onclick="closeDeleteModal()">✕</button>
+    </div>
+    <p class="dc-modal__body">Are you sure you want to delete code <strong id="dcDeleteCodeName"></strong>? This action cannot be undone.</p>
+    <div class="dc-modal__actions">
+      <button class="dc-modal__cancel" onclick="closeDeleteModal()">Cancel</button>
+      <form id="dcDeleteForm" method="post" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="dc-modal__confirm">confirm</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function openDeleteModal(pk, code) {
+  document.getElementById('dcDeleteCodeName').textContent = code;
+  document.getElementById('dcDeleteForm').action = `/staff/discounts/${pk}/delete/`;
+  document.getElementById('dcDeleteModal').classList.add('is-open');
+}
+function closeDeleteModal() {
+  document.getElementById('dcDeleteModal').classList.remove('is-open');
+}
+document.getElementById('dcDeleteModal').addEventListener('click', function(e) {
+  if (e.target === this) closeDeleteModal();
+});
+</script>
 {% endblock %}

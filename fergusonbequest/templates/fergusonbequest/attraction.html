@@ -11,16 +11,21 @@
 
 <div class="attraction-page">
 
-  <a class="back-link" href="{% url 'attractions' %}">
-    <span class="back-text">Back to attractions</span> ←
-  </a>
+  <div class="top-bar">
+    <a class="back-link" href="{% url 'attractions' %}">
+      <span class="back-text">← Back to attractions</span>
+    </a>
 
-  {% if user.is_staff %}
-    <a href="{% url 'edit_attraction' attraction.pk %}" style="margin-left: auto; margin-top: -40px;">Edit</a>
-  {% endif %}
+    {% if user.is_staff %}
+      <a href="{% url 'edit_attraction' attraction.pk %}" class="header-btn">
+        Edit
+      </a>
+    {% endif %}
+  </div>
 
   <div class="layout">
 
+    <!-- LEFT -->
     <div class="panel left-panel">
 
       <div class="left-title">{{ attraction.name|default:"Attraction Name" }}</div>
@@ -40,32 +45,27 @@
           <span class="location-icon">📍</span>
           <span>{{ attraction.location }}</span>
         </a>
-      {% else %}
-        <div class="location-row">
-          <span class="location-icon">📍</span>
-          <span>Google Maps</span>
-        </div>
       {% endif %}
 
     </div>
 
+    <!-- RIGHT -->
     <div class="right-col">
 
       <div class="panel">
         <div class="panel-heading">Details</div>
 
         <div class="panel-body">
-            <div class="detail-line">
-              <strong>Available dates:</strong> {{ available_dates_display }}
-            </div>
+
+          <div class="detail-line">
+            <strong>Available dates:</strong> {{ available_dates_display }}
+          </div>
 
           <div class="detail-line">
             <strong>Duration:</strong>
             {% if attraction.duration_minutes %}
               {{ attraction.duration_minutes }} minutes
-            {% else %}
-              —
-            {% endif %}
+            {% else %} — {% endif %}
           </div>
 
           <div class="detail-line">
@@ -78,38 +78,166 @@
             <strong>Contact:</strong> {{ attraction.contact_email|default:"—" }}
           </div>
 
-          {% if has_bookable_slots %}
+          {% if has_bookable_slots and not user.is_staff %}
             <div class="book-btn-container">
               <a href="{% url 'attraction_book' attraction_pk=attraction.pk %}" class="book-now-link">
                 Book now
               </a>
             </div>
 
-          {% elif user.is_authenticated and is_sold_out and waitlist_slot %}
+          {% elif user.is_authenticated and not user.is_staff and is_sold_out %}
+
             <div style="margin-top: 16px;">
+
               {% if on_waitlist %}
-                <p class="detail-line" style="margin-bottom: 10px; color: #065f46;">You're on this waiting list.</p>
+                <p class="detail-line" style="margin-bottom: 10px; color: #065f46;">
+                  You're on this waiting list.
+                </p>
+
                 <form method="POST" action="{% url 'waiting_listattraction_leave' waitlist_slot.pk %}">
                   {% csrf_token %}
                   <button class="btn primary" type="submit">Leave Waiting List</button>
                 </form>
+
               {% else %}
-                <p class="detail-line" style="margin-bottom: 10px;">This attraction is sold out. Join the waiting list to be notified if spots open.</p>
-                <form method="POST" action="{% url 'waiting_listattraction_join' waitlist_slot.pk %}">
-                  {% csrf_token %}
-                  <button class="btn primary" type="submit">Join Waiting List</button>
-                </form>
+                <p class="detail-line" style="margin-bottom: 10px;">
+                  This attraction is sold out. Join the waiting list to be notified if spots open.
+                </p>
+
+                <div class="book-btn-container">
+                  <button type="button"
+                          class="primary-btn"
+                          onclick="openWaitlistModal('{{ attraction.id }}')">
+                    Join Waiting List
+                  </button>
+                </div>
+
               {% endif %}
+
             </div>
 
-          {% else %}
-            <div class="detail-line" style="margin-top: 16px;">No future slots available for booking.</div>
           {% endif %}
+
         </div>
       </div>
 
     </div>
   </div>
 </div>
+
+
+<!--  waitlist modal (same as attarctions page) -->
+{% if is_sold_out and not user.is_staff and not user.is_superuser %}
+    <div id="waitlist-modal-{{ attraction.id }}" class="waitlist-modal" style="display:none;">
+  <div class="waitlist-modal-backdrop"
+       onclick="closeWaitlistModal('{{ attraction.id }}')"></div>
+
+  <div class="waitlist-modal-content">
+
+    <div class="waitlist-modal-header">
+      <h3>Choose a slot for {{ attraction.name }}</h3>
+      <button type="button"
+              class="waitlist-modal-close"
+              onclick="closeWaitlistModal('{{ attraction.id }}')">
+        ×
+      </button>
+    </div>
+
+    <div class="waitlist-modal-body">
+
+      <!-- terms -->
+      <div class="waitlist-terms-box">
+        <h4>Terms & Conditions</h4>
+
+        <p>
+          {{ attraction.terms|default:"Please read the general Ferguson Bequest terms and any attraction-specific conditions before proceeding." }}
+        </p>
+
+        <label class="waitlist-terms-check">
+          <input type="checkbox"
+                 id="agreeTerms_{{ attraction.id }}"
+                 class="waitlist-terms-checkbox"
+                 data-attraction-id="{{ attraction.id }}">
+          I have read and agree to these terms.
+        </label>
+      </div>
+
+      <!-- slots -->
+      {% for slot in sold_out_slots %}
+      <div class="waitlist-slot-row">
+
+        <div class="waitlist-slot-time">
+          {{ slot.date|date:"d/m/Y" }} — {{ slot.time|time:"H:i" }}
+        </div>
+
+        <form method="POST"
+              action="{% url 'waiting_listattraction_join' slot.pk %}"
+              class="waitlist-slot-form">
+
+          {% csrf_token %}
+          <input type="hidden" name="slot" value="{{ slot.pk }}">
+          <input type="hidden" name="agreed_terms" class="agreed-terms-input" value="false">
+
+          <div class="waitlist-slot-actions">
+
+            <select name="num_tickets" class="waitlist-ticket-select">
+              <option value="1">1 ticket</option>
+              <option value="2">2 tickets</option>
+            </select>
+
+            <button type="submit"
+                    class="btn outline waitlist-submit-btn"
+                    data-attraction-id="{{ attraction.id }}"
+                    disabled>
+              Join Waitlist
+            </button>
+
+          </div>
+        </form>
+
+      </div>
+      {% endfor %}
+
+    </div>
+  </div>
+</div>
+{% endif %}
+<script>
+function openWaitlistModal(id) {
+  const modal = document.getElementById('waitlist-modal-' + id);
+
+  if (!modal) {
+    console.error("Modal not found for id:", id);
+    return;
+  }
+
+  modal.style.display = 'block';
+}
+
+function closeWaitlistModal(id) {
+  document.getElementById('waitlist-modal-' + id).style.display = 'none';
+}
+
+// Enable/disable submit buttons based on terms checkbox
+document.querySelectorAll(".waitlist-terms-checkbox").forEach(function(checkbox) {
+  checkbox.addEventListener("change", function () {
+    const attractionId = this.dataset.attractionId;
+    const buttons = document.querySelectorAll(
+      '.waitlist-submit-btn[data-attraction-id="' + attractionId + '"]'
+    );
+    const agreedInputs = document.querySelectorAll(
+      '#waitlist-modal-' + attractionId + ' .agreed-terms-input'
+    );
+
+    buttons.forEach(function(btn) {
+      btn.disabled = !checkbox.checked;
+    });
+
+    agreedInputs.forEach(function(input) {
+      input.value = checkbox.checked ? "true" : "false";
+    });
+  });
+});
+</script>
 
 {% endblock %}
