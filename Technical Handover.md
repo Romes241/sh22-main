@@ -408,6 +408,7 @@ The Ferguson Bequest System is currently in a good state for:
 It is not yet a fully production-ready deployment, primarily due to:
 - SQLite limitations
 - scheduler architecture limitations
+- email backend/provider configuration still depends on final deployment environment
 - the absence of a final hosting/deployment environment during development
 
 The recommended next step after handover is for the receiving team to decide whether the system will remain a local/internal tool or be prepared for a more formal hosted deployment.
