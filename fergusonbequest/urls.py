@@ -46,10 +46,6 @@ urlpatterns = [
     path("waiting-list-attraction/join/<int:pk>/", views.waiting_listattraction_join, name="waiting_listattraction_join"),
     path("waiting-list-attraction/leave/<int:pk>/", views.waiting_listattraction_leave, name="waiting_listattraction_leave"),
 
-    # Calendar
-    path("calendar/", views.calendar_view, name="calendar"),
-    path("calendar/<int:year>/<int:month>/", views.calendar_view, name="calendar"),
-
     # Admin dashboard
     path("admin-dashboard/", views.admin_dashboard, name="admin_dashboard"),
     path("admin-dashboard/<int:year>/<int:month>/", views.admin_dashboard, name="admin_dashboard"),
