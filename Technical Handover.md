@@ -214,6 +214,26 @@ http://127.0.0.1:8000
 
 The application expects environment variables for security and deployment flexibility.
 
+### Generating a Django Secret Key
+
+A Django secret key is required in the `.env` file as:
+
+DJANGO_SECRET_KEY=your-generated-key
+
+To generate a secure secret key, run the following command in Python:
+
+```bash
+python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+```
+
+Copy the output and place it into the `.env` file, for example:
+
+```env
+DJANGO_SECRET_KEY=your-generated-key-here
+```
+
+Do not commit real secret keys.
+
 ### Core Variables
 
 DJANGO_SECRET_KEY=change-me
