@@ -587,12 +587,6 @@ def dashboard_view(request, year=None, month=None):
     )
 
 
-def calendar_view(request, year=None, month=None):
-    context = get_calendar(year, month)
-    context["url_name"] = "dashboard"
-    return render(request, "fergusonbequest/calendar.html", context)
-
-
 def terms(request):
     from .models import TermsAndConditions
     t_and_c = TermsAndConditions.get()
