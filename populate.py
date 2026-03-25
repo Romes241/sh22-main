@@ -27,6 +27,7 @@ from fergusonbequest.models import (
     Profile,
     BookingFeedback,
     DiscountCode,
+    AttractionSuggestion,
 )
 
 User = get_user_model()
@@ -389,6 +390,35 @@ def create_discount_codes(limit=10):
         )
 
     print(f"Created {len(CODES)} discount codes")
+
+def create_suggestions(users):
+    SUGGESTIONS = [
+        ("Edinburgh Castle", "Edinburgh", "https://www.edinburghcastle.scot", "Historic fortress in the heart of Edinburgh.", "A truly iconic Scottish landmark staff would love.", "Pending"),
+        ("Kelvingrove Art Gallery", "Glasgow", "https://www.glasgowlife.org.uk/museums/kelvingrove", "World-class art gallery and museum.", "Free entry and an amazing collection — great for a day out.", "Implemented"),
+        ("Loch Lomond Shores", "Balloch", "https://www.lochlomond-shores.com", "Visitor centre on the banks of Loch Lomond.", "Beautiful scenery, ideal for families.", "In progress"),
+        ("Dynamic Earth", "Edinburgh", "https://www.dynamicearth.co.uk", "Interactive science attraction about Earth's history.", "Educational and fun — perfect team outing.", "Pending"),
+        ("Stirling Castle", "Stirling", "https://www.stirlingcastle.scot", "One of Scotland's grandest castles.", "Stunning views and great history tours.", "Rejected"),
+        ("The Botanics", "Glasgow", "https://www.rbge.org.uk", "Royal Botanic Garden Glasgow.", "Lovely for a relaxing walk, especially in spring.", "Pending"),
+        ("Camera Obscura", "Edinburgh", "https://www.camera-obscura.co.uk", "Optical illusions and visual trickery attraction.", "Quirky and fun, staff really enjoy it.", "Pending"),
+    ]
+
+    staff_users = [u for u in users if not u.is_staff and not u.is_superuser]
+
+    for name, location, url, desc, why, status in SUGGESTIONS:
+        user = random.choice(staff_users)
+        AttractionSuggestion.objects.get_or_create(
+            name=name,
+            defaults={
+                "location": location,
+                "website_url": url,
+                "description": desc,
+                "why_recommended": why,
+                "status": status,
+                "submitted_by": user,
+            }
+        )
+
+    print(f"Created {len(SUGGESTIONS)} attraction suggestions")
 
 def create_random_user(index: int):
     first = random.choice(FIRST_NAMES)
@@ -836,6 +866,7 @@ def populate():
 
     create_feedback(all_bookings, limit=10)
     create_discount_codes(limit=10)
+    create_suggestions(all_users)
 
     print("Populate complete.")
     print(f"Users created/updated: {len(all_users)}")
