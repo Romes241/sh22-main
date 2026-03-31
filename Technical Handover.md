@@ -195,9 +195,9 @@ pip install -r requirements.txt
 
 Create a .env file based on the example configuration:
 
-cp .env.example .env
+cp config/.env.example config/.env
 
-If .env.example is not yet present in the repository, create a .env manually using the structure in Section 7 below.
+If `.env.example` is not yet present in the repository, create `config/.env` manually using the structure in Section 7 below.
 
 ### Run Database Setup
 
@@ -237,7 +237,7 @@ Do not commit real secret keys.
 ### Core Variables
 
 DJANGO_SECRET_KEY=change-me
-DJANGO_DEBUG=False
+DJANGO_DEBUG=True
 DJANGO_ALLOWED_HOSTS=127.0.0.1 localhost
 
 ### Email Variables
@@ -257,9 +257,10 @@ AWS_SES_REGION_NAME=
 AWS_SES_REGION_ENDPOINT=
 
 ### Notes
-- For local development, DJANGO_DEBUG=True may be used
+- For local development, use DJANGO_DEBUG=True
 - For deployment/customer use, DJANGO_DEBUG=False should be used
 - DJANGO_SECRET_KEY must always be set
+- `DJANGO_ALLOWED_HOSTS` can be space-separated (`127.0.0.1 localhost`) or comma-separated (`127.0.0.1,localhost`)
 
 ## 8. Deployment Notes
 

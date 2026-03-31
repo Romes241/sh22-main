@@ -143,7 +143,7 @@ source venv/bin/activate
 
 pip install -r requirements.txt
 
-cp .env.example .env
+cp config/.env.example config/.env
 
 python manage.py migrate
 python manage.py createsuperuser
@@ -158,13 +158,17 @@ http://127.0.0.1:8000/
 
 ## Environment Configuration
 
-Create a `.env` file using `.env.example`.
+Create `config/.env` using `config/.env.example`.
 
 At minimum, `DJANGO_SECRET_KEY` must be set.
 
 For local development, you may wish to use:
 - `DJANGO_DEBUG=True`
+- `DJANGO_ALLOWED_HOSTS=127.0.0.1 localhost`
 - `EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend`
+
+For production/customer deployment:
+- `DJANGO_DEBUG=False` (required)
 
 ---
 
