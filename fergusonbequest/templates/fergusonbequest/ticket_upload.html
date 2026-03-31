@@ -249,6 +249,35 @@
             onclick="openTicketViewModal('b:{{ r.id }}', '{{ r.booking_reference|escapejs }}')">
               View Ticket
           </button>
+          <button
+            type="button"
+            class="tu-btn tu-btn--secondary"
+            onclick="openIndividualTicketModal(
+              '{{ r.id }}',
+              '{{ r.venue_name|escapejs }}',
+              '',
+              '',
+              '',
+              'b',
+              '{{ r.ticketed_count }}',
+              '{{ r.total_count }}',
+              '{{ r.num_tickets }}',
+              this,
+              '{{ r.ticket_type|escapejs }}',
+              '{{ r.ticket_code|escapejs }}',
+              '{{ r.ticket_instructions|escapejs }}',
+              '{{ r.ticket_qr_value|escapejs }}',
+              '{{ r.box_office_notes|escapejs }}',
+              '{{ r.generic_booking_code|escapejs }}'
+            )">
+              Edit Ticket
+          </button>
+          <button
+            type="button"
+            class="tu-btn tu-btn--danger"
+            onclick="openDeleteSingleModal('{{ r.id }}', '{{ r.venue_name|escapejs }}', 'b')">
+              Delete Ticket
+          </button>
 
         {% elif r.is_past %}
           <span class="tu-past">Past booking</span>
@@ -343,6 +372,35 @@
                     class="tu-btn tu-btn--primary"
                     onclick="openTicketViewModal('d:{{ r.id }}', '{{ r.booking_reference|escapejs }}')">
                       View Ticket
+                  </button>
+                  <button
+                    type="button"
+                    class="tu-btn tu-btn--secondary"
+                    onclick="openIndividualTicketModal(
+                      '{{ r.id }}',
+                      '{{ r.venue_name|escapejs }}',
+                      '{{ r.forename|escapejs }}',
+                      '{{ r.surname|escapejs }}',
+                      '{{ r.guid }}',
+                      'd',
+                      '{{ r.ticketed_count }}',
+                      '{{ r.total_count }}',
+                      '{{ r.num_tickets }}',
+                      this,
+                      '{{ r.ticket_type|escapejs }}',
+                      '{{ r.ticket_code|escapejs }}',
+                      '{{ r.ticket_instructions|escapejs }}',
+                      '{{ r.ticket_qr_value|escapejs }}',
+                      '{{ r.box_office_notes|escapejs }}',
+                      '{{ r.generic_booking_code|escapejs }}'
+                    )">
+                      Edit Ticket
+                  </button>
+                  <button
+                    type="button"
+                    class="tu-btn tu-btn--danger"
+                    onclick="openDeleteSingleModal('{{ r.id }}', '{{ r.venue_name|escapejs }}', 'd')">
+                      Delete Ticket
                   </button>
 
                 {% elif r.is_past %}

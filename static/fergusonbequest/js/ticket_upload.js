@@ -510,7 +510,13 @@ function openIndividualTicketModal(
   ticketedCount,
   totalCount,
   numTickets,
-  btn
+  btn,
+  ticketType,
+  ticketCode,
+  ticketInstructions,
+  ticketQrValue,
+  boxOfficeNotes,
+  genericBookingCode
 ) {
   const form = document.getElementById("ticketUploadForm");
   if (!form) return;
@@ -541,6 +547,42 @@ function openIndividualTicketModal(
   if (ticketedEl) ticketedEl.textContent = ticketedCount || "0";
   if (totalEl) totalEl.textContent = totalCount || "0";
   if (nav) nav.style.display = "";
+
+  // If editing an existing ticket, pre-fill the form with existing data
+  if (ticketType && ticketType !== "—") {
+    activateTicketType(ticketType);
+
+    // Pre-fill based on ticket type
+    if (ticketType === "codes") {
+      const textarea = document.getElementById("singleCodesText");
+      if (textarea && ticketCode) {
+        textarea.value = ticketCode;
+        textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    } else if (ticketType === "instructions") {
+      const textarea = document.querySelector('[name="instructions"]');
+      if (textarea && ticketInstructions) {
+        textarea.value = ticketInstructions;
+      }
+    } else if (ticketType === "booking_code") {
+      const input = document.querySelector('[name="booking_code"]');
+      if (input && genericBookingCode) {
+        input.value = genericBookingCode;
+      }
+    } else if (ticketType === "box_office") {
+      const textarea = document.querySelector('[name="box_office_notes"]');
+      if (textarea && boxOfficeNotes) {
+        textarea.value = boxOfficeNotes;
+      }
+    } else if (ticketType === "qr_individual") {
+      const textarea = document.querySelector('[name="ticket_qr_values_individual"]');
+      if (textarea && ticketQrValue) {
+        textarea.value = ticketQrValue;
+      }
+    }
+  } else {
+    activateTicketType("codes");
+  }
 
   renderTicketInputs(numTickets || 1);
   setModalOpen(true);

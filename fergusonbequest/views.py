@@ -31,6 +31,7 @@ from django.http import HttpResponse, FileResponse, HttpResponseForbidden, JsonR
 from django.utils import timezone
 from django.contrib import messages
 from django.views.decorators.http import require_POST, require_http_methods
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from .forms import (
     BookingForm,
     AttractionCreateForm,
@@ -3883,6 +3884,10 @@ def ticket_upload(request):
             "num_tickets": b.num_tickets if hasattr(b, "num_tickets") else 1,
             "is_draw": False,
             "is_past": bool(b.slot and b.slot.date < today),
+            "ticket_instructions": b.ticket_instructions or "",
+            "ticket_qr_value": getattr(b, "ticket_qr_value", "") or "",
+            "box_office_notes": getattr(b, "box_office_notes", "") or "",
+            "generic_booking_code": b.generic_booking_code or "",
         })
 
     draw_rows = []
@@ -3912,6 +3917,10 @@ def ticket_upload(request):
             ),
             "is_draw": True,
             "is_past": bool(d.slot and d.slot.date < today),
+            "ticket_instructions": b.ticket_instructions if b else "",
+            "ticket_qr_value": getattr(b, "ticket_qr_value", "") if b else "",
+            "box_office_notes": getattr(b, "box_office_notes", "") if b else "",
+            "generic_booking_code": b.generic_booking_code if b else "",
         })
 
     raw_rows = booking_rows + draw_rows
@@ -4130,10 +4139,22 @@ def _ticket_response_for_booking(booking):
         )
 
     if booking.ticket_type == "instructions" and booking.ticket_instructions:
-        return HttpResponse(
-            f"Instructions:\n{booking.ticket_instructions}",
-            content_type="text/plain",
-        )
+        html = f"""
+        <html>
+            <head>
+                <style>
+                    body {{ font-family: Arial, sans-serif; margin: 20px; color: #333; }}
+                    h1 {{ color: #002663; margin-bottom: 20px; }}
+                    .instructions {{ background-color: #f5f5f5; padding: 15px; border-radius: 4px; border-left: 4px solid #002663; white-space: pre-wrap; word-wrap: break-word; }}
+                </style>
+            </head>
+            <body>
+                <h1>Entry Instructions</h1>
+                <div class="instructions">{booking.ticket_instructions}</div>
+            </body>
+        </html>
+        """
+        return HttpResponse(html, content_type="text/html")
 
     if booking.ticket_type == "box_office":
         text = "Collect tickets at the box office (no digital ticket)."
@@ -4163,6 +4184,7 @@ def _ticket_response_for_booking(booking):
     )
 # Lets staff preview ticket output for either a normal booking or a draw booking
 @staff_member_required
+@xframe_options_sameorigin
 def ticket_view(request, booking_id):
     raw_id = str(booking_id)
 
@@ -4195,6 +4217,7 @@ def ticket_view(request, booking_id):
 
 # Lets a logged-in user view their own ticket, while staff can view any ticket
 @login_required
+@xframe_options_sameorigin
 def user_ticket_view(request, booking_id):
 
     booking = Booking.objects.filter(id=booking_id, cancelled=False).first()
@@ -4619,15 +4642,20 @@ def individual_booking(request):
             messages.error(request, "Please enter a booking code.")
             return _ticket_upload_redirect_with_state(request)
 
+        booking.tickets.all().delete()
         booking.ticket_type = "booking_code"
         booking.generic_booking_code = code
         booking.ticket_visible_at = ticket_visible_at
         booking.ticket_code = ""
+        booking.ticket_qr_value = ""
+        booking.ticket_instructions = ""
+        booking.box_office_notes = ""
         booking.ticket_sent = True
         booking.ticket_sent_at = now
         booking.save(update_fields=[
             "ticket_type", "generic_booking_code", "ticket_visible_at",
-            "ticket_code", "ticket_sent", "ticket_sent_at"
+            "ticket_code", "ticket_qr_value", "ticket_instructions",
+            "box_office_notes", "ticket_sent", "ticket_sent_at"
         ])
 
         if is_draw and draw_booking:
@@ -4643,13 +4671,18 @@ def individual_booking(request):
             messages.error(request, "Please enter instructions.")
             return _ticket_upload_redirect_with_state(request)
 
+        booking.tickets.all().delete()
         booking.ticket_type = "instructions"
         booking.ticket_instructions = text
         booking.ticket_code = ""
+        booking.ticket_qr_value = ""
+        booking.generic_booking_code = ""
+        booking.box_office_notes = ""
         booking.ticket_sent = True
         booking.ticket_sent_at = now
         booking.save(update_fields=[
             "ticket_type", "ticket_instructions", "ticket_code",
+            "ticket_qr_value", "generic_booking_code", "box_office_notes",
             "ticket_sent", "ticket_sent_at"
         ])
 
@@ -4687,11 +4720,15 @@ def individual_booking(request):
 
         booking.ticket_type = "qr_individual"
         booking.ticket_code = ""
+        booking.ticket_instructions = ""
+        booking.generic_booking_code = ""
+        booking.box_office_notes = ""
         booking.ticket_visible_at = ticket_visible_at
         booking.ticket_sent = True
         booking.ticket_sent_at = now
         booking.save(update_fields=[
-            "ticket_type", "ticket_code",
+            "ticket_type", "ticket_code", "ticket_instructions",
+            "generic_booking_code", "box_office_notes",
             "ticket_visible_at", "ticket_sent", "ticket_sent_at"
         ])
 
@@ -4827,11 +4864,17 @@ def individual_booking(request):
 
         booking.ticket_type = "pdf_template"
         booking.ticket_code = ""
+        booking.ticket_qr_value = ""
+        booking.ticket_instructions = ""
+        booking.generic_booking_code = ""
+        booking.box_office_notes = ""
         booking.ticket_visible_at = ticket_visible_at
         booking.ticket_sent = True
         booking.ticket_sent_at = now
         booking.save(update_fields=[
-            "ticket_type", "ticket_code", "ticket_visible_at",
+            "ticket_type", "ticket_code", "ticket_qr_value",
+            "ticket_instructions", "generic_booking_code", "box_office_notes",
+            "ticket_visible_at",
             "ticket_sent", "ticket_sent_at"
         ])
 
