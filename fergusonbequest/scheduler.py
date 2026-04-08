@@ -6,6 +6,7 @@ from django.conf import settings
 import datetime
 from django.db.models import F
 import logging
+import warnings
 from .models import TicketDraw, TicketDrawVisitSlot, Attraction, VisitSlot, Booking, TicketDrawBooking, FeedbackEmailTemplate, EmailTemplate, BookingFeedback
 from .views import assign_next_winner, send_attraction_booking_email_reminder, send_draw_booking_email_reminder, send_attraction_booking_email_ticket_distribution, send_feedback_email_request
 
@@ -170,59 +171,66 @@ def cleanup_old_jobs():
 
 
 def start_scheduler():
-    scheduler = BackgroundScheduler(timezone=settings.TIME_ZONE)
-    scheduler.add_jobstore(DjangoJobStore(), "default")
+    try:
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=RuntimeWarning, message=".*Accessing the database during app initialization.*")
+            
+            scheduler = BackgroundScheduler(timezone=settings.TIME_ZONE)
+            scheduler.add_jobstore(DjangoJobStore(), "default")
 
-    scheduler.add_job(
-        send_attraction_ticket,
-        trigger="interval",
-        hours=1,
-        id="send_attraction_ticket",
-        replace_existing=True,
-        misfire_grace_time=120,
-    )
-    
-    # Check every hour for expired winners
-    scheduler.add_job(
-        check_expired_winners,
-        trigger="interval",
-        hours=1,
-        id="check_expired_winners",
-        replace_existing=True,
-        misfire_grace_time=120,
-    )
+            scheduler.add_job(
+                send_attraction_ticket,
+                trigger="interval",
+                hours=1,
+                id="send_attraction_ticket",
+                replace_existing=True,
+                misfire_grace_time=120,
+            )
+            
+            # Check every hour for expired winners
+            scheduler.add_job(
+                check_expired_winners,
+                trigger="interval",
+                hours=1,
+                id="check_expired_winners",
+                replace_existing=True,
+                misfire_grace_time=120,
+            )
 
-    # Send reminders every day at 8:00 AM
-    scheduler.add_job(
-        send_reminders,
-        trigger="cron",
-        hour=8,
-        minute=0,
-        id="send_reminders",
-        replace_existing=True,
-        misfire_grace_time=3600,  # 1 hour grace time
-    )
-        
-    # Clean up old job executions every day at 3:00 AM
-    scheduler.add_job(
-        cleanup_old_jobs,
-        trigger="cron",
-        hour=3,
-        minute=0,
-        id="cleanup_old_jobs",
-        replace_existing=True,
-        misfire_grace_time=3600,
-    )
+            # Send reminders every day at 8:00 AM
+            scheduler.add_job(
+                send_reminders,
+                trigger="cron",
+                hour=8,
+                minute=0,
+                id="send_reminders",
+                replace_existing=True,
+                misfire_grace_time=3600,  # 1 hour grace time
+            )
+                
+            # Clean up old job executions every day at 3:00 AM
+            scheduler.add_job(
+                cleanup_old_jobs,
+                trigger="cron",
+                hour=3,
+                minute=0,
+                id="cleanup_old_jobs",
+                replace_existing=True,
+                misfire_grace_time=3600,
+            )
 
-    # Send feedback emails every day at 10:00 AM
-    scheduler.add_job(
-        send_scheduled_feedback_emails,
-        trigger="cron",
-        hour=10,
-        minute=0,
-        id="send_feedback_emails",
-        replace_existing=True,
-        misfire_grace_time=3600,
-    )
+            # Send feedback emails every day at 10:00 AM
+            scheduler.add_job(
+                send_scheduled_feedback_emails,
+                trigger="cron",
+                hour=10,
+                minute=0,
+                id="send_feedback_emails",
+                replace_existing=True,
+                misfire_grace_time=3600,
+            )
 
-    scheduler.start()
+            scheduler.start()
+            logger.info("Scheduler started successfully.")
+    except Exception as e:
+        logger.error(f"Failed to start scheduler: {e}")
