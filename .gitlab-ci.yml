@@ -1,5 +1,8 @@
 image: stgit.dcs.gla.ac.uk:5050/team-project-h/2025/sh22/sh22-main/django-test:20251126
 
+variables:
+  DJANGO_SECRET_KEY: ci-test-only-secret-key
+
 stages:
   - lint
   - test

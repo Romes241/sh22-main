@@ -11,13 +11,16 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from dotenv import load_dotenv
-load_dotenv()
 import os
 from pathlib import Path
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment from config/.env first, then fallback to project-root .env
+load_dotenv(BASE_DIR / "config" / ".env")
+load_dotenv(BASE_DIR / ".env")
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
@@ -35,16 +38,22 @@ MEDIA_ROOT = BASE_DIR / "media"
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-yh2m0b_d)b9g(39t%l#_l6o&mfur-1w28s_$8qwc1sp$nd32&^")
-
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("DJANGO_SECRET_KEY is not set")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() in ("true", "1", "yes")
 
-ALLOWED_HOSTS = os.environ.get(
+_raw_allowed_hosts = os.environ.get(
     "DJANGO_ALLOWED_HOSTS",
-    "127.0.0.1 localhost 82.165.230.145"
-).split()
+    "127.0.0.1 localhost 82.165.230.145",
+)
+ALLOWED_HOSTS = [
+    host
+    for host in _raw_allowed_hosts.replace(",", " ").split()
+    if host
+]
 
 
 
@@ -150,15 +159,7 @@ SITE_ID = 1
 
 #Email
 #Testing - Email settings
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = '587'
-EMAIL_HOST_USER = '' 
-EMAIL_HOST_PASSWORD = '' 
-EMAIL_USE_TLS = True
-# EMAIL_USE_SSL = False
-
-#Amazon Simple Email Service
-EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django_ses_backend.backends.SESEmailBackend')
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
 
 # AWS Credentials
 SES_AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
@@ -169,4 +170,4 @@ AWS_SES_REGION_NAME = os.getenv('AWS_SES_REGION_NAME')
 AWS_SES_REGION_ENDPOINT = os.getenv('AWS_SES_REGION_ENDPOINT')
 
 # Default from email
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@example.com")
