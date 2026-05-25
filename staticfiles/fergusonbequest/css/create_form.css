@@ -1,0 +1,149 @@
+.fb-create-form {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.fb-form-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.fb-form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.fb-form-group input,
+.fb-form-group select,
+.fb-form-group textarea,
+.fb-form-group .form-control,
+.visit-slot-row input,
+.visit-slot-row .form-control {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--ring);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 15px;
+  color: #1f2937;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.fb-form-group input[type="checkbox"],
+.fb-form-group input[type="radio"] {
+  min-height: auto;
+  width: auto;
+  padding: 0;
+}
+
+.fb-form-group input[type="file"] {
+  padding: 8px 10px;
+}
+
+.fb-form-group textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.fb-form-group label {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--uog-blue);
+}
+
+.fb-form-group input:focus,
+.fb-form-group textarea:focus,
+.fb-form-group select:focus,
+.visit-slot-row input:focus,
+.visit-slot-row .form-control:focus {
+  outline: none;
+  border-color: var(--uog-blue);
+  box-shadow: 0 0 0 3px rgba(11, 47, 107, 0.12);
+}
+
+.fb-form-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.fb-form-checkbox input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+}
+
+.fb-form-help {
+  font-size: 0.875rem;
+  color: #666;
+  margin-top: 0.25rem;
+}
+
+.fb-form-errors {
+  color: #d32f2f;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+.fb-form-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.fb-btn-submit {
+  padding: 0.75rem 2rem;
+}
+
+.fb-btn-cancel {
+  padding: 0.75rem 2rem;
+  background: #f5f5f5;
+  color: #333;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition: background 0.2s;
+}
+
+.fb-btn-cancel:hover {
+  background: #e0e0e0;
+}
+
+.fb-form-row-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.visit-slot-row {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 0.9fr auto;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.visit-slot-row input[type="hidden"] {
+  display: none;
+}
+
+.visit-slot-row .fb-btn-cancel {
+  padding: 0.6rem 1rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .fb-form-row-2col {
+    grid-template-columns: 1fr;
+  }
+
+  .visit-slot-row {
+    grid-template-columns: 1fr;
+  }
+}

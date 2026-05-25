@@ -1,0 +1,249 @@
+.mng-page {
+  max-width: 1100px;
+  margin: auto;
+  padding: 24px;
+  height: calc(100vh - 180px);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.mng-title{
+  font-size:40px;
+  font-weight:800;
+  margin-bottom:18px;
+}
+
+.mng-tabs{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-bottom:14px;
+}
+
+.mng-tab{
+  padding:16px;
+  border:0;
+  border-radius:14px;
+  background:#001a80;
+  color:#fff;
+  font-weight:800;
+  opacity:.55;
+}
+.mng-tab.is-active{
+  opacity:1;
+}
+
+.mng-controls {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  align-items: stretch;
+}
+
+.mng-search input,
+.mng-controls select {
+  height: 46px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 2px solid #eef2ff;
+  background-color: #fff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: #001a80;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.mng-search input:focus,
+.mng-controls select:focus {
+  outline: none;
+  border-color: #001a80;
+  box-shadow: 0 0 0 4px rgba(11, 47, 107, 0.1);
+}
+
+.mng-search {
+  flex: 1;
+  position: relative;
+}
+
+.mng-search input {
+  width: 100%;
+  padding-right: 40px;
+}
+
+.mng-controls select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%230b2f6b' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: calc(100% - 12px) center;
+  padding-right: 36px;
+  min-width: 160px;
+  cursor: pointer;
+}
+
+.mng-clear {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: darkblue;
+  text-decoration: none;
+  font-size: 18px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.mng-clear:hover {
+  opacity: 1;
+}
+
+.mng-panel{
+  display:none;
+}
+
+.mng-panel.is-active {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.mng-section-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:12px;
+}
+
+.mng-row{
+  display:flex;
+  justify-content:space-between;
+  gap:16px;
+  background:#fff;
+  padding:16px 18px;
+  border-radius:18px;
+  margin-bottom:12px;
+  box-shadow:0 2px 15px rgba(0,0,0,.05);
+}
+
+.mng-name{
+  font-size:18px;
+  font-weight:800;
+}
+
+.mng-meta{
+  display:flex;
+  gap:10px;
+  margin-top:6px;
+}
+
+.mng-muted{
+  font-size:13px;
+  font-weight:700;
+  color:#6b7280;
+}
+
+.mng-actions{
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+
+.mng-btn{
+  padding:10px 14px;
+  border-radius:12px;
+  font-weight:800;
+  border:1px solid transparent;
+  text-decoration:none;
+}
+
+.mng-btn--primary{
+  background:#001a80;
+  color:#fff;
+}
+
+.mng-btn--ghost{
+  background:#eef2ff;
+  color:#001a80;
+}
+
+.mng-btn--danger{
+  background:#ffecec;
+  color:#b30000;
+}
+
+.mng-btn:disabled{
+  opacity:.55;
+  cursor:not-allowed;
+}
+
+.mng-empty {
+  padding: 14px 0;
+}
+
+.mng-card{
+  display:flex;
+  flex-direction:column;
+  max-height: 80%;
+}
+
+.mng-card--fixed {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+  margin-top: 10px;
+}
+
+.mng-card--scroll {
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+/* Delete function */
+.mng-modal{
+  position: fixed;
+  inset: 0;
+  display: none;
+  z-index: 9999;
+}
+
+.mng-modal.is-open{
+  display: block;
+}
+
+.mng-modal__backdrop{
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.35);
+}
+
+.mng-modal__card{
+  position: relative;
+  width: min(520px, calc(100% - 40px));
+  margin: 18vh auto 0;
+  background: #fff;
+  border-radius: 20px;
+  padding: 18px;
+  box-shadow: 0 18px 60px rgba(0,0,0,.2);
+}
+
+.mng-modal__title{
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.mng-modal__text{
+  margin: 0 0 16px;
+  color: #6b7280;
+  font-weight: 700;
+}
+
+.mng-modal__actions{
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
