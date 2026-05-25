@@ -1,0 +1,77 @@
+.mp-editor-form {
+  max-width: 1120px;
+  margin: 0 auto 2rem;
+}
+
+.mp-editor-hint,
+.mp-editor-upload-hint {
+  color: #334155;
+}
+
+.mp-editor-left-wrap {
+  max-width: 650px;
+}
+
+.mp-editor-actions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1.25rem;
+}
+
+.mp-edit-field,
+.mp-edit-upload {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+}
+
+.mp-edit-field {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0.35rem 0.45rem;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.mp-edit-field:hover,
+.mp-edit-field:focus {
+  border-color: #94a3b8;
+  background: #ffffff;
+  outline: none;
+}
+
+.mp-edit-field--line {
+  min-height: 2.1rem;
+}
+
+.mp-edit-field--compact {
+  min-height: 3.2rem;
+}
+
+.mp-edit-field--intro {
+  font-size: 1.05rem;
+}
+
+.mp-edit-field--heading {
+  font-size: 1.35rem;
+  font-weight: 600;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.mp-edit-field--body {
+  font-size: 0.95rem;
+}
+
+.mp-errorlist {
+  color: #b91c1c;
+  margin: 1rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.mp-editor-upload-card {
+  margin-top: 1.25rem;
+  padding: 1.25rem;
+}
