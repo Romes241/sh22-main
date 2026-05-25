@@ -1,0 +1,19 @@
+[Unit]
+Description=Ferguson Bequest Scheduler
+After=network.target
+
+[Service]
+User=YOUR_USER
+Group=www-data
+
+WorkingDirectory=/path/to/sh22-main
+
+Environment="PATH=/path/to/sh22-main/.venv/bin"
+
+ExecStart=/path/to/sh22-main/.venv/bin/python manage.py run_scheduler
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

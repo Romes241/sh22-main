@@ -210,13 +210,37 @@ This project was developed collaboratively across:
 
 ---
 
-## 📦 Deployment Note
+## 📦 Deployment
 
-This project is currently prepared primarily for local or internal deployment and demonstration use.
+Validated hosted deployment uses:
 
-Production deployment would require additional work around database choice, background task handling, and service configuration.
+- Gunicorn
+- systemd
+- Nginx
 
----
+Example deployment configuration files are provided in:
+
+deployment/
+
+Development:
+
+```bash
+python manage.py runserver
+```
+
+Hosted deployment:
+
+- Gunicorn serves Django
+- Nginx serves static/media files
+- Scheduler runs via:
+
+```bash
+python manage.py run_scheduler
+```
+
+See:
+
+Technical Handover.md
 
 ## 📬 Contact
 

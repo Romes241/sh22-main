@@ -156,24 +156,34 @@ These jobs support functions such as:
 - sending feedback request emails
 - other time-based operational tasks
 
-### Important Limitation
-The scheduler currently starts automatically only when running the Django development server with:
+The scheduler is executed using a dedicated Django management command:
 
-python manage.py runserver
+```bash
+python manage.py run_scheduler
+```
 
-It does not automatically run under production WSGI servers such as Gunicorn.
+This command is implemented in:
 
-### Implication
-If the system is deployed in a more production-like environment, scheduler-based tasks will need to be run separately, for example using:
-- a dedicated management command
-- a systemd service
-- cron
-- another worker/service process
+fergusonbequest/management/commands/run_scheduler.py
 
-### Current Known Risk
-The current database is SQLite, and scheduled/background actions can contribute to locking contention under concurrent access. A timeout increase has been added as a temporary mitigation, but this is not the long-term solution.
+For hosted deployments the scheduler should be run as a separate managed service (for example using systemd).
 
-For more reliable multi-user or production operation, PostgreSQL is recommended.
+### Deployment Validation
+
+The scheduler architecture was validated using:
+
+- Gunicorn
+- systemd
+- Nginx
+- DEBUG=False deployment configuration
+
+The web application and scheduler operate as separate services.
+
+### Database Note
+
+The current database is SQLite.
+
+SQLite is suitable for local operation and lighter internal use, however PostgreSQL is recommended for longer-term production deployments due to concurrency and scheduler workloads.
 
 ## 6. Local Setup
 
@@ -264,35 +274,115 @@ AWS_SES_REGION_ENDPOINT=
 
 ## 8. Deployment Notes
 
-The project is currently delivered primarily for local deployment / demonstration use.
+The deployment architecture validated during handover testing is:
 
-This means the intended handover model is:
-- clone the repository
-- create a Python virtual environment
-- install requirements
-- configure environment variables
-- run migrations
-- start the Django server locally
+Browser
+↓
+Nginx
+↓
+Gunicorn
+↓
+Django Application
 
-This was chosen because no final production hosting environment was defined during the project.
+Background jobs run separately:
 
+systemd
+↓
+run_scheduler
+↓
+APScheduler
 
-### Important Notes
-- The current setup is suitable for local operation, testing, demonstration, and further development
-- A future production deployment would require additional work around:
-  - database migration
-  - scheduler separation
-  - process management
-  - web server/proxy configuration
-  - security hardening
+### Deployment Steps
 
-### Docker
+#### Clone repository
 
-A Dockerfile is included for development/demo convenience.
+```bash
+git clone https://github.com/Romes241/sh22-main.git
+cd sh22-main
+```
 
-The current container setup runs Django using the built-in development server (`python manage.py runserver 0.0.0.0:8000`).
+#### Create virtual environment
 
-This is suitable for local testing or demonstration, but it is not a production ready deployment configuration. A more formal hosted deployment would require a production WSGI server, background task separation, and stronger environment/service management.
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+#### Install dependencies
+
+```bash
+pip install -r requirements.txt
+pip install gunicorn
+```
+
+#### Configure environment
+
+```bash
+cp config/.env.example config/.env
+```
+
+Update:
+
+- DJANGO_SECRET_KEY
+- DJANGO_DEBUG=False
+- DJANGO_ALLOWED_HOSTS
+
+#### Prepare database
+
+```bash
+python manage.py migrate
+python manage.py collectstatic
+```
+
+#### Configure Nginx
+
+Example configuration files are included in:
+
+deployment/
+
+Update deployment paths as required.
+
+#### Configure services
+
+Example files:
+
+deployment/fergusonbequest.service
+deployment/fergusonbequest-scheduler.service
+
+Copy to:
+
+/etc/systemd/system/
+
+Reload:
+
+```bash
+sudo systemctl daemon-reload
+```
+
+Enable:
+
+```bash
+sudo systemctl enable fergusonbequest
+sudo systemctl enable fergusonbequest-scheduler
+```
+
+Start:
+
+```bash
+sudo systemctl start fergusonbequest
+sudo systemctl start fergusonbequest-scheduler
+```
+
+### Validation Checklist
+
+Deployment testing confirmed:
+
+- Gunicorn service survives reboot
+- Scheduler survives reboot
+- Nginx serves static files
+- DEBUG=False deployment works
+- CSS/media load correctly
+- collectstatic deployment flow works
 
 ## 9. Database
 
@@ -326,7 +416,7 @@ Before any production-style deployment, the following should be addressed:
 
 ## 11. Known Issues / Limitations
 
-- The scheduler is not production-ready by default because it only auto-starts under runserver
+- Scheduler execution requires the dedicated scheduler service in hosted deployments
 - SQLite remains a limiting factor for concurrency and scheduled-write workloads
 - The SQLite timeout increase is a temporary mitigation, not a long-term concurrency solution
 - Email behaviour depends on correct external email backend configuration when not using the console backend
@@ -391,8 +481,10 @@ Examples:
 ## 14. Recommended Future Improvements
 
 - Migrate from SQLite to PostgreSQL
-- Move scheduler execution into a dedicated service or management command
-- Introduce a more production-ready deployment model
+- Add stronger monitoring and observability
+- Introduce backup/recovery procedures
+- Consider PostgreSQL migration
+- Improve operational logging
 - Improve monitoring and operational logging
 - Extend and maintain automated test coverage
 - Add clearer operational documentation for deployment, backup, and recovery

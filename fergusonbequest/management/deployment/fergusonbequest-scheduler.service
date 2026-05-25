@@ -1,0 +1,22 @@
+[Unit]
+Description=Gunicorn service for Ferguson Bequest
+After=network.target
+
+[Service]
+User=YOUR_USER
+Group=www-data
+
+WorkingDirectory=/path/to/sh22-main
+
+Environment="PATH=/path/to/sh22-main/.venv/bin"
+
+ExecStart=/path/to/sh22-main/.venv/bin/gunicorn \
+    --workers 3 \
+    --bind 127.0.0.1:8000 \
+    config.wsgi:application
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
